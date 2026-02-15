@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude session state
+.claude/projects/
+.claude/*.jsonl
+
+# Generated assets (large files, regenerate as needed)
+# src/assets/generated/
+
+# Screenshots (optional, uncomment if not tracking)
+# screenshots/
