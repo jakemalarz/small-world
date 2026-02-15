@@ -26,7 +26,10 @@
       "Bash(claude mcp list:*)",
       "Bash(npm init:*)",
       "Bash(npm ls:*)",
-      "Bash(git -C /Users/jakemalarz/cc-dmz/small-world status)"
+      "Bash(git -C /Users/jakemalarz/cc-dmz/small-world status)",
+      "WebFetch(domain:github.com)",
+      "Bash(git clone:*)",
+      "Bash(bash scripts/sync-claude.sh)"
     ]
   }
 }

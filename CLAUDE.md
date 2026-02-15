@@ -84,6 +84,19 @@ small-world/
 - `/screenshot` — Capture game screenshot via Puppeteer for visual QA
 - `/generate-asset <desc>` — Generate a game asset image with Gemini
 
+## PM Skills
+
+PM skills are installed from [pm-skills](https://github.com/product-on-purpose/pm-skills) in `.claude/commands/` and `.claude/skills/`. When working on PRDs, feature planning, or product requirements, use the relevant PM skill slash commands:
+
+- `/prd` — Create or refine a Product Requirements Document
+- `/kickoff` — Run the Feature Kickoff workflow (problem → hypothesis → PRD → stories)
+- `/user-stories` — Generate user stories with acceptance criteria
+- `/hypothesis` — Define a testable hypothesis with success metrics
+- `/problem-statement` — Create a clear problem statement
+- `/edge-cases` — Document edge cases and error states
+
+Skill source files live in `pm-skills/skills/` with templates and examples. When the user asks to create, draft, or refine a PRD, always use the `/prd` skill for structured output. Store generated PM artifacts in `docs/` at the project root.
+
 
 ## MCP Servers
 
