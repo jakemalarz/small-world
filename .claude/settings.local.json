@@ -29,7 +29,13 @@
       "Bash(git -C /Users/jakemalarz/cc-dmz/small-world status)",
       "WebFetch(domain:github.com)",
       "Bash(git clone:*)",
-      "Bash(bash scripts/sync-claude.sh)"
+      "Bash(bash scripts/sync-claude.sh)",
+      "WebSearch",
+      "WebFetch(domain:www.orderofgamers.com)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:www.ultraboardgames.com)",
+      "WebFetch(domain:smallworld.fandom.com)",
+      "WebFetch(domain:medium.com)"
     ]
   }
 }

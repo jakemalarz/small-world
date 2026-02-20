@@ -22,8 +22,6 @@ Thumbs.db
 # Claude session state
 .claude/projects/
 .claude/*.jsonl
-.claude/commands/
-.claude/skills/
 
 # PM Skills (cloned repo)
 pm-skills/
