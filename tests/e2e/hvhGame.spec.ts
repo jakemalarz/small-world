@@ -275,8 +275,9 @@ test.describe('Human vs Human — full turn', () => {
     await completeHumanTurn(page); // player B turn 1
 
     const phase = await getPhase(page);
-    // Both players now have active races, so next turn starts at readyTroops
-    expect(['selectCombo', 'readyTroops', 'ghoulConquest']).toContain(phase);
+    // Both players now have active races, so next turn starts at readyTroops.
+    // optionalDecline can appear if one player had the Stout power.
+    expect(['selectCombo', 'readyTroops', 'ghoulConquest', 'optionalDecline']).toContain(phase);
   });
 
   test('action log grows with each action taken', async ({ page }) => {

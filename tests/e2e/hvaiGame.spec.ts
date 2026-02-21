@@ -47,10 +47,23 @@ test.describe('Human vs AI — game setup', () => {
   test('game is waiting for human input on first tick (not auto-advancing)', async ({ page }) => {
     await startHvAIGame(page);
 
-    // If player 0 is human, the game blocks on selectCombo waiting for input.
-    // If player 1 is human and goes first, same applies.
-    // Either way, the game should still be in selectCombo after 1 second.
-    await page.waitForTimeout(1000);
+    // Wait until it's the human player's (player 0) turn in selectCombo
+    await page.waitForFunction(
+      () => {
+        const game = (window as any).__phaserGame;
+        const gs = game?.scene.getScene('Game');
+        const c = (gs as any)?.controller;
+        return (
+          c?.state?.activePlayerIndex === 0 &&
+          c?.state?.phase === 'selectCombo' &&
+          c?.readyForInput === true
+        );
+      },
+      { timeout: 15_000 },
+    );
+
+    // Game is blocked waiting for human input — it should not auto-advance
+    await page.waitForTimeout(800);
     const phase = await getPhase(page);
     expect(phase).toBe('selectCombo');
   });
@@ -73,15 +86,20 @@ test.describe('Human vs AI — human player turn', () => {
   test('human can select a combo and phase advances to readyTroops', async ({ page }) => {
     await startHvAIGame(page);
 
-    // Determine which player is human (player 0 by convention in HvAI)
-    // In our Game scene setup: player 0 = human, player 1 = AI
-    // But first player is random, so if AI goes first it auto-advances.
-    // Wait for the first human input needed:
-    await page.waitForTimeout(2000); // give AI time to auto-complete if it goes first
-
-    const phase = await getPhase(page);
-    // At this point, it should be the human player's turn in selectCombo
-    expect(phase).toBe('selectCombo');
+    // Wait for the human player's (player 0) turn in selectCombo with readyForInput
+    await page.waitForFunction(
+      () => {
+        const game = (window as any).__phaserGame;
+        const gs = game?.scene.getScene('Game');
+        const c = (gs as any)?.controller;
+        return (
+          c?.state?.activePlayerIndex === 0 &&
+          c?.state?.phase === 'selectCombo' &&
+          c?.readyForInput === true
+        );
+      },
+      { timeout: 15_000 },
+    );
 
     await clickComboSlot(page, 0);
     await waitForPhase(page, 'readyTroops', 10_000);
@@ -91,7 +109,21 @@ test.describe('Human vs AI — human player turn', () => {
 
   test('human player can advance through readyTroops to conquest', async ({ page }) => {
     await startHvAIGame(page);
-    await page.waitForTimeout(2000); // let AI go first if needed
+
+    // Wait for the human player's (player 0) turn in selectCombo
+    await page.waitForFunction(
+      () => {
+        const game = (window as any).__phaserGame;
+        const gs = game?.scene.getScene('Game');
+        const c = (gs as any)?.controller;
+        return (
+          c?.state?.activePlayerIndex === 0 &&
+          c?.state?.phase === 'selectCombo' &&
+          c?.readyForInput === true
+        );
+      },
+      { timeout: 15_000 },
+    );
 
     await clickComboSlot(page, 0);
     await waitForPhase(page, 'readyTroops', 10_000);

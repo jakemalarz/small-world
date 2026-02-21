@@ -82,7 +82,7 @@ export async function getActivePlayer(page: Page): Promise<number | null> {
   });
 }
 
-/** Poll until state.phase equals the expected value. */
+/** Poll until state.phase equals the expected value AND the controller is ready for input. */
 export async function waitForPhase(
   page: Page,
   phase: string,
@@ -92,7 +92,8 @@ export async function waitForPhase(
     (expected) => {
       const game = (window as any).__phaserGame;
       const gameScene = game?.scene.getScene('Game');
-      return (gameScene as any)?.controller?.state?.phase === expected;
+      const c = (gameScene as any)?.controller;
+      return c?.state?.phase === expected && c?.readyForInput === true;
     },
     phase,
     { timeout },
@@ -208,30 +209,56 @@ export async function clickComboSlot(page: Page, slotIndex: number): Promise<voi
  *   selectCombo → readyTroops → conquest → reinforcementDie → redeploy → score
  *   → (optionalDecline if Stout power)
  *
+ * Also handles the case where the player already has an active race (turn ≥ 2),
+ * in which case the turn starts at readyTroops instead of selectCombo.
+ *
  * After this resolves, the game has switched to the other player.
  */
 export async function completeHumanTurn(
   page: Page,
   comboSlotIndex = 0,
 ): Promise<void> {
-  // 1. Select a combo
-  await waitForPhase(page, 'selectCombo');
-  await clickComboSlot(page, comboSlotIndex);
-
-  // 2. Ghouls in decline may trigger ghoulConquest before readyTroops
+  // 1. Wait for start of turn — either selectCombo (no active race) or
+  //    readyTroops/ghoulConquest (player already has a race from a previous turn).
   await page.waitForFunction(
     () => {
       const game = (window as any).__phaserGame;
       const gs = game?.scene.getScene('Game');
-      const phase = (gs as any)?.controller?.state?.phase;
-      return phase === 'readyTroops' || phase === 'ghoulConquest';
+      const c = (gs as any)?.controller;
+      const phase = c?.state?.phase;
+      return (
+        c?.readyForInput === true &&
+        (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulConquest')
+      );
     },
-    { timeout: 10_000 },
+    { timeout: 15_000 },
   );
-  const afterCombo = await getPhase(page);
-  if (afterCombo === 'ghoulConquest') {
-    await clickActionButton(page); // end ghoul conquest
+
+  const turnStartPhase = await getPhase(page);
+
+  if (turnStartPhase === 'selectCombo') {
+    // 2a. Select a combo
+    await clickComboSlot(page, comboSlotIndex);
+
+    // 2b. Ghouls in decline may trigger ghoulConquest before readyTroops
+    await page.waitForFunction(
+      () => {
+        const game = (window as any).__phaserGame;
+        const gs = game?.scene.getScene('Game');
+        const phase = (gs as any)?.controller?.state?.phase;
+        return phase === 'readyTroops' || phase === 'ghoulConquest';
+      },
+      { timeout: 10_000 },
+    );
+    const afterCombo = await getPhase(page);
+    if (afterCombo === 'ghoulConquest') {
+      await clickActionButton(page); // end ghoul conquest
+    }
+  } else if (turnStartPhase === 'ghoulConquest') {
+    // 2c. Ghoul conquest already triggered (had declining ghouls)
+    await clickActionButton(page);
   }
+  // else turnStartPhase === 'readyTroops': player has active race, skip combo step
 
   // 3. readyTroops → Begin Conquest
   await waitForPhase(page, 'readyTroops');
@@ -253,18 +280,20 @@ export async function completeHumanTurn(
   await waitForPhase(page, 'score');
   await clickActionButton(page);
 
-  // 8. Stout power may add an optional decline step
+  // 8. Stout power may add an optional decline step.
+  //    For the next player's turn phases we also require readyForInput so callers
+  //    can immediately read activePlayerIndex without a race window.
   await page.waitForFunction(
     () => {
       const game = (window as any).__phaserGame;
       const gs = game?.scene.getScene('Game');
-      const phase = (gs as any)?.controller?.state?.phase;
+      const c = (gs as any)?.controller;
+      const phase = c?.state?.phase;
       return (
         phase === 'optionalDecline' ||
-        phase === 'selectCombo' ||
-        phase === 'readyTroops' ||
-        phase === 'ghoulConquest' ||
-        phase === 'gameOver'
+        phase === 'gameOver' ||
+        (c?.readyForInput === true &&
+          (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulConquest'))
       );
     },
     { timeout: 10_000 },
@@ -272,5 +301,20 @@ export async function completeHumanTurn(
   const finalPhase = await getPhase(page);
   if (finalPhase === 'optionalDecline') {
     await clickActionButton(page); // Skip Decline
+    // Wait for the turn to fully transition to the next player
+    await page.waitForFunction(
+      () => {
+        const game = (window as any).__phaserGame;
+        const gs = game?.scene.getScene('Game');
+        const c = (gs as any)?.controller;
+        const phase = c?.state?.phase;
+        return (
+          phase === 'gameOver' ||
+          (c?.readyForInput === true &&
+            (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulConquest'))
+        );
+      },
+      { timeout: 10_000 },
+    );
   }
 }

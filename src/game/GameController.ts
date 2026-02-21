@@ -61,6 +61,8 @@ export class GameController {
   private legalActions: readonly GameAction[] = [];
   private selectedRegionId: number | null = null;
   private running = false;
+  /** True while the controller is blocked waiting for a player action (e2e sync point). */
+  readyForInput = false;
 
   constructor(
     boardScene: Board,
@@ -151,7 +153,9 @@ export class GameController {
     this._renderState();
 
     const player = this.players[this.state.activePlayerIndex];
+    this.readyForInput = true;
     const action = await player.chooseAction(this.state, this.legalActions);
+    this.readyForInput = false;
 
     await this.choreographer.playAction(action);
     this.state = applyAction(this.state, action);

@@ -458,44 +458,52 @@
         "id": "31",
         "title": "Run Main Menu e2e tests",
         "description": "Execute the Playwright e2e test suite for the main menu: `npx playwright test tests/e2e/mainMenu.spec.ts --reporter=line`. Verify all 8 tests pass across Chromium, Firefox, and WebKit. Tests cover: page load, canvas render, correct page title, MainMenu scene activation, HvH default mode, HvAI mode selection, medium difficulty selection, scene launch, and browser refresh.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Command: `npx playwright test tests/e2e/mainMenu.spec.ts --reporter=line`\nExpected: 8 tests × 3 browsers = 24 test runs, all passing.\nTest file: tests/e2e/mainMenu.spec.ts\nResults saved to: playwright-report/index.html",
         "testStrategy": "Mark done when all 8 tests pass on all 3 browsers with 0 failures.",
         "subtasks": [],
-        "updatedAt": "2026-02-21T21:00:00.000Z"
+        "updatedAt": "2026-02-21T23:04:43.488Z"
       },
       {
         "id": "32",
         "title": "Run Human vs Human e2e tests",
         "description": "Execute the Playwright e2e test suite for HvH game flow: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`. Verify all 14 tests pass. Tests cover: initial game state, combo selection, phase progression (readyTroops → conquest → reinforcementDie → redeploy → score), full turn completion, turn advance, player switching, and state immutability.",
-        "status": "pending",
-        "dependencies": ["31"],
+        "status": "in-progress",
+        "dependencies": [
+          "31"
+        ],
         "priority": "high",
         "details": "Command: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`\nExpected: 14 tests × 3 browsers = 42 test runs, all passing.\nTest file: tests/e2e/hvhGame.spec.ts\nNote: Tests require the dev server running (handled automatically by playwright.config.ts webServer).",
         "testStrategy": "Mark done when all 14 tests pass on all 3 browsers with 0 failures.",
         "subtasks": [],
-        "updatedAt": "2026-02-21T21:00:00.000Z"
+        "updatedAt": "2026-02-21T23:04:52.320Z"
       },
       {
         "id": "33",
         "title": "Run Human vs AI e2e tests",
         "description": "Execute the Playwright e2e test suite for HvAI game flow: `npx playwright test tests/e2e/hvaiGame.spec.ts --reporter=line`. Verify all 12 tests pass. Tests cover: HvAI Easy and Medium game start, human player interaction, AI auto-turn completion (both difficulties), turn advance, multi-turn flow, coin accumulation, and zero JS errors.",
-        "status": "pending",
-        "dependencies": ["31"],
+        "status": "in-progress",
+        "dependencies": [
+          "31"
+        ],
         "priority": "high",
         "details": "Command: `npx playwright test tests/e2e/hvaiGame.spec.ts --reporter=line`\nExpected: 12 tests × 3 browsers = 36 test runs, all passing.\nTest file: tests/e2e/hvaiGame.spec.ts\nNote: AI turn tests use 30s timeouts to allow AI to complete its turn at 600ms delay.",
         "testStrategy": "Mark done when all 12 tests pass on all 3 browsers with 0 failures.",
         "subtasks": [],
-        "updatedAt": "2026-02-21T21:00:00.000Z"
+        "updatedAt": "2026-02-21T23:04:52.326Z"
       },
       {
         "id": "34",
         "title": "Run full e2e test suite and review results",
         "description": "Execute the complete Playwright e2e suite across all test files: `npx playwright test --reporter=html`. Open the HTML report (`npx playwright show-report`) and review all results. Confirm 0 failures across all browsers. Screenshot/trace artifacts for any failures should be reviewed in the report.",
         "status": "pending",
-        "dependencies": ["31", "32", "33"],
+        "dependencies": [
+          "31",
+          "32",
+          "33"
+        ],
         "priority": "high",
         "details": "Command: `npx playwright test --reporter=html && npx playwright show-report`\nExpected: All e2e tests pass (mainMenu + hvhGame + hvaiGame) across Chromium, Firefox, WebKit.\nArtifacts: playwright-report/index.html contains traces for any failures.\nNote: This is the gate check before considering e2e coverage complete.",
         "testStrategy": "Mark done only when the full suite shows 0 failures in the HTML report.",
@@ -507,7 +515,9 @@
         "title": "Fix any failing e2e tests",
         "description": "Investigate and fix any test failures found in task 34. Common failure modes: timing issues (increase timeouts or add waitForFunction), coordinate mismatches (verify game pixel coordinates against current scene layout), canvas scaling issues (verify clickGame helper scales correctly), Phaser scene lifecycle races (add waitForScene before state checks).",
         "status": "pending",
-        "dependencies": ["34"],
+        "dependencies": [
+          "34"
+        ],
         "priority": "high",
         "details": "Debugging steps:\n1. Run `npx playwright test --debug` to step through failing tests interactively\n2. Run `npx playwright test --headed` to watch the browser during test execution\n3. Use `npx playwright show-report` to view traces and screenshots of failures\n4. Check console logs with `page.on('console', ...)` for Phaser errors\n5. Verify __phaserGame is exposed correctly in tests/e2e/helpers.ts",
         "testStrategy": "Mark done when task 34 can be re-run with 0 failures.",
@@ -517,9 +527,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-02-21T21:00:00.000Z",
+      "lastModified": "2026-02-21T23:04:52.327Z",
       "taskCount": 35,
-      "completedCount": 30,
+      "completedCount": 31,
       "tags": [
         "master"
       ]
