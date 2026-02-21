@@ -41,44 +41,7 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ---
 
-## Phase 2: MCP Bridge & Hard AI
-
-**Goal:** Expose the game engine as an MCP server so external AI (LLMs, custom bots) can play. Build a hybrid "Hard" AI that combines heuristics with LLM strategic reasoning.
-
-**Depends on:** Phase 1 complete
-
-### MCP Game Server
-
-- Expose game state and actions as MCP tools:
-  - `sw_get_state` — serialized GameState as JSON
-  - `sw_get_legal_actions` — available actions for current player
-  - `sw_take_action` — apply an action, return new state
-  - `sw_get_score` — current scores
-  - `sw_get_game_log` — action history
-- MCP server wraps the existing `GameEngine` — thin adapter layer
-- Enables any MCP-compatible client (Claude Desktop, custom agents) to play
-- JSON state serialization uses descriptive region names for LLM comprehension
-- Project already has MCP infrastructure in `.claude-plugin/.mcp.json`
-
-### Hybrid "Hard" AI
-
-- Decision routing: LLM for strategic decisions, heuristics for tactical execution
-- **LLM handles:** Combo selection (synergy evaluation), decline timing (opportunity cost reasoning)
-- **Heuristics handle:** Conquest ordering (minimize token spend), redeployment (border defense), reinforcement die target
-- ~2-3 LLM calls per turn instead of 8-15 — manages latency and cost
-- Estimated cost: ~$0.10-$0.50 per game
-- Requires API key (opt-in — players without keys use Medium AI)
-- "AI is thinking..." indicator during LLM calls
-
-### Estimated Effort
-
-- MCP bridge: 1-2 weeks
-- Hybrid agent + prompt engineering: 2-3 weeks
-- Integration and tuning: 1 week
-
----
-
-## Phase 3: Visual Polish
+## Phase 2: Visual Polish
 
 **Goal:** Replace placeholder art with polished visuals matching the Small World board game aesthetic.
 
@@ -106,7 +69,7 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ---
 
-## Phase 4: Audio
+## Phase 3: Audio
 
 **Goal:** Full tabletop-style audio design.
 
@@ -137,11 +100,11 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ---
 
-## Phase 5: Online Multiplayer
+## Phase 4: Online Multiplayer
 
 **Goal:** Real-time networked 2-player games.
 
-**Depends on:** Phase 1 (game engine), Phase 2 (state serialization)
+**Depends on:** Phase 1 (game engine)
 
 ### Architecture Considerations
 
@@ -161,30 +124,7 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ---
 
-## Phase 6: Additional Player Counts
-
-**Goal:** Support 3, 4, and 5 player maps.
-
-**Depends on:** Phase 1 (engine architecture supports N players)
-
-### What's Needed
-
-- New map data files (`map3p.ts`, `map4p.ts`, `map5p.ts`) with polygon regions
-- Turn track length varies by player count (already noted in PRD)
-- Player state array extends beyond 2
-- AI difficulty tuning for multiplayer dynamics
-- Map selection UI in main menu
-- New map images per player count
-
-### Architecture Notes
-
-- `GameState.players` is already a tuple but would need to become a variable-length array
-- Turn order, scoring, and phase logic should generalize naturally
-- Some race/power abilities reference "opponent" (singular) — need to handle multiple opponents (Sorcerers, Diplomat)
-
----
-
-## Phase 7: Quality of Life
+## Phase 5: Quality of Life
 
 **Goal:** Features that improve the play experience but aren't core gameplay.
 
@@ -221,6 +161,43 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ---
 
+## Phase 6: MCP Bridge & Hard AI
+
+**Goal:** Expose the game engine as an MCP server so external AI (LLMs, custom bots) can play. Build a hybrid "Hard" AI that combines heuristics with LLM strategic reasoning.
+
+**Depends on:** Phase 1 complete
+
+### MCP Game Server
+
+- Expose game state and actions as MCP tools:
+  - `sw_get_state` — serialized GameState as JSON
+  - `sw_get_legal_actions` — available actions for current player
+  - `sw_take_action` — apply an action, return new state
+  - `sw_get_score` — current scores
+  - `sw_get_game_log` — action history
+- MCP server wraps the existing `GameEngine` — thin adapter layer
+- Enables any MCP-compatible client (Claude Desktop, custom agents) to play
+- JSON state serialization uses descriptive region names for LLM comprehension
+- Project already has MCP infrastructure in `.claude-plugin/.mcp.json`
+
+### Hybrid "Hard" AI
+
+- Decision routing: LLM for strategic decisions, heuristics for tactical execution
+- **LLM handles:** Combo selection (synergy evaluation), decline timing (opportunity cost reasoning)
+- **Heuristics handle:** Conquest ordering (minimize token spend), redeployment (border defense), reinforcement die target
+- ~2-3 LLM calls per turn instead of 8-15 — manages latency and cost
+- Estimated cost: ~$0.10-$0.50 per game
+- Requires API key (opt-in — players without keys use Medium AI)
+- "AI is thinking..." indicator during LLM calls
+
+### Estimated Effort
+
+- MCP bridge: 1-2 weeks
+- Hybrid agent + prompt engineering: 2-3 weeks
+- Integration and tuning: 1 week
+
+---
+
 ## Deferred Ideas (Unscoped)
 
 These are ideas mentioned during design discussions that don't have a phase assignment yet:
@@ -240,3 +217,4 @@ These are ideas mentioned during design discussions that don't have a phase assi
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2026-02-20 | Initial roadmap based on PRD, technical design, and AI opponent design discussions |
+| 1.1 | 2026-02-21 | Reordered phases: Visual Polish → P2, Audio → P3, Online Multiplayer → P4, QoL → P5, MCP Bridge & Hard AI → P6; removed Additional Player Counts |
