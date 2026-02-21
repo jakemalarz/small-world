@@ -351,7 +351,7 @@
         "id": "24",
         "title": "Implement Combo Shop UI",
         "description": "Add combo shop display to the Board or HUD scene: 6 visible race/power combos in a vertical column, coin indicators on skipped combos, clickable selection. Show race name, power name, token count, and cost. Coins animate from player to skipped combos on selection. Shop replenishes visually after selection.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "3",
           "6",
@@ -361,7 +361,8 @@
         "priority": "medium",
         "details": "Shop is displayed spatially on the canvas (right of map) or as a panel in HUD. Each combo shows race banner + power badge (placeholder text/icons for now). Top combo marked as 'FREE', others show coin cost. Player's available coins displayed. Reference PRD FR-8 through FR-12, interaction flow step 1.",
         "testStrategy": "Playwright: verify 6 combos display, clicking a combo triggers selection, coins animate correctly, shop replenishes.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:30:57.234Z"
       },
       {
         "id": "25",
@@ -382,14 +383,15 @@
         "id": "26",
         "title": "Implement Medium AI Player",
         "description": "Extend AIPlayer with medium difficulty: heuristic evaluation for all decisions. Combo selection scores synergy with board state. Conquest prioritizes high-value low-cost targets. Decline considers remaining productivity vs best available combo. Redeployment defends borders.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "25"
         ],
         "priority": "medium",
         "details": "Heuristic evaluators: ComboRanker (score combo by token count, terrain synergy, opponent vulnerability), ConquestPlanner (greedy: maximize coins gained per token spent), DeclineOracle (compare current race productivity to best combo value), TokenDeployer (stack borders adjacent to opponent). Reference AI opponent design doc section 3.",
         "testStrategy": "Vitest: test heuristic evaluators produce reasonable rankings, medium AI beats easy AI >60% of the time over 100 simulated games.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:30:57.237Z"
       },
       {
         "id": "27",
@@ -411,7 +413,7 @@
         "id": "28",
         "title": "Implement Contextual Tooltips",
         "description": "Add hover tooltips to all interactive game elements: regions (terrain type, defense value, owner), race banners (race ability description), power badges (power ability description), combo shop entries (full details), tokens (race name, active/declined). Use Phaser text objects positioned near the hovered element.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "3",
           "16",
@@ -421,7 +423,8 @@
         "priority": "low",
         "details": "Tooltips appear on pointer hover with a small delay (~300ms). Positioned to avoid going off-screen. Include race/power ability descriptions from the data tables. Valid action hints during conquest phase ('Click to conquer — costs 3 tokens'). Reference PRD US-12, FR-33, FR-35.",
         "testStrategy": "Playwright: verify tooltip appears on hover over region, shows correct terrain info, tooltip for race shows ability text.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:30:57.239Z"
       },
       {
         "id": "29",
@@ -450,13 +453,73 @@
         "testStrategy": "Playwright: verify menu renders, mode selection works, game starts with correct player types.",
         "subtasks": [],
         "updatedAt": "2026-02-21T20:22:35.334Z"
+      },
+      {
+        "id": "31",
+        "title": "Run Main Menu e2e tests",
+        "description": "Execute the Playwright e2e test suite for the main menu: `npx playwright test tests/e2e/mainMenu.spec.ts --reporter=line`. Verify all 8 tests pass across Chromium, Firefox, and WebKit. Tests cover: page load, canvas render, correct page title, MainMenu scene activation, HvH default mode, HvAI mode selection, medium difficulty selection, scene launch, and browser refresh.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Command: `npx playwright test tests/e2e/mainMenu.spec.ts --reporter=line`\nExpected: 8 tests × 3 browsers = 24 test runs, all passing.\nTest file: tests/e2e/mainMenu.spec.ts\nResults saved to: playwright-report/index.html",
+        "testStrategy": "Mark done when all 8 tests pass on all 3 browsers with 0 failures.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:00:00.000Z"
+      },
+      {
+        "id": "32",
+        "title": "Run Human vs Human e2e tests",
+        "description": "Execute the Playwright e2e test suite for HvH game flow: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`. Verify all 14 tests pass. Tests cover: initial game state, combo selection, phase progression (readyTroops → conquest → reinforcementDie → redeploy → score), full turn completion, turn advance, player switching, and state immutability.",
+        "status": "pending",
+        "dependencies": ["31"],
+        "priority": "high",
+        "details": "Command: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`\nExpected: 14 tests × 3 browsers = 42 test runs, all passing.\nTest file: tests/e2e/hvhGame.spec.ts\nNote: Tests require the dev server running (handled automatically by playwright.config.ts webServer).",
+        "testStrategy": "Mark done when all 14 tests pass on all 3 browsers with 0 failures.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:00:00.000Z"
+      },
+      {
+        "id": "33",
+        "title": "Run Human vs AI e2e tests",
+        "description": "Execute the Playwright e2e test suite for HvAI game flow: `npx playwright test tests/e2e/hvaiGame.spec.ts --reporter=line`. Verify all 12 tests pass. Tests cover: HvAI Easy and Medium game start, human player interaction, AI auto-turn completion (both difficulties), turn advance, multi-turn flow, coin accumulation, and zero JS errors.",
+        "status": "pending",
+        "dependencies": ["31"],
+        "priority": "high",
+        "details": "Command: `npx playwright test tests/e2e/hvaiGame.spec.ts --reporter=line`\nExpected: 12 tests × 3 browsers = 36 test runs, all passing.\nTest file: tests/e2e/hvaiGame.spec.ts\nNote: AI turn tests use 30s timeouts to allow AI to complete its turn at 600ms delay.",
+        "testStrategy": "Mark done when all 12 tests pass on all 3 browsers with 0 failures.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:00:00.000Z"
+      },
+      {
+        "id": "34",
+        "title": "Run full e2e test suite and review results",
+        "description": "Execute the complete Playwright e2e suite across all test files: `npx playwright test --reporter=html`. Open the HTML report (`npx playwright show-report`) and review all results. Confirm 0 failures across all browsers. Screenshot/trace artifacts for any failures should be reviewed in the report.",
+        "status": "pending",
+        "dependencies": ["31", "32", "33"],
+        "priority": "high",
+        "details": "Command: `npx playwright test --reporter=html && npx playwright show-report`\nExpected: All e2e tests pass (mainMenu + hvhGame + hvaiGame) across Chromium, Firefox, WebKit.\nArtifacts: playwright-report/index.html contains traces for any failures.\nNote: This is the gate check before considering e2e coverage complete.",
+        "testStrategy": "Mark done only when the full suite shows 0 failures in the HTML report.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:00:00.000Z"
+      },
+      {
+        "id": "35",
+        "title": "Fix any failing e2e tests",
+        "description": "Investigate and fix any test failures found in task 34. Common failure modes: timing issues (increase timeouts or add waitForFunction), coordinate mismatches (verify game pixel coordinates against current scene layout), canvas scaling issues (verify clickGame helper scales correctly), Phaser scene lifecycle races (add waitForScene before state checks).",
+        "status": "pending",
+        "dependencies": ["34"],
+        "priority": "high",
+        "details": "Debugging steps:\n1. Run `npx playwright test --debug` to step through failing tests interactively\n2. Run `npx playwright test --headed` to watch the browser during test execution\n3. Use `npx playwright show-report` to view traces and screenshots of failures\n4. Check console logs with `page.on('console', ...)` for Phaser errors\n5. Verify __phaserGame is exposed correctly in tests/e2e/helpers.ts",
+        "testStrategy": "Mark done when task 34 can be re-run with 0 failures.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T21:00:00.000Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-02-21T20:22:35.334Z",
-      "taskCount": 30,
-      "completedCount": 27,
+      "lastModified": "2026-02-21T21:00:00.000Z",
+      "taskCount": 35,
+      "completedCount": 30,
       "tags": [
         "master"
       ]
