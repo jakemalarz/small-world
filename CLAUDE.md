@@ -102,7 +102,13 @@ Skill source files live in `pm-skills/skills/` with templates and examples. When
 
 - **Puppeteer** (`@modelcontextprotocol/server-puppeteer`) — Browser automation, screenshots for visual QA
 - **Nano Banana** (`nano-banana-mcp`) — Google Gemini image generation (requires `GEMINI_API_KEY` env var)
-- **Task Master** (`taskmaster-ai`) — AI-powered task management. Use `mcp__taskmaster-ai__*` tools to manage tasks. Project root: `/Users/jakemalarz/cc-dmz/small-world`
+- **Task Master** (`taskmaster-ai`) — Development task tracking for this project. Use `mcp__taskmaster-ai__*` tools to get, update, and manage tasks. Project root: `/Users/jakemalarz/cc-dmz/small-world`. Phase 1 tasks (30 tasks across M1–M4) are the current implementation scope — always check Task Master before starting new work.
+
+## Project Documents
+
+- **PRD**: `docs/prd.md` — Full product requirements: user stories, functional requirements, all 14 races, all 20 powers, edge cases, milestones
+- **Technical Design**: `design/technical-design.md` — Architecture decisions, game state model, engine structure, scene graph, ability system, testing strategy
+- **Roadmap**: `design/roadmap.md` — Phased delivery plan; Phase 1 (current scope) tracked in Task Master, Phases 2–7 document future features (MCP bridge, visual polish, audio, online multiplayer, additional player counts, QoL)
 
 ## Game Reference
 
