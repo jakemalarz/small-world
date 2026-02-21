@@ -21,8 +21,8 @@ export class Boot extends Phaser.Scene {
       fill.destroy();
     });
 
-    // Preload game assets here
-    // this.load.image('map', 'assets/images/map.png');
+    // Preload game assets
+    this.load.image('map-2p', 'assets/images/map-2p.png');
   }
 
   create(): void {
