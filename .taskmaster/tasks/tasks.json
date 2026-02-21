@@ -155,7 +155,7 @@
         "id": "11",
         "title": "Implement Decline Mechanics",
         "description": "Create src/game/engine/decline.ts with applyDecline(state) handling: remove previous declined race (unless Spirit), flip active race to declined, reduce to 1 token per region (unless Ghouls), remove power badge (unless Spirit), clear special markers. Handle Spirit exception (declined race survives alongside new decline) and Stout exception (decline after conquest turn).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "1",
           "4",
@@ -164,7 +164,8 @@
         "priority": "high",
         "details": "Decline edge cases: Spirit-powered race tokens stay when player declines again. Ghouls keep all tokens (don't reduce to 1). Stout allows decline at end of regular turn. Max 2 declined races (1 Spirit + 1 other). Troll lairs and fortresses persist in decline. Reference PRD FR-22 through FR-25a.",
         "testStrategy": "Vitest: test basic decline, Spirit exception, Ghoul full-token decline, Stout end-of-turn decline, previous decline removal, special marker persistence.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:22:35.327Z"
       },
       {
         "id": "12",
@@ -201,7 +202,7 @@
         "id": "14",
         "title": "Implement Ready Troops Phase",
         "description": "Implement the readyTroops phase logic: player may pick up Active tokens from occupied regions (leaving at least 1 per region to keep control), or abandon regions entirely by picking up all tokens. Picked-up tokens are added to available hand for conquest. Integrate with legalActions and applyAction.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "1",
           "8",
@@ -210,13 +211,14 @@
         "priority": "high",
         "details": "Player picks up tokens before conquering to reuse them offensively. Must leave at least 1 token in regions they want to keep. Can abandon entirely (pick up all, lose control). Reference PRD FR-13a through FR-13c.",
         "testStrategy": "Vitest: test picking up tokens, minimum 1 left requirement, full region abandonment, tokens added to hand correctly.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:22:35.329Z"
       },
       {
         "id": "15",
         "title": "Implement Redeployment Phase",
         "description": "Implement src/game/engine/redeployment.ts with applyRedeployment(state, deployment) that redistributes active tokens among occupied regions. Enforce minimum 1 token per occupied region. Also handle defender redeployment (defeated tokens placed in other owned regions at end of attacker's turn).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "1",
           "10"
@@ -224,7 +226,8 @@
         "priority": "high",
         "details": "Deployment is a map of regionId → tokenCount. Sum of all tokens must equal player's total active tokens. Each occupied region must have at least 1. Defender redeployment happens at end of active player's turn. If defender has no regions, they deploy on their next turn as first conquest. Reference PRD FR-26 through FR-28, FR-18b.",
         "testStrategy": "Vitest: test valid redeployment, minimum token enforcement, defender redeployment, no-region defender case.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:22:35.331Z"
       },
       {
         "id": "16",
@@ -392,7 +395,7 @@
         "id": "27",
         "title": "Implement End Game Screen",
         "description": "Create end-game UI displayed when phase reaches 'gameOver': final scores for both players, winner announcement, score breakdown by turn (from game log), tiebreaker display if needed (most race tokens on board). Offer 'New Game' and 'Main Menu' buttons.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "12",
           "17",
@@ -401,7 +404,8 @@
         "priority": "medium",
         "details": "Tiebreaker: if coin totals are equal, player with most race tokens (Active + In Decline) on the board wins. Score breakdown uses the GameLogEntry history to show coins earned per turn. Victory fanfare animation (placeholder for now). Reference PRD FR-39 through FR-42.",
         "testStrategy": "Playwright: verify end screen shows after turn 10, correct winner displayed, new game button works.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:22:35.332Z"
       },
       {
         "id": "28",
@@ -435,7 +439,7 @@
         "id": "30",
         "title": "Implement Main Menu with Game Mode Selection",
         "description": "Update src/game/scenes/MainMenu.ts to offer game mode selection: Human vs Human, Human vs AI (with difficulty selector: Easy/Medium), and AI vs AI (with speed control). Selected mode configures which IPlayer implementations are used. Transition to Board + HUD scenes with the configured GameController.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "20",
           "21",
@@ -444,14 +448,15 @@
         "priority": "medium",
         "details": "Main menu should display: game title, mode selection buttons, difficulty dropdown for AI modes, 'Start Game' button. AI vs AI mode includes playback speed control (0.5x, 1x, 2x, 4x). Reference PRD play modes: Human vs Human (hot-seat), Human vs AI, AI vs AI.",
         "testStrategy": "Playwright: verify menu renders, mode selection works, game starts with correct player types.",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:22:35.334Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-02-21T20:11:18.296Z",
+      "lastModified": "2026-02-21T20:22:35.334Z",
       "taskCount": 30,
-      "completedCount": 22,
+      "completedCount": 27,
       "tags": [
         "master"
       ]

@@ -10,6 +10,7 @@ import { rollReinforcementDie } from '@/game/engine/reinforcementDie';
 import { AnimationChoreographer } from '@/game/presentation/AnimationChoreographer';
 import { PlaceholderTokenRenderer } from '@/game/presentation/TokenRenderer';
 import { RegionRenderer } from '@/game/presentation/RegionRenderer';
+import { TooltipRenderer } from '@/game/presentation/TooltipRenderer';
 import { StubAudioManager } from '@/game/presentation/AudioManager';
 
 // ── GameController ─────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ export class GameController {
   private readonly choreographer: AnimationChoreographer;
   private readonly tokenRenderer: PlaceholderTokenRenderer;
   private readonly regionRenderer: RegionRenderer;
+  private readonly tooltip: TooltipRenderer;
 
   // ── Event routing ────────────────────────────────────────────────────────
 
@@ -78,6 +80,7 @@ export class GameController {
     );
     this.tokenRenderer = new PlaceholderTokenRenderer(boardScene);
     this.regionRenderer = new RegionRenderer(boardScene);
+    this.tooltip = new TooltipRenderer(boardScene);
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -99,6 +102,15 @@ export class GameController {
       this._onRegionClick(regionId);
     });
 
+    // Bridge Board region hover → tooltip
+    this.boardScene.events.on('regionHover', ({ regionId }: RegionEvent) => {
+      const p = this.boardScene.input.activePointer;
+      this.tooltip.showRegionTooltip(regionId, p.worldX, p.worldY);
+    });
+    this.boardScene.events.on('regionOut', () => {
+      this.tooltip.showRegionTooltip(null, 0, 0);
+    });
+
     while (this.running && this.state.phase !== 'gameOver') {
       await this._tick();
     }
@@ -111,13 +123,18 @@ export class GameController {
     this.running = false;
     this.tokenRenderer.destroy();
     this.regionRenderer.destroy();
+    this.tooltip.destroy();
     this.hudScene.events.off('playerAction');
     this.boardScene.events.off('regionClick');
+    this.boardScene.events.off('regionHover');
+    this.boardScene.events.off('regionOut');
   }
 
-  /** Call this from the hosting Phaser scene's update() to pulse glow. */
+  /** Call this from the hosting Phaser scene's update() to pulse glow and move tooltip. */
   update(time: number): void {
     this.regionRenderer.update(time);
+    const p = this.boardScene.input.activePointer;
+    this.tooltip.updatePosition(p.worldX, p.worldY);
   }
 
   // ── Private game loop ────────────────────────────────────────────────────
@@ -155,6 +172,7 @@ export class GameController {
     }
 
     this.regionRenderer.render(this.state, validTargetIds, this.selectedRegionId);
+    this.tooltip.setGameState(this.state);
   }
 
   /** Convert a Board region-click into a playerAction event if it is legal. */

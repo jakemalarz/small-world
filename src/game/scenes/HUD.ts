@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { GameState, TurnPhase } from '@/game/state/types';
+import { ComboShopRenderer } from '@/game/presentation/ComboShopRenderer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ export class HUD extends Phaser.Scene {
   private actionButton!: Phaser.GameObjects.Container;
   private actionBtnBg!: Phaser.GameObjects.Rectangle;
   private actionBtnLabel!: Phaser.GameObjects.Text;
+  private comboShop!: ComboShopRenderer;
 
   constructor() {
     super('HUD');
@@ -70,6 +72,7 @@ export class HUD extends Phaser.Scene {
     this._drawTopBar();
     this._drawPlayerDashboards();
     this._drawActionButton();
+    this.comboShop = new ComboShopRenderer(this);
   }
 
   // ── Public API (called by GameController) ──────────────────────────────────
@@ -84,14 +87,17 @@ export class HUD extends Phaser.Scene {
       this.playerDashboards[i]?.update(state, i as 0 | 1, state.activePlayerIndex);
     }
 
-    // Update action button
+    // Update action button (hide during selectCombo — combo shop handles input)
     const label = ACTION_BUTTONS[state.phase];
-    if (label) {
+    if (label && state.phase !== 'selectCombo') {
       this.actionBtnLabel.setText(label);
       this.actionButton.setVisible(true);
     } else {
       this.actionButton.setVisible(false);
     }
+
+    // Update combo shop overlay
+    this.comboShop.refresh(state);
   }
 
   // ── Private builders ───────────────────────────────────────────────────────
