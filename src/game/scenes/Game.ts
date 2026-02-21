@@ -1,38 +1,67 @@
 import Phaser from 'phaser';
+import { GameController } from '@/game/GameController';
+import { HumanPlayer } from '@/game/players/HumanPlayer';
+import type { Board } from '@/game/scenes/Board';
+import type { HUD } from '@/game/scenes/HUD';
+
+// ── Game Scene ────────────────────────────────────────────────────────────────
+//
+// Orchestration scene: launches Board + HUD in parallel, wires up the
+// shared event bus, constructs players, and starts the GameController loop.
+//
+// This scene itself renders nothing — it simply manages scene lifecycle and
+// holds the controller reference so Phaser can call update() every frame.
 
 export class Game extends Phaser.Scene {
+  private controller: GameController | null = null;
+
   constructor() {
     super('Game');
   }
 
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
+
   create(): void {
-    const { width, height } = this.scale;
+    // Launch Board (map + interaction) and HUD (UI overlay) as parallel scenes
+    this.scene.launch('Board');
+    this.scene.launch('HUD');
 
-    this.add.text(width / 2, 30, 'Small World — Game Board', {
-      fontSize: '24px',
-      fontFamily: 'Arial',
-      color: '#e8d5b7',
-    }).setOrigin(0.5);
+    // Phaser 3: launched scenes with no preload phase have their create()
+    // called before the first update(). Defer controller init by one frame
+    // to ensure both scenes have fully created their Phaser game objects.
+    this.events.once('update', () => {
+      this._initController();
+    });
+  }
 
-    // Placeholder: game board area
-    this.add.rectangle(width / 2, height / 2, width - 40, height - 80, 0x2d2d44)
-      .setStrokeStyle(2, 0x6c63ff);
+  update(_time: number, _delta: number): void {
+    this.controller?.update(_time);
+  }
 
-    this.add.text(width / 2, height / 2, 'Game board will render here', {
-      fontSize: '18px',
-      fontFamily: 'Arial',
-      color: '#666666',
-    }).setOrigin(0.5);
+  // ── Private ───────────────────────────────────────────────────────────────
 
-    // Back button
-    this.add.text(20, height - 30, '← Back to Menu', {
-      fontSize: '14px',
-      fontFamily: 'Arial',
-      color: '#6c63ff',
-    })
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        this.scene.start('MainMenu');
-      });
+  private _initController(): void {
+    const boardScene = this.scene.get('Board') as Board;
+    const hudScene   = this.scene.get('HUD')   as HUD;
+
+    // Shared event bus — bridges Board/HUD clicks to HumanPlayer.chooseAction
+    const eventBus = new Phaser.Events.EventEmitter();
+
+    // Default: Human vs Human (hot-seat). Task 30 (MainMenu) will pass mode.
+    const players: [HumanPlayer, HumanPlayer] = [
+      new HumanPlayer('Player 1', eventBus),
+      new HumanPlayer('Player 2', eventBus),
+    ];
+
+    this.controller = new GameController(boardScene, hudScene, eventBus, {
+      players,
+      firstPlayerIndex: 0,
+      animationSpeed: 1.0,
+    });
+
+    // Start the async game loop (fire-and-forget; runs until gameOver)
+    this.controller.start().catch((err: unknown) => {
+      console.error('[GameController] Fatal error in game loop:', err);
+    });
   }
 }
