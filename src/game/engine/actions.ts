@@ -335,25 +335,46 @@ function applySorcererConvert(
 }
 
 // ── useReinforcement ──────────────────────────────────────────────────────────
+//
+// One final conquest attempt: dieResult supplements available tokens.
+// Tokens placed = min(availableTokens, cost) — player may have fewer tokens
+// than cost if the die made up the difference. Phase → redeploy either way.
 
 function applyUseReinforcement(
-  state: GameState, regionId: number, dieResult: 0 | 1 | 2 | 3, logEntry: GameLogEntry,
+  state: GameState, regionId: number, _dieResult: 0 | 1 | 2 | 3, logEntry: GameLogEntry,
 ): GameState {
   const region = getRegion(state, regionId);
   const player = state.players[state.activePlayerIndex];
   if (!player.activeRace) return appendLog(state, logEntry);
 
-  // Add die-result tokens to the chosen region; clear the die
-  const tokensToAdd = Math.min(dieResult, player.availableTokens);
+  const cost = calculateConquestCost(state, regionId);
 
-  const s: GameState = {
-    ...state,
-    board: patchRegions(state, regionId, { tokens: region.tokens + tokensToAdd }),
-    players: patchPlayer(state, state.activePlayerIndex, {
-      availableTokens: player.availableTokens - tokensToAdd,
+  // Resolve defender (same as normal conquest)
+  let s = state;
+  if (region.owner !== null) {
+    s = resolveDefender(s, region);
+  }
+
+  // Place min(available, cost) tokens — die covers any shortfall
+  const tokensPlaced = Math.min(player.availableTokens, cost);
+  const wasNonEmpty = region.tokens > 0 || region.hasLostTribe;
+
+  s = {
+    ...s,
+    board: patchRegions(s, regionId, {
+      owner: s.activePlayerIndex,
+      tokens: tokensPlaced,
+      isDeclined: false,
+      hasLostTribe: false,
+      hasHero: false,
+      hasDragon: false,
+    }),
+    players: patchPlayer(s, s.activePlayerIndex, {
+      availableTokens: player.availableTokens - tokensPlaced,
       activeRace: {
         ...player.activeRace,
-        tokensOnBoard: player.activeRace.tokensOnBoard + tokensToAdd,
+        tokensOnBoard: player.activeRace.tokensOnBoard + tokensPlaced,
+        conquestsThisTurn: player.activeRace.conquestsThisTurn + (wasNonEmpty ? 1 : 0),
       },
     }),
     reinforcementDie: null,

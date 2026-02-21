@@ -1,6 +1,7 @@
 import type { GameState, GameAction } from '@/game/state/types';
 import { getActiveModifiers } from '@/game/abilities/modifiers';
 import { calculateConquestCost } from '@/game/engine/conquestCost';
+import { getLegalReinforcementTargets } from '@/game/engine/reinforcementDie';
 import { RACE_HANDLERS } from '@/game/abilities/raceAbilities';
 import { POWER_HANDLERS } from '@/game/abilities/powerAbilities';
 
@@ -177,23 +178,13 @@ function conquestActions(state: GameState): GameAction[] {
 }
 
 // ── reinforcementDie ──────────────────────────────────────────────────────────
-// The die result is recorded on state.reinforcementDie. The player chooses
-// which of their regions to add the bonus tokens to (or endPhase to skip).
+// Die result is on state.reinforcementDie. Player picks one more conquest
+// target reachable with (availableTokens + dieResult) budget, or ends phase.
 
-function reinforcementDieActions(state: GameState): GameAction[] {
+function reinforcementDieActions(state: GameState): readonly GameAction[] {
   const die = state.reinforcementDie;
-  if (!die || die.result === 0) return [{ type: 'endPhase' }];
-
-  // Player may apply the die bonus to any active owned region
-  const targets = state.board.regions
-    .filter((r) => r.owner === state.activePlayerIndex && !r.isDeclined)
-    .map<GameAction>((r) => ({
-      type: 'useReinforcement',
-      regionId: r.id,
-      dieResult: die.result,
-    }));
-
-  return targets.length > 0 ? targets : [{ type: 'endPhase' }];
+  if (!die) return [{ type: 'endPhase' }];
+  return getLegalReinforcementTargets(state, die.result);
 }
 
 // ── redeploy ──────────────────────────────────────────────────────────────────
