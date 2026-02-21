@@ -31,3 +31,7 @@ pm-skills/
 
 # Screenshots (optional, uncomment if not tracking)
 # screenshots/
+
+# Playwright test artifacts
+test-results/
+playwright-report/
