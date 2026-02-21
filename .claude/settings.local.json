@@ -35,7 +35,11 @@
       "WebFetch(domain:en.wikipedia.org)",
       "WebFetch(domain:www.ultraboardgames.com)",
       "WebFetch(domain:smallworld.fandom.com)",
-      "WebFetch(domain:medium.com)"
+      "WebFetch(domain:medium.com)",
+      "mcp__taskmaster-ai__parse_prd",
+      "mcp__taskmaster-ai__get_tasks",
+      "mcp__taskmaster-ai__next_task",
+      "mcp__taskmaster-ai__update_subtask"
     ]
   }
 }

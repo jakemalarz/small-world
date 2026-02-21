@@ -182,24 +182,24 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 
 #### Race Abilities
 
-All 14 races shall be implemented with the following token counts and abilities:
+All 14 races shall be implemented with the following token counts and abilities. Each race has a **maximum token supply** — players cannot exceed this limit even through abilities that generate new tokens (e.g., Skeletons, Sorcerers). Lost Tribes have a supply of 18 tokens.
 
-| Race | Tokens | Ability |
-|------|--------|---------|
-| Amazons | 6 | +4 tokens available for conquest only. After redeployment, remove 4 tokens from the map (they return to hand next turn) |
-| Dwarves | 3 | +1 Victory Coin per Mine region occupied (Active or In Decline) |
-| Elves | 6 | When defeated, suffer no casualties — discard 0 tokens; keep all in hand for redeployment |
-| Ghouls | 5 | Tokens stay on map when going In Decline (don't reduce to 1). In Decline Ghouls can move and conquer normally before the Active race acts |
-| Giants | 6 | Conquest cost -1 for any region adjacent to a Mountain region occupied by the Giants |
-| Halflings | 6 | May enter the map at any region (not just borders). Place a Hole-in-the-Ground in the first 2 regions conquered (makes them immune to conquest/powers) |
-| Humans | 5 | +1 Victory Coin per Farmland region |
-| Orcs | 5 | +1 Victory Coin per non-empty region conquered this turn |
-| Ratmen | 8 | No special ability — high token count is the advantage |
-| Skeletons | 6 | Gain 1 new Skeleton token from storage for every 2 non-empty regions conquered this turn |
-| Sorcerers | 5 | Once per turn per opponent: substitute an opponent's single Active token with a Sorcerer from storage if the region is adjacent. The opponent's token is discarded |
-| Tritons | 6 | Conquest cost -1 for Coastal regions (bordering Sea/Lake) |
-| Trolls | 5 | Place a Troll's Lair in every occupied region (+1 defense). Lairs remain even In Decline |
-| Wizards | 5 | +1 Victory Coin per Magic region |
+| Race | Tokens | Max Supply | Ability |
+|------|--------|-----------|---------|
+| Amazons | 6 | 15 | +4 tokens available for conquest only. After redeployment, remove 4 tokens from the map (they return to hand next turn) |
+| Dwarves | 3 | 8 | +1 Victory Coin per Mine region occupied (Active or In Decline) |
+| Elves | 6 | 11 | When defeated, suffer no casualties — discard 0 tokens; keep all in hand for redeployment |
+| Ghouls | 5 | 10 | Tokens stay on map when going In Decline (don't reduce to 1). In Decline Ghouls can move and conquer normally before the Active race acts |
+| Giants | 6 | 11 | Conquest cost -1 for any region adjacent to a Mountain region occupied by the Giants |
+| Halflings | 6 | 11 | May enter the map at any region (not just borders). Place a Hole-in-the-Ground in the first 2 regions conquered (makes them immune to conquest/powers) |
+| Humans | 5 | 10 | +1 Victory Coin per Farmland region |
+| Orcs | 5 | 10 | +1 Victory Coin per non-empty region conquered this turn |
+| Ratmen | 8 | 13 | No special ability — high token count is the advantage |
+| Skeletons | 6 | 20 | Gain 1 new Skeleton token from storage for every 2 non-empty regions conquered this turn |
+| Sorcerers | 5 | 18 | Once per turn per opponent: substitute an opponent's single Active token with a Sorcerer from storage if the region is adjacent. The opponent's token is discarded |
+| Tritons | 6 | 11 | Conquest cost -1 for Coastal regions (bordering Sea/Lake) |
+| Trolls | 5 | 10 | Place a Troll's Lair in every occupied region (+1 defense). Lairs remain even In Decline |
+| Wizards | 5 | 10 | +1 Victory Coin per Magic region |
 
 - FR-33: Each race's ability shall be described in a tooltip accessible from the race banner
 
@@ -231,6 +231,7 @@ All 20 special powers shall be implemented with the following bonus token counts
 | Wealthy | +4 | Gain 7 bonus Victory Coins at the end of first turn only |
 
 - FR-34: Token count for a race/power combo = (number on Race Banner) + (bonus from Special Power Badge)
+- FR-34a: Each race has a finite maximum token supply (see race table). Token-generating abilities (Skeletons, Sorcerers) cannot exceed this limit. If the supply is exhausted, no new tokens are generated
 - FR-35: Each power's ability shall be described in a tooltip accessible from the power badge
 
 #### End Game
@@ -312,6 +313,7 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 | Halflings' first 2 regions with Hole-in-the-Ground | These regions are immune to conquest and special powers per the rules (Hole-in-the-Ground tokens placed on first 2 conquered regions) |
 | Dragon Master conquers a region with dragon | Dragon Master conquers a new region with only 1 token (ignoring all defense), then places the Dragon there making it immune to conquest. The Dragon moves to a new conquered region each turn |
 | Stout power and decline | Player with Stout performs a full conquest turn (conquer → redeploy → score), then goes In Decline at the end — unlike normal decline which skips conquest entirely |
+| Skeleton/Sorcerer token generation exceeds max supply | No new tokens are generated — the race's token supply is finite (e.g., Skeletons max 20, Sorcerers max 18). Abilities that create tokens are capped by available supply |
 | All race/power combos exhausted | This should not occur in a 2-player, 10-turn game given 14 races and 20 powers |
 | Player tries to zoom beyond min/max bounds | Zoom snaps to the nearest valid level with elastic feedback |
 

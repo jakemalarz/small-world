@@ -1,0 +1,242 @@
+# Development Roadmap: Small World — Web-Based Board Game
+
+## Overview
+
+This roadmap captures the phased delivery plan for the Small World digital board game. **Phase 1** is the current implementation scope, tracked in Task Master. Subsequent phases are documented here for future planning.
+
+---
+
+## Phase 1: Core Game (Current Scope)
+
+**Goal:** A fully playable, rules-accurate 2-player Small World game with heuristic AI opponents and placeholder visuals.
+
+**Status:** In progress — 30 tasks in Task Master
+
+### Milestones
+
+| Milestone | Description | Tasks |
+|-----------|-------------|-------|
+| M1: Core Engine | Game state types, map data, phase state machine, basic conquest, Board + HUD scenes | 1, 2, 5, 9, 16, 17, 20, 21, 29 |
+| M2: Complete Rules | All 14 races, 20 powers, decline, scoring, reinforcement die, ready troops, redeployment | 3, 4, 6, 7, 8, 10, 11, 12, 13, 14, 15 |
+| M3: Presentation | Placeholder tokens, region overlays, combo shop UI, animation choreographer, stubbed audio | 18, 19, 22, 23, 24 |
+| M4: AI & Polish | Easy + Medium AI, end game screen, main menu with mode selection, contextual tooltips | 25, 26, 27, 28, 30 |
+
+### AI Opponent (Phase 1)
+
+- **Easy:** Random valid moves with slight bias toward undefended regions
+- **Medium:** Greedy heuristic evaluation — prioritize high-value targets, smart decline timing, defensive redeployment
+- Both run entirely in-browser, zero latency, no external dependencies
+- `IPlayer` interface is async (`Promise<GameAction>`) to support future LLM-based players
+
+### What Ships
+
+- Human vs. Human (hot-seat)
+- Human vs. AI (Easy, Medium)
+- AI vs. AI spectator mode
+- All 14 races and 20 powers
+- Placeholder art (colored circles, text labels)
+- Stubbed audio (wired but silent)
+- Vitest unit tests for game engine
+- Playwright E2E tests for UI
+
+---
+
+## Phase 2: MCP Bridge & Hard AI
+
+**Goal:** Expose the game engine as an MCP server so external AI (LLMs, custom bots) can play. Build a hybrid "Hard" AI that combines heuristics with LLM strategic reasoning.
+
+**Depends on:** Phase 1 complete
+
+### MCP Game Server
+
+- Expose game state and actions as MCP tools:
+  - `sw_get_state` — serialized GameState as JSON
+  - `sw_get_legal_actions` — available actions for current player
+  - `sw_take_action` — apply an action, return new state
+  - `sw_get_score` — current scores
+  - `sw_get_game_log` — action history
+- MCP server wraps the existing `GameEngine` — thin adapter layer
+- Enables any MCP-compatible client (Claude Desktop, custom agents) to play
+- JSON state serialization uses descriptive region names for LLM comprehension
+- Project already has MCP infrastructure in `.claude-plugin/.mcp.json`
+
+### Hybrid "Hard" AI
+
+- Decision routing: LLM for strategic decisions, heuristics for tactical execution
+- **LLM handles:** Combo selection (synergy evaluation), decline timing (opportunity cost reasoning)
+- **Heuristics handle:** Conquest ordering (minimize token spend), redeployment (border defense), reinforcement die target
+- ~2-3 LLM calls per turn instead of 8-15 — manages latency and cost
+- Estimated cost: ~$0.10-$0.50 per game
+- Requires API key (opt-in — players without keys use Medium AI)
+- "AI is thinking..." indicator during LLM calls
+
+### Estimated Effort
+
+- MCP bridge: 1-2 weeks
+- Hybrid agent + prompt engineering: 2-3 weeks
+- Integration and tuning: 1 week
+
+---
+
+## Phase 3: Visual Polish
+
+**Goal:** Replace placeholder art with polished visuals matching the Small World board game aesthetic.
+
+**Depends on:** Phase 1 M3 (presentation layer in place)
+
+### Map Art
+
+- Commission or generate a pre-rendered 2-player map image (hand-painted fantasy style)
+- Options: AI-generated via Gemini (nano-banana MCP), hand-painted, or licensed reference
+- Map image replaces placeholder; hit polygons and overlays remain unchanged
+
+### Token & Banner Art
+
+- Replace colored circles with sprite-based tokens per race
+- Race banners and power badges as illustrated cards
+- Sprite sheets for token states (active, declined, special markers)
+- Drop-in replacement via `SpriteTokenRenderer` implementing existing `ITokenRenderer` interface
+
+### Animation Polish
+
+- Refined tween curves and timing for all actions
+- Particle effects for conquest impacts, coin scoring
+- Camera choreography improvements (smooth auto-focus during key moments)
+- Dice roll: 3D tumble effect (sprite sequence or procedural)
+
+---
+
+## Phase 4: Audio
+
+**Goal:** Full tabletop-style audio design.
+
+**Depends on:** Phase 1 M3 (stubbed audio manager wired in)
+
+### Sound Effects
+
+- Token placement: wooden piece-on-board thud
+- Token movement: sliding wood on wood
+- Conquest: impact sound + scattered token clatter
+- Dice roll: dice tumbling on wooden table
+- Coin scoring: coins clinking as counted
+- Card/banner interaction: card sliding / paper shuffling
+- Decline: muted, somber tone
+- Turn transition: subtle chime or bell
+- Victory: celebratory fanfare
+
+### Ambient Audio
+
+- Soft tavern/hearth background ambiance (toggleable)
+- Volume controls in settings
+
+### Implementation
+
+- Replace `StubAudioManager` with `PhaserAudioManager`
+- Audio sprites (single file with multiple sounds) for efficiency
+- Assets sourced, generated, or licensed
+
+---
+
+## Phase 5: Online Multiplayer
+
+**Goal:** Real-time networked 2-player games.
+
+**Depends on:** Phase 1 (game engine), Phase 2 (state serialization)
+
+### Architecture Considerations
+
+- Game state is already immutable and serializable (designed for this)
+- `IPlayer` interface already async — remote player is just another implementation
+- Options: WebSocket server (Node.js), WebRTC peer-to-peer, or cloud-hosted game rooms
+- State synchronization: server-authoritative (server runs `GameEngine`, clients render)
+- Lobby system: create/join game rooms with shareable links
+- No accounts required (anonymous play with session tokens)
+
+### Scope
+
+- 2-player only (matches Phase 1)
+- No matchmaking or ranking
+- Game state persisted server-side for reconnection
+- Latency compensation for animations
+
+---
+
+## Phase 6: Additional Player Counts
+
+**Goal:** Support 3, 4, and 5 player maps.
+
+**Depends on:** Phase 1 (engine architecture supports N players)
+
+### What's Needed
+
+- New map data files (`map3p.ts`, `map4p.ts`, `map5p.ts`) with polygon regions
+- Turn track length varies by player count (already noted in PRD)
+- Player state array extends beyond 2
+- AI difficulty tuning for multiplayer dynamics
+- Map selection UI in main menu
+- New map images per player count
+
+### Architecture Notes
+
+- `GameState.players` is already a tuple but would need to become a variable-length array
+- Turn order, scoring, and phase logic should generalize naturally
+- Some race/power abilities reference "opponent" (singular) — need to handle multiple opponents (Sorcerers, Diplomat)
+
+---
+
+## Phase 7: Quality of Life
+
+**Goal:** Features that improve the play experience but aren't core gameplay.
+
+### Undo/Redo
+
+- Immutable state architecture makes this straightforward — maintain a state history stack
+- Undo last action, redo to re-apply
+- Consider limiting undo scope (e.g., can't undo after die roll or after seeing opponent's response)
+
+### Save/Load
+
+- Serialize `GameState` to JSON and persist to `localStorage` or downloadable file
+- Load game from file or browser storage
+- State is already designed for serialization
+
+### Game Replay
+
+- Action log (`GameLogEntry[]`) already captured in state
+- Replay mode: step through actions with animation playback
+- Export replay as shareable JSON
+
+### Accessibility
+
+- Colorblind-friendly palette options (swap player colors)
+- High-contrast mode for region borders and tokens
+- Screen reader support for game state announcements
+- Keyboard navigation for all actions
+
+### Mobile Optimization
+
+- Touch-optimized controls: tap to select, pinch to zoom, drag to pan
+- Responsive layout adjustments for portrait/landscape
+- Larger hit targets for touch input
+
+---
+
+## Deferred Ideas (Unscoped)
+
+These are ideas mentioned during design discussions that don't have a phase assignment yet:
+
+- **MCTS AI (Option 5 from AI design doc):** Monte Carlo Tree Search running in a Web Worker. Zero external dependencies, self-improving with compute time. Could serve as an alternative "Hard" difficulty without LLM costs. Requires a fast simulation engine (~10K games/sec in browser).
+- **Browser automation AI (Option 3):** A VLM agent that plays via screenshots. Not recommended as primary AI but could be a fun demo. Very fragile with canvas-based rendering.
+- **AI personality traits:** Give AI opponents distinct play styles (aggressive, defensive, economic, chaotic) beyond just difficulty levels.
+- **AI "thinking" visualization:** Show the AI's reasoning during its turn (considered regions, evaluated combos, decline probability). Educational and entertaining for spectators.
+- **Tournament mode:** Series of games with aggregate scoring.
+- **Custom game rules:** House rules toggles (hidden vs. visible coins, different turn counts, banned combos).
+- **Expansion content:** Additional races, powers, or maps beyond the base game.
+
+---
+
+## Revision History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 2026-02-20 | Initial roadmap based on PRD, technical design, and AI opponent design discussions |
