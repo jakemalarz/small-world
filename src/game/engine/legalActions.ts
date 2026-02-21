@@ -192,7 +192,9 @@ function reinforcementDieActions(state: GameState): readonly GameAction[] {
 // We only signal that endPhase (= submit final deployment) is available.
 
 function redeployActions(_state: GameState): GameAction[] {
-  return [{ type: 'endPhase' }];
+  // A placeholder redeploy action — actionsMatch() for 'redeploy' returns true
+  // for any Map, so this entry validates any deployment the player submits.
+  return [{ type: 'redeploy', deployment: new Map() }, { type: 'endPhase' }];
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import { MainMenu } from './scenes/MainMenu';
 import { Game } from './scenes/Game';
 import { Board } from './scenes/Board';
 import { HUD } from './scenes/HUD';
+import { GameOver } from './scenes/GameOver';
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -15,5 +16,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [Boot, MainMenu, Game, Board, HUD],
+  scene: [Boot, MainMenu, Game, Board, HUD, GameOver],
 };

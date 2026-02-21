@@ -2,403 +2,459 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Define Game State Types and Interfaces",
         "description": "Create all TypeScript interfaces for the immutable game state model: GameState, PlayerState, ActiveRaceState, DeclinedRaceState, BoardState, RegionState, ComboShopState, ComboSlot, and all union/enum types (TurnPhase, Terrain, RaceId, PowerId). Also define the GameAction union type and GameLogEntry. All state types must be readonly/immutable. Place in src/game/state/types.ts. ActiveRaceState must include maxSupply to track the finite token limit per race. Each race has a maximum token supply (e.g., Amazons 15, Skeletons 20) that caps token-generating abilities.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Reference design/technical-design.md section 2 for the full type definitions. This is the foundational layer — all other tasks depend on these types being correct and complete. Note: each race has a finite maxSupply of tokens (see PRD race table). ActiveRaceState needs a maxSupply field. Lost Tribes have a supply of 18.",
-        "testStrategy": "Vitest: verify types compile with strict TypeScript, create sample state objects to confirm structure."
+        "testStrategy": "Vitest: verify types compile with strict TypeScript, create sample state objects to confirm structure.",
+        "updatedAt": "2026-02-21T14:59:43.997Z",
+        "subtasks": []
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Author 2-Player Map Data (Polygons, Adjacency, Properties)",
         "description": "Hand-trace polygon coordinates for all regions on the 2-player map from src/assets/reference/2-player-map.jpeg. Create src/game/data/map2p.ts exporting a MapData object with: region polygons (vertex arrays relative to map image), center points, adjacency lists, terrain types, edge/coastal flags, and initial markers (lost tribes, mountains, mines, magic sources, caverns). Coordinates are in pixels relative to map image top-left.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "high",
         "details": "The 2-player map has approximately 16 regions. Each region needs: id, name, terrain, polygon vertices (clockwise), center point, adjacentRegionIds, isEdge, isCoastal, hasMountain, hasMine, hasMagicSource, hasCavern, hasLostTribe. Adjacency must be symmetric. Reference the rulebook and map image.",
-        "testStrategy": "Vitest: verify adjacency symmetry, all regions have required fields, polygon vertices are valid, edge regions actually border the map edge."
+        "testStrategy": "Vitest: verify adjacency symmetry, all regions have required fields, polygon vertices are valid, edge regions actually border the map edge.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T15:13:26.361Z"
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Define Race and Power Data Tables",
         "description": "Create src/game/data/races.ts with RaceDefinition records for all 14 races (token counts, max supply, modifier tags, tooltips) and src/game/data/powers.ts with PowerDefinition records for all 20 powers (bonus token counts, modifier tags, tooltips). Use the AbilityModifiers interface from the modifier/tag system design. Each race must include maxSupply field.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "high",
         "details": "Each race/power has declarative modifiers where possible (conquestCostModifier, bonusPerTerrain, etc.) and a customHandler key for complex abilities (Sorcerers, Dragon Master, Halflings, Diplomat, Heroic). Reference PRD race/power tables and design/technical-design.md section 4. Max supply per race: Amazons 15, Dwarves 8, Elves 11, Ghouls 10, Giants 11, Halflings 11, Humans 10, Orcs 10, Ratmen 13, Skeletons 20, Sorcerers 18, Tritons 11, Trolls 10, Wizards 10. Lost Tribes: 18. Token-generating abilities (Skeletons, Sorcerers) are capped by maxSupply.",
-        "testStrategy": "Vitest: verify all 14 races and 20 powers are defined, token counts match PRD, modifier types are valid."
+        "testStrategy": "Vitest: verify all 14 races and 20 powers are defined, token counts match PRD, modifier types are valid.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T15:13:26.364Z"
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Implement Ability Modifier System",
         "description": "Create src/game/abilities/modifiers.ts with the AbilityModifiers interface and a getActiveModifiers() function that merges race + power modifiers for the active player. Create src/game/abilities/raceAbilities.ts and powerAbilities.ts with CustomAbilityHandler registrations for complex abilities (Sorcerers, Dragon Master, Halflings, Diplomat, Heroic, Bivouacking, Fortified, Amazons).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1,
-          3
+          "1",
+          "3"
         ],
         "priority": "high",
         "details": "The modifier system is the core of the ability architecture. ~70% of abilities are pure data (modifier tags), ~30% need custom handler functions with hooks: modifyLegalActions, onConquest, onDecline, onTurnEnd, onTurnStart. Reference design/technical-design.md section 4.",
-        "testStrategy": "Vitest: test modifier merging for several race/power combos, verify custom handlers are invoked at correct lifecycle points."
+        "testStrategy": "Vitest: test modifier merging for several race/power combos, verify custom handlers are invoked at correct lifecycle points.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T15:28:31.045Z"
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Implement Game Setup and Initial State Creation",
         "description": "Create src/game/engine/setup.ts with createInitialState() that produces a valid starting GameState: randomly select first player, shuffle race and power decks, deal 6 combos to shop, place lost tribes and mountain tokens on the board per map data, set turn to 1, give each player 5 coins, set phase to 'selectCombo'.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1,
-          2,
-          3
+          "1",
+          "2",
+          "3"
         ],
         "priority": "high",
         "details": "Must use the map data from map2p.ts for initial region state (lost tribes, mountains). Race/power decks are shuffled randomly. The state returned must be fully immutable.",
-        "testStrategy": "Vitest: verify initial state has correct turn/phase/coins, 6 combos in shop, lost tribes placed on correct regions, mountain tokens placed."
+        "testStrategy": "Vitest: verify initial state has correct turn/phase/coins, 6 combos in shop, lost tribes placed on correct regions, mountain tokens placed.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T15:28:31.047Z"
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Implement Combo Shop Logic",
         "description": "Create src/game/engine/comboShop.ts with: selectCombo(state, comboIndex) — applies coin cost for skipping, awards combo's coins to player, sets player's active race with correct token count (race base + power bonus), and replenishes the shop by shifting combos up and dealing a new one from the decks.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1,
-          3,
-          5
+          "1",
+          "3",
+          "5"
         ],
         "priority": "high",
         "details": "Top combo (index 0) is free. Each lower position costs 1 coin per skipped slot. Coins placed on skipped combos stay on those combos. When selected, player gets any coins sitting on the combo. Shop replenishes by shifting up and revealing new combo at bottom. Reference PRD FR-8 through FR-12.",
-        "testStrategy": "Vitest: test free selection, paid selection with coin placement, coin collection from combo, shop replenishment, deck exhaustion edge case."
+        "testStrategy": "Vitest: test free selection, paid selection with coin placement, coin collection from combo, shop replenishment, deck exhaustion edge case.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:39:42.951Z"
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Implement Conquest Cost Calculation",
         "description": "Create src/game/engine/conquestCost.ts with calculateConquestCost(state, regionId) that computes tokens needed: 2 base + region contents (tokens, lost tribe, mountain, troll lair, fortress, encampment) + ability modifiers (Commando, Mounted, Tritons, Giants, Underworld, Dragon Master). Minimum cost is 1.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1,
-          4
+          "1",
+          "4"
         ],
         "priority": "high",
         "details": "Must apply all conquest cost modifiers from the active race/power combo. Giants get -1 for regions adjacent to their own mountain regions. Underworld gets -1 on cavern regions. Commando gets -1 on all regions. Mounted gets -1 on hill/farmland. Tritons get -1 on coastal. Reference PRD FR-15.",
-        "testStrategy": "Vitest: test base cost, cost with each modifier type, stacking modifiers, minimum cost of 1, all terrain/defense combinations."
+        "testStrategy": "Vitest: test base cost, cost with each modifier type, stacking modifiers, minimum cost of 1, all terrain/defense combinations.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:39:42.953Z"
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Implement Legal Action Generation",
         "description": "Create src/game/engine/legalActions.ts with getLegalActions(state) that returns all valid GameActions for the current phase and active player. Must handle: selectCombo (which combos are affordable), readyTroops (which regions can have tokens picked up), conquest (valid targets based on adjacency/edge/abilities), reinforcementDie (eligible target), redeploy (valid distributions), decline (when allowed).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1,
-          4,
-          7
+          "1",
+          "4",
+          "7"
         ],
         "priority": "high",
         "details": "First conquest must target edge/coastal region (unless Halflings/Flying). Subsequent conquests must be adjacent to owned regions (unless Flying/Underworld cavern adjacency). Seas/Lakes not conquerable unless Seafaring. Must include ability-specific actions (Sorcerer convert, Dragon placement, etc.). Reference PRD FR-13 through FR-18.",
-        "testStrategy": "Vitest: test legal actions per phase, first conquest restrictions, adjacency rules, Flying override, Seafaring seas, Halfling anywhere entry."
+        "testStrategy": "Vitest: test legal actions per phase, first conquest restrictions, adjacency rules, Flying override, Seafaring seas, Halfling anywhere entry.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:45:06.368Z"
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Implement Phase State Machine",
         "description": "Create src/game/engine/phaseTransition.ts with getNextPhase(state, completedAction) implementing the turn phase state machine: selectCombo → readyTroops → conquest → reinforcementDie → redeploy → score → (optional decline for Stout). Handle conditional transitions: skip selectCombo if player has active race, skip reinforcementDie if not eligible, Ghoul decline conquest before active race.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "high",
         "details": "Phase transitions must account for: Stout power (decline after scoring), Ghouls in decline (conquest before active race), decline replacing the conquest sequence, turn advancement and player switching, game over detection at turn 10. Reference design/technical-design.md section 3.3.",
-        "testStrategy": "Vitest: test full turn flow, conditional phase skipping, Stout decline path, Ghoul pre-conquest, decline turn flow, game over transition."
+        "testStrategy": "Vitest: test full turn flow, conditional phase skipping, Stout decline path, Ghoul pre-conquest, decline turn flow, game over transition.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T15:13:26.365Z"
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Implement Core Action Application (applyAction)",
         "description": "Create src/game/engine/actions.ts with applyAction(state, action) that validates the action is legal, applies it to produce a new immutable GameState, appends to the action log, and transitions the phase. This is the central state transition function that delegates to specific handlers (comboShop, conquest, decline, redeployment, etc.).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1,
-          6,
-          7,
-          8,
-          9
+          "1",
+          "6",
+          "7",
+          "8",
+          "9"
         ],
         "priority": "high",
         "details": "Must handle all GameAction types. Conquest actions must: place attacker tokens, handle defeated tokens (1 discarded, rest returned to defender), handle Lost Tribe/single In Decline token removal, update region ownership. Must enforce immutability — never mutate input state. Reference PRD FR-13 through FR-28.",
-        "testStrategy": "Vitest: test each action type produces correct new state, original state unchanged, illegal actions rejected, action log appended."
+        "testStrategy": "Vitest: test each action type produces correct new state, original state unchanged, illegal actions rejected, action log appended.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:51:56.150Z"
       },
       {
-        "id": 11,
+        "id": "11",
         "title": "Implement Decline Mechanics",
         "description": "Create src/game/engine/decline.ts with applyDecline(state) handling: remove previous declined race (unless Spirit), flip active race to declined, reduce to 1 token per region (unless Ghouls), remove power badge (unless Spirit), clear special markers. Handle Spirit exception (declined race survives alongside new decline) and Stout exception (decline after conquest turn).",
         "status": "pending",
         "dependencies": [
-          1,
-          4,
-          10
+          "1",
+          "4",
+          "10"
         ],
         "priority": "high",
         "details": "Decline edge cases: Spirit-powered race tokens stay when player declines again. Ghouls keep all tokens (don't reduce to 1). Stout allows decline at end of regular turn. Max 2 declined races (1 Spirit + 1 other). Troll lairs and fortresses persist in decline. Reference PRD FR-22 through FR-25a.",
-        "testStrategy": "Vitest: test basic decline, Spirit exception, Ghoul full-token decline, Stout end-of-turn decline, previous decline removal, special marker persistence."
+        "testStrategy": "Vitest: test basic decline, Spirit exception, Ghoul full-token decline, Stout end-of-turn decline, previous decline removal, special marker persistence.",
+        "subtasks": []
       },
       {
-        "id": 12,
+        "id": "12",
         "title": "Implement Scoring Engine",
         "description": "Create src/game/engine/scoring.ts with calculateScore(state, playerIndex) that computes end-of-turn victory coins: 1 per occupied region (active + declined) + all race/power bonuses (terrain bonuses, Merchant, Alchemist, Wealthy first-turn, Orcs/Pillaging per conquest, Dwarves mines in decline).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1,
-          4
+          "1",
+          "4"
         ],
         "priority": "high",
         "details": "Must correctly apply: base 1 coin per region, Humans (+1 farmland), Wizards (+1 magic), Forest/Hill/Swamp power terrain bonuses, Dwarves (+1 mine, active and decline), Merchant (+1 per region), Alchemist (+2 flat), Wealthy (+7 first turn only), Orcs/Pillaging (+1 per non-empty conquered region this turn), Fortified (+1 per fortress, active only). Reference PRD FR-29 through FR-32.",
-        "testStrategy": "Vitest: test base scoring, each race bonus, each power bonus, combined race+power scoring, decline region scoring, Wealthy first-turn-only."
+        "testStrategy": "Vitest: test base scoring, each race bonus, each power bonus, combined race+power scoring, decline region scoring, Wealthy first-turn-only.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:39:42.955Z"
       },
       {
-        "id": 13,
+        "id": "13",
         "title": "Implement Reinforcement Die",
         "description": "Create src/game/engine/reinforcementDie.ts with rollDie() returning a random result from [0,0,0,1,2,3] and resolveReinforcement(state, regionId, dieResult) that attempts final conquest with available tokens + die result. On success, place tokens. On failure, tokens return to player's regions via redeployment. Die ends conquest phase regardless.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1,
-          7,
-          10
+          "1",
+          "7",
+          "10"
         ],
         "priority": "high",
         "details": "Die available when player has at least 1 token but not enough for standard conquest. Die sides: 0,0,0,1,2,3. Success = available tokens + die result >= conquest cost. Failure = tokens placed back in previously occupied regions. No further conquests after die regardless of result. Reference PRD FR-19 through FR-21a.",
-        "testStrategy": "Vitest: test die roll distribution, successful reinforcement conquest, failed reinforcement, tokens returned on failure, phase ends after die."
+        "testStrategy": "Vitest: test die roll distribution, successful reinforcement conquest, failed reinforcement, tokens returned on failure, phase ends after die.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:04:14.059Z"
       },
       {
-        "id": 14,
+        "id": "14",
         "title": "Implement Ready Troops Phase",
         "description": "Implement the readyTroops phase logic: player may pick up Active tokens from occupied regions (leaving at least 1 per region to keep control), or abandon regions entirely by picking up all tokens. Picked-up tokens are added to available hand for conquest. Integrate with legalActions and applyAction.",
         "status": "pending",
         "dependencies": [
-          1,
-          8,
-          10
+          "1",
+          "8",
+          "10"
         ],
         "priority": "high",
         "details": "Player picks up tokens before conquering to reuse them offensively. Must leave at least 1 token in regions they want to keep. Can abandon entirely (pick up all, lose control). Reference PRD FR-13a through FR-13c.",
-        "testStrategy": "Vitest: test picking up tokens, minimum 1 left requirement, full region abandonment, tokens added to hand correctly."
+        "testStrategy": "Vitest: test picking up tokens, minimum 1 left requirement, full region abandonment, tokens added to hand correctly.",
+        "subtasks": []
       },
       {
-        "id": 15,
+        "id": "15",
         "title": "Implement Redeployment Phase",
         "description": "Implement src/game/engine/redeployment.ts with applyRedeployment(state, deployment) that redistributes active tokens among occupied regions. Enforce minimum 1 token per occupied region. Also handle defender redeployment (defeated tokens placed in other owned regions at end of attacker's turn).",
         "status": "pending",
         "dependencies": [
-          1,
-          10
+          "1",
+          "10"
         ],
         "priority": "high",
         "details": "Deployment is a map of regionId → tokenCount. Sum of all tokens must equal player's total active tokens. Each occupied region must have at least 1. Defender redeployment happens at end of active player's turn. If defender has no regions, they deploy on their next turn as first conquest. Reference PRD FR-26 through FR-28, FR-18b.",
-        "testStrategy": "Vitest: test valid redeployment, minimum token enforcement, defender redeployment, no-region defender case."
+        "testStrategy": "Vitest: test valid redeployment, minimum token enforcement, defender redeployment, no-region defender case.",
+        "subtasks": []
       },
       {
-        "id": 16,
+        "id": "16",
         "title": "Set Up Board Scene with Map Image and Hit Polygons",
         "description": "Create src/game/scenes/Board.ts Phaser scene with: pre-rendered map image as background, invisible interactive polygon hit zones for each region (from map2p.ts data), Phaser camera pan/zoom (pointer drag + scroll wheel), min/max zoom bounds. Regions emit click/hover events.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          2
+          "2"
         ],
         "priority": "high",
         "details": "Use Phaser's built-in camera system for pan/zoom. Hit zones are Phaser.GameObjects.Polygon with setInteractive(). Map image loaded in Boot scene. Camera bounds set to map image dimensions with some padding. Region hover should show a subtle highlight. Reference design/technical-design.md sections 5.2 and 8.",
-        "testStrategy": "Playwright: verify map renders, regions are clickable, pan/zoom works, camera stays within bounds."
+        "testStrategy": "Playwright: verify map renders, regions are clickable, pan/zoom works, camera stays within bounds.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T15:28:31.049Z"
       },
       {
-        "id": 17,
+        "id": "17",
         "title": "Set Up HUD Scene with Turn Track and Player Dashboards",
         "description": "Create src/game/scenes/HUD.ts Phaser scene running in parallel with Board scene. Fixed camera (no pan/zoom). Display: turn track (1-10), current phase indicator, active player highlight, player dashboards (race banner, power badge, token count, victory coins), and context-sensitive action buttons (End Conquest, Decline, Roll Die, Confirm Redeploy).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1,
-          16
+          "1",
+          "16"
         ],
         "priority": "high",
         "details": "HUD scene listens to GameController events to update display. Action buttons emit playerAction events for HumanPlayer. Use Phaser text/graphics for placeholder rendering. Layout: turn track top-left, phase indicator top-center, dashboards bottom-left/right, action panel bottom-center. Reference design/technical-design.md section 5.3.",
-        "testStrategy": "Playwright: verify HUD renders over board, turn track visible, dashboards show player info, action buttons respond to clicks."
+        "testStrategy": "Playwright: verify HUD renders over board, turn track visible, dashboards show player info, action buttons respond to clicks.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:45:06.370Z"
       },
       {
-        "id": 18,
+        "id": "18",
         "title": "Implement Placeholder Token Renderer",
         "description": "Create src/game/presentation/TokenRenderer.ts with PlaceholderTokenRenderer that draws colored circles with race initial letters for tokens on the board. Player 1 gets blue tones, Player 2 gets red tones. Active tokens are solid with bold borders, declined tokens are gray with dashed borders and reduced alpha. Tokens cluster around region centers.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          16
+          "16"
         ],
         "priority": "medium",
         "details": "Token stacking: 1 token centered, 2-3 triangular, 4+ circular with count label. Must support special markers (Troll lair, fortress, encampment, Hole-in-the-Ground, hero, dragon) as distinct shapes or icons. Reference design/technical-design.md section 10.",
-        "testStrategy": "Playwright: verify tokens render in correct regions, player colors are distinct, declined tokens visually different from active."
+        "testStrategy": "Playwright: verify tokens render in correct regions, player colors are distinct, declined tokens visually different from active.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:45:06.372Z"
       },
       {
-        "id": 19,
+        "id": "19",
         "title": "Implement Region Overlay Renderer",
         "description": "Create src/game/presentation/RegionRenderer.ts that draws vector overlays on top of the map image: ownership borders (player-colored, solid for active, dashed for declined), valid target highlights (pulsing glow), selection highlight, and special region markers. Listens to state changes to update overlays.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          16
+          "16"
         ],
         "priority": "medium",
         "details": "Overlays use Phaser.GameObjects.Graphics drawn on top of the map image layer but below the token layer. Active regions have bold colored borders matching player color. Declined regions have faded/dashed borders. Valid conquest targets pulse/glow when in conquest phase. Reference PRD visual design principles.",
-        "testStrategy": "Playwright: verify region borders appear with correct colors, valid targets highlight during conquest phase."
+        "testStrategy": "Playwright: verify region borders appear with correct colors, valid targets highlight during conquest phase.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:45:06.374Z"
       },
       {
-        "id": 20,
+        "id": "20",
         "title": "Implement GameController and Game Loop",
         "description": "Create src/game/GameController.ts that orchestrates the game loop: create initial state, alternate between players, get legal actions, wait for player decision (via IPlayer), compute new state via applyAction, trigger animations via choreographer, commit state, emit events for scene updates. Connect Board and HUD scenes to the controller via event bus.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          5,
-          8,
-          9,
-          10,
-          16,
-          17
+          "5",
+          "8",
+          "9",
+          "10",
+          "16",
+          "17"
         ],
         "priority": "high",
         "details": "The game loop is async: state → render → wait for player → animate → commit. Use Phaser.Events.EventEmitter as the shared event bus. GameController holds the canonical game state. Scenes are purely reactive (read state, render, emit user input). Reference design/technical-design.md section 5.4.",
-        "testStrategy": "Vitest: test game loop with mock IPlayers, verify state progression through full turn cycle. Playwright: test full turn in browser."
+        "testStrategy": "Vitest: test game loop with mock IPlayers, verify state progression through full turn cycle. Playwright: test full turn in browser.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:10:20.950Z"
       },
       {
-        "id": 21,
+        "id": "21",
         "title": "Implement IPlayer Interface and HumanPlayer",
         "description": "Create src/game/players/IPlayer.ts with the async IPlayer interface, and src/game/players/HumanPlayer.ts that resolves chooseAction when the user clicks a valid UI element. HumanPlayer listens to 'playerAction' events from the Board/HUD scenes and resolves the pending promise.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "high",
         "details": "IPlayer.chooseAction(state, legalActions) returns Promise<GameAction>. HumanPlayer creates a promise that resolves when eventBus emits 'playerAction'. Must handle phase-specific input: clicking regions for conquest, clicking combos for selection, clicking deploy button, etc. Reference design/technical-design.md section 8.",
-        "testStrategy": "Vitest: test HumanPlayer resolves on event emission. Playwright: test clicking a valid target resolves the action."
+        "testStrategy": "Vitest: test HumanPlayer resolves on event emission. Playwright: test clicking a valid target resolves the action.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T15:28:31.050Z"
       },
       {
-        "id": 22,
+        "id": "22",
         "title": "Implement Animation Choreographer",
         "description": "Create src/game/presentation/AnimationChoreographer.ts that translates GameActions into Phaser tween sequences. Implement animations for: conquest (tokens slide in, defenders scatter), combo selection (coins animate, tokens appear), decline (banners flip gray, tokens reduce), redeployment (tokens slide between regions), reinforcement die (tumble animation), scoring (coin cascade).",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          16,
-          18,
-          19
+          "16",
+          "18",
+          "19"
         ],
         "priority": "medium",
         "details": "Each animation is an async method returning a Promise that resolves when the tween sequence completes. Supports speed multiplier for AI-vs-AI playback. Camera auto-focuses on relevant area before each animation. Reference design/technical-design.md section 6.",
-        "testStrategy": "Playwright: verify animations play without errors, tokens end up in correct positions after animation."
+        "testStrategy": "Playwright: verify animations play without errors, tokens end up in correct positions after animation.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T19:51:56.155Z"
       },
       {
-        "id": 23,
+        "id": "23",
         "title": "Implement Stubbed Audio Manager",
         "description": "Create src/game/presentation/AudioManager.ts with the IAudioManager interface and StubAudioManager implementation. All methods are no-ops that optionally log to console in dev mode. Wire into AnimationChoreographer so audio calls are made at correct moments but produce no sound.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "low",
         "details": "Interface methods: playTokenPlace, playTokenSlide, playConquest, playDieRoll, playCoinScore, playDecline, playTurnTransition, playVictory, setAmbient, setVolume. Will be replaced with PhaserAudioManager in M5. Reference design/technical-design.md section 7.",
-        "testStrategy": "Vitest: verify stub methods exist and don't throw."
+        "testStrategy": "Vitest: verify stub methods exist and don't throw.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T15:28:31.052Z"
       },
       {
-        "id": 24,
+        "id": "24",
         "title": "Implement Combo Shop UI",
         "description": "Add combo shop display to the Board or HUD scene: 6 visible race/power combos in a vertical column, coin indicators on skipped combos, clickable selection. Show race name, power name, token count, and cost. Coins animate from player to skipped combos on selection. Shop replenishes visually after selection.",
         "status": "pending",
         "dependencies": [
-          3,
-          6,
-          17,
-          20
+          "3",
+          "6",
+          "17",
+          "20"
         ],
         "priority": "medium",
         "details": "Shop is displayed spatially on the canvas (right of map) or as a panel in HUD. Each combo shows race banner + power badge (placeholder text/icons for now). Top combo marked as 'FREE', others show coin cost. Player's available coins displayed. Reference PRD FR-8 through FR-12, interaction flow step 1.",
-        "testStrategy": "Playwright: verify 6 combos display, clicking a combo triggers selection, coins animate correctly, shop replenishes."
+        "testStrategy": "Playwright: verify 6 combos display, clicking a combo triggers selection, coins animate correctly, shop replenishes.",
+        "subtasks": []
       },
       {
-        "id": 25,
+        "id": "25",
         "title": "Implement Easy AI Player",
         "description": "Create src/game/players/AIPlayer.ts with easy difficulty: makes random but valid choices from getLegalActions(). Add configurable delay between actions for visual pacing. Implement for all action types: combo selection, conquest target, redeployment, decline decision.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          8,
-          21
+          "8",
+          "21"
         ],
         "priority": "medium",
         "details": "Easy AI picks randomly from legal actions with slight bias toward undefended regions for conquest. Decline decision is random (10% chance per turn). Redeployment distributes tokens evenly. Must work with the IPlayer async interface. Reference design/technical-design.md section 8.2 and AI opponent design doc.",
-        "testStrategy": "Vitest: test AI always returns legal actions, full game simulation completes without errors (random vs random)."
+        "testStrategy": "Vitest: test AI always returns legal actions, full game simulation completes without errors (random vs random).",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T20:11:18.296Z"
       },
       {
-        "id": 26,
+        "id": "26",
         "title": "Implement Medium AI Player",
         "description": "Extend AIPlayer with medium difficulty: heuristic evaluation for all decisions. Combo selection scores synergy with board state. Conquest prioritizes high-value low-cost targets. Decline considers remaining productivity vs best available combo. Redeployment defends borders.",
         "status": "pending",
         "dependencies": [
-          25
+          "25"
         ],
         "priority": "medium",
         "details": "Heuristic evaluators: ComboRanker (score combo by token count, terrain synergy, opponent vulnerability), ConquestPlanner (greedy: maximize coins gained per token spent), DeclineOracle (compare current race productivity to best combo value), TokenDeployer (stack borders adjacent to opponent). Reference AI opponent design doc section 3.",
-        "testStrategy": "Vitest: test heuristic evaluators produce reasonable rankings, medium AI beats easy AI >60% of the time over 100 simulated games."
+        "testStrategy": "Vitest: test heuristic evaluators produce reasonable rankings, medium AI beats easy AI >60% of the time over 100 simulated games.",
+        "subtasks": []
       },
       {
-        "id": 27,
+        "id": "27",
         "title": "Implement End Game Screen",
         "description": "Create end-game UI displayed when phase reaches 'gameOver': final scores for both players, winner announcement, score breakdown by turn (from game log), tiebreaker display if needed (most race tokens on board). Offer 'New Game' and 'Main Menu' buttons.",
         "status": "pending",
         "dependencies": [
-          12,
-          17,
-          20
+          "12",
+          "17",
+          "20"
         ],
         "priority": "medium",
         "details": "Tiebreaker: if coin totals are equal, player with most race tokens (Active + In Decline) on the board wins. Score breakdown uses the GameLogEntry history to show coins earned per turn. Victory fanfare animation (placeholder for now). Reference PRD FR-39 through FR-42.",
-        "testStrategy": "Playwright: verify end screen shows after turn 10, correct winner displayed, new game button works."
+        "testStrategy": "Playwright: verify end screen shows after turn 10, correct winner displayed, new game button works.",
+        "subtasks": []
       },
       {
-        "id": 28,
+        "id": "28",
         "title": "Implement Contextual Tooltips",
         "description": "Add hover tooltips to all interactive game elements: regions (terrain type, defense value, owner), race banners (race ability description), power badges (power ability description), combo shop entries (full details), tokens (race name, active/declined). Use Phaser text objects positioned near the hovered element.",
         "status": "pending",
         "dependencies": [
-          3,
-          16,
-          17,
-          18
+          "3",
+          "16",
+          "17",
+          "18"
         ],
         "priority": "low",
         "details": "Tooltips appear on pointer hover with a small delay (~300ms). Positioned to avoid going off-screen. Include race/power ability descriptions from the data tables. Valid action hints during conquest phase ('Click to conquer — costs 3 tokens'). Reference PRD US-12, FR-33, FR-35.",
-        "testStrategy": "Playwright: verify tooltip appears on hover over region, shows correct terrain info, tooltip for race shows ability text."
+        "testStrategy": "Playwright: verify tooltip appears on hover over region, shows correct terrain info, tooltip for race shows ability text.",
+        "subtasks": []
       },
       {
-        "id": 29,
+        "id": "29",
         "title": "Set Up Vitest for Unit Testing",
         "description": "Install and configure Vitest for the project. Create vitest.config.ts with TypeScript support, path aliases matching vite.config.ts (@/ → src/), and coverage reporting. Create test directory structure under tests/unit/. Write a sample test to verify setup works.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "details": "Vitest integrates natively with Vite. Configure to use the same tsconfig and path aliases. Set up coverage with v8 or istanbul provider. Tests use .test.ts extension. Run with 'npx vitest' or add npm script.",
-        "testStrategy": "Run vitest and verify sample test passes."
+        "testStrategy": "Run vitest and verify sample test passes.",
+        "subtasks": [],
+        "updatedAt": "2026-02-21T14:59:43.999Z"
       },
       {
-        "id": 30,
+        "id": "30",
         "title": "Implement Main Menu with Game Mode Selection",
         "description": "Update src/game/scenes/MainMenu.ts to offer game mode selection: Human vs Human, Human vs AI (with difficulty selector: Easy/Medium), and AI vs AI (with speed control). Selected mode configures which IPlayer implementations are used. Transition to Board + HUD scenes with the configured GameController.",
         "status": "pending",
         "dependencies": [
-          20,
-          21,
-          25
+          "20",
+          "21",
+          "25"
         ],
         "priority": "medium",
         "details": "Main menu should display: game title, mode selection buttons, difficulty dropdown for AI modes, 'Start Game' button. AI vs AI mode includes playback speed control (0.5x, 1x, 2x, 4x). Reference PRD play modes: Human vs Human (hot-seat), Human vs AI, AI vs AI.",
-        "testStrategy": "Playwright: verify menu renders, mode selection works, game starts with correct player types."
+        "testStrategy": "Playwright: verify menu renders, mode selection works, game starts with correct player types.",
+        "subtasks": []
       }
     ],
     "metadata": {
-      "created": "2026-02-20T23:48:46.001Z",
-      "updated": "2026-02-20T23:48:46.001Z",
-      "description": "Tasks for master context"
+      "version": "1.0.0",
+      "lastModified": "2026-02-21T20:11:18.296Z",
+      "taskCount": 30,
+      "completedCount": 22,
+      "tags": [
+        "master"
+      ]
     }
   }
 }

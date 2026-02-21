@@ -63,9 +63,9 @@ function _pickAction(actions: readonly GameAction[]): GameAction {
     return _randomFrom(combos);
   }
 
-  // --- Redeploy: pick a random deployment from legal list -------------------
-  const redeployAction = actions.find((a) => a.type === 'redeploy');
-  if (redeployAction) return redeployAction;
+  // --- Redeploy: placeholder redeploy has empty Map — skip it.
+  // AI always commits redeployment by picking endPhase (accepts default layout).
+  // (Real UI-submitted redeploy actions have non-empty Maps and are validated.)
 
   // --- Ghoul conquest -------------------------------------------------------
   const ghoulActions = actions.filter((a) => a.type === 'ghoulConquer');

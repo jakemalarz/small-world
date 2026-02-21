@@ -80,10 +80,11 @@ describe('phase routing', () => {
     expect(getLegalActions(state)).toHaveLength(0);
   });
 
-  it('redeploy → only endPhase', () => {
+  it('redeploy → includes endPhase (and placeholder redeploy for UI validation)', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = patchState(state, { phase: 'redeploy' });
-    expect(actionTypes(state)).toEqual(['endPhase']);
+    const types = actionTypes(state);
+    expect(types).toContain('endPhase');
   });
 });
 

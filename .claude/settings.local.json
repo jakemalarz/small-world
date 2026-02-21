@@ -39,7 +39,12 @@
       "mcp__taskmaster-ai__parse_prd",
       "mcp__taskmaster-ai__get_tasks",
       "mcp__taskmaster-ai__next_task",
-      "mcp__taskmaster-ai__update_subtask"
+      "mcp__taskmaster-ai__update_subtask",
+      "Bash(git -C /Users/jakemalarz/cc-dmz/small-world add CLAUDE.md)",
+      "Bash(git -C:*)",
+      "mcp__taskmaster-ai__set_task_status",
+      "Bash(npm test:*)",
+      "mcp__taskmaster-ai__get_task"
     ]
   }
 }

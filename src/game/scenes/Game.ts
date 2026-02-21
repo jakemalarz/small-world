@@ -1,16 +1,20 @@
 import Phaser from 'phaser';
 import { GameController } from '@/game/GameController';
 import { HumanPlayer } from '@/game/players/HumanPlayer';
+import { AIPlayer } from '@/game/players/AIPlayer';
+import type { IPlayer } from '@/game/players/IPlayer';
 import type { Board } from '@/game/scenes/Board';
 import type { HUD } from '@/game/scenes/HUD';
+import type { GameModeConfig } from '@/game/scenes/MainMenu';
 
 // ── Game Scene ────────────────────────────────────────────────────────────────
 //
-// Orchestration scene: launches Board + HUD in parallel, wires up the
-// shared event bus, constructs players, and starts the GameController loop.
+// Orchestration scene: receives GameModeConfig from MainMenu, launches Board +
+// HUD in parallel, creates appropriate player instances, and starts the
+// GameController async loop.
 //
-// This scene itself renders nothing — it simply manages scene lifecycle and
-// holds the controller reference so Phaser can call update() every frame.
+// This scene itself renders nothing — it holds the controller and calls
+// update() every frame so the region-glow pulse animation works.
 
 export class Game extends Phaser.Scene {
   private controller: GameController | null = null;
@@ -21,16 +25,23 @@ export class Game extends Phaser.Scene {
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
-  create(): void {
+  create(data?: { gameModeConfig?: GameModeConfig }): void {
+    const config: GameModeConfig = data?.gameModeConfig ?? {
+      mode: 'hvh',
+      difficulty: 'easy',
+      speed: 1.0,
+    };
+
+    // Store config for use in deferred init
+    this.registry.set('gameModeConfig', config);
+
     // Launch Board (map + interaction) and HUD (UI overlay) as parallel scenes
     this.scene.launch('Board');
     this.scene.launch('HUD');
 
-    // Phaser 3: launched scenes with no preload phase have their create()
-    // called before the first update(). Defer controller init by one frame
-    // to ensure both scenes have fully created their Phaser game objects.
+    // Defer controller init by one frame so Board/HUD have had create() called
     this.events.once('update', () => {
-      this._initController();
+      this._initController(config);
     });
   }
 
@@ -40,28 +51,65 @@ export class Game extends Phaser.Scene {
 
   // ── Private ───────────────────────────────────────────────────────────────
 
-  private _initController(): void {
+  private _initController(config: GameModeConfig): void {
     const boardScene = this.scene.get('Board') as Board;
     const hudScene   = this.scene.get('HUD')   as HUD;
 
     // Shared event bus — bridges Board/HUD clicks to HumanPlayer.chooseAction
     const eventBus = new Phaser.Events.EventEmitter();
 
-    // Default: Human vs Human (hot-seat). Task 30 (MainMenu) will pass mode.
-    const players: [HumanPlayer, HumanPlayer] = [
-      new HumanPlayer('Player 1', eventBus),
-      new HumanPlayer('Player 2', eventBus),
-    ];
+    const { mode, difficulty, speed } = config;
+    const aiDelay = speed >= 4.0 ? 0 : Math.round(600 / speed);
+
+    let players: [IPlayer, IPlayer];
+
+    switch (mode) {
+      case 'hvh':
+        players = [
+          new HumanPlayer('Player 1', eventBus),
+          new HumanPlayer('Player 2', eventBus),
+        ];
+        break;
+      case 'hvai':
+        players = [
+          new HumanPlayer('Player 1', eventBus),
+          new AIPlayer(difficulty === 'easy' ? 'Easy AI' : 'Medium AI', aiDelay),
+        ];
+        break;
+      case 'aivai':
+        players = [
+          new AIPlayer('AI-1', aiDelay),
+          new AIPlayer('AI-2', aiDelay),
+        ];
+        break;
+      default:
+        players = [
+          new HumanPlayer('Player 1', eventBus),
+          new HumanPlayer('Player 2', eventBus),
+        ];
+    }
+
+    // Randomly decide who goes first
+    const firstPlayerIndex: 0 | 1 = Math.random() < 0.5 ? 0 : 1;
 
     this.controller = new GameController(boardScene, hudScene, eventBus, {
       players,
-      firstPlayerIndex: 0,
-      animationSpeed: 1.0,
+      firstPlayerIndex,
+      animationSpeed: mode === 'aivai' ? speed : 1.0,
     });
 
-    // Start the async game loop (fire-and-forget; runs until gameOver)
-    this.controller.start().catch((err: unknown) => {
-      console.error('[GameController] Fatal error in game loop:', err);
-    });
+    // Start the async game loop; on completion show the end game screen
+    this.controller.start()
+      .then(() => {
+        const finalState = this.controller!.state;
+        // Stop Board + HUD, launch GameOver screen
+        this.scene.stop('Board');
+        this.scene.stop('HUD');
+        this.scene.launch('GameOver', { state: finalState });
+        this.scene.stop();
+      })
+      .catch((err: unknown) => {
+        console.error('[GameController] Fatal error in game loop:', err);
+      });
   }
 }

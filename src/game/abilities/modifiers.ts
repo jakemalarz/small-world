@@ -1,4 +1,6 @@
-import type { Terrain } from '@/game/state/types';
+import type { Terrain, PlayerState } from '@/game/state/types';
+import { RACES } from '@/game/data/races';
+import { POWERS } from '@/game/data/powers';
 
 // Declarative modifier flags that cover ~70% of race/power abilities.
 // Complex abilities (Sorcerers, Dragon Master, Halflings, etc.) use
@@ -77,4 +79,142 @@ export interface AbilityModifiers {
   // ── Reinforcement die ────────────────────────────────────────────────────────
   /** Use the reinforcement die on every conquest attempt, not just the last (Berserk) */
   berserkDie?: boolean;
+}
+
+// ── Merged/resolved modifier view ────────────────────────────────────────────
+// This is what game engine functions (conquestCost, scoring, legalActions)
+// consume. Arrays allow both race and power to each contribute bonuses.
+
+export interface MergedModifiers {
+  // Conquest cost deltas (summed; minimum total cost enforced at call site)
+  readonly conquestCostFlat: number;
+  readonly conquestCostCoastal: number;
+  readonly conquestCostAdjacentOwnMountain: number;
+  readonly conquestCostCavern: number;
+  readonly terrainCostModifiers: readonly {
+    readonly terrains: readonly Terrain[];
+    readonly modifier: number;
+  }[];
+  // Movement / adjacency
+  readonly ignoreAdjacency: boolean;
+  readonly canConquerSeas: boolean;
+  readonly firstConquestAnywhere: boolean;
+  readonly cavernsAreAdjacent: boolean;
+  // Scoring — arrays so race AND power can each contribute
+  readonly terrainBonuses: readonly {
+    readonly terrain: Terrain;
+    readonly bonus: number;
+  }[];
+  readonly featureBonuses: readonly {
+    readonly feature: 'mine' | 'magicSource' | 'cavern';
+    readonly bonus: number;
+    readonly appliesInDecline: boolean;
+  }[];
+  readonly bonusPerRegion: number;
+  readonly bonusPerNonEmptyConquest: number;
+  readonly flatBonusPerTurn: number;
+  readonly firstTurnBonus: number;
+  // Token generation
+  readonly conquestOnlyTokens: number;
+  readonly tokenGenerators: readonly {
+    readonly nonEmptyConquestsRequired: number;
+    readonly tokensGained: number;
+  }[];
+  // Defense
+  readonly placesLair: boolean;
+  readonly noDefeatCasualties: boolean;
+  // Decline
+  readonly keepAllTokensInDecline: boolean;
+  readonly declineRacesSurvive: boolean;
+  readonly canDeclineAfterConquest: boolean;
+  // Die
+  readonly berserkDie: boolean;
+}
+
+export const EMPTY_MODIFIERS: MergedModifiers = {
+  conquestCostFlat: 0,
+  conquestCostCoastal: 0,
+  conquestCostAdjacentOwnMountain: 0,
+  conquestCostCavern: 0,
+  terrainCostModifiers: [],
+  ignoreAdjacency: false,
+  canConquerSeas: false,
+  firstConquestAnywhere: false,
+  cavernsAreAdjacent: false,
+  terrainBonuses: [],
+  featureBonuses: [],
+  bonusPerRegion: 0,
+  bonusPerNonEmptyConquest: 0,
+  flatBonusPerTurn: 0,
+  firstTurnBonus: 0,
+  conquestOnlyTokens: 0,
+  tokenGenerators: [],
+  placesLair: false,
+  noDefeatCasualties: false,
+  keepAllTokensInDecline: false,
+  declineRacesSurvive: false,
+  canDeclineAfterConquest: false,
+  berserkDie: false,
+};
+
+/** Merge race + power modifiers for the active player's race/power combo. */
+export function getActiveModifiers(player: PlayerState): MergedModifiers {
+  if (!player.activeRace) return EMPTY_MODIFIERS;
+  const race = RACES[player.activeRace.raceId];
+  const power = POWERS[player.activeRace.powerId];
+  return mergeModifiers(race.modifiers, power.modifiers);
+}
+
+function mergeModifiers(r: AbilityModifiers, p: AbilityModifiers): MergedModifiers {
+  const terrainBonuses: { terrain: Terrain; bonus: number }[] = [];
+  if (r.bonusPerTerrain) terrainBonuses.push(r.bonusPerTerrain);
+  if (p.bonusPerTerrain) terrainBonuses.push(p.bonusPerTerrain);
+
+  const featureBonuses: {
+    feature: 'mine' | 'magicSource' | 'cavern';
+    bonus: number;
+    appliesInDecline: boolean;
+  }[] = [];
+  if (r.bonusPerRegionFeature) {
+    featureBonuses.push({ ...r.bonusPerRegionFeature, appliesInDecline: r.bonusPerRegionFeature.appliesInDecline ?? false });
+  }
+  if (p.bonusPerRegionFeature) {
+    featureBonuses.push({ ...p.bonusPerRegionFeature, appliesInDecline: p.bonusPerRegionFeature.appliesInDecline ?? false });
+  }
+
+  const terrainCostModifiers = [
+    ...(r.conquestCostTerrainModifier ? [r.conquestCostTerrainModifier] : []),
+    ...(p.conquestCostTerrainModifier ? [p.conquestCostTerrainModifier] : []),
+  ];
+
+  const tokenGenerators = [
+    ...(r.tokensPerNonEmptyConquests ? [r.tokensPerNonEmptyConquests] : []),
+    ...(p.tokensPerNonEmptyConquests ? [p.tokensPerNonEmptyConquests] : []),
+  ];
+
+  return {
+    conquestCostFlat: (r.conquestCostModifier ?? 0) + (p.conquestCostModifier ?? 0),
+    conquestCostCoastal: (r.conquestCostCoastalModifier ?? 0) + (p.conquestCostCoastalModifier ?? 0),
+    conquestCostAdjacentOwnMountain: (r.conquestCostAdjacentOwnMountainModifier ?? 0) + (p.conquestCostAdjacentOwnMountainModifier ?? 0),
+    conquestCostCavern: (r.conquestCostCavernModifier ?? 0) + (p.conquestCostCavernModifier ?? 0),
+    terrainCostModifiers,
+    ignoreAdjacency: (r.ignoreAdjacency ?? false) || (p.ignoreAdjacency ?? false),
+    canConquerSeas: (r.canConquerSeas ?? false) || (p.canConquerSeas ?? false),
+    firstConquestAnywhere: (r.firstConquestAnywhere ?? false) || (p.firstConquestAnywhere ?? false),
+    cavernsAreAdjacent: (r.cavernsAreAdjacent ?? false) || (p.cavernsAreAdjacent ?? false),
+    terrainBonuses,
+    featureBonuses,
+    bonusPerRegion: (r.bonusPerRegion ?? 0) + (p.bonusPerRegion ?? 0),
+    bonusPerNonEmptyConquest: (r.bonusPerNonEmptyConquest ?? 0) + (p.bonusPerNonEmptyConquest ?? 0),
+    flatBonusPerTurn: (r.flatBonusPerTurn ?? 0) + (p.flatBonusPerTurn ?? 0),
+    firstTurnBonus: (r.firstTurnBonus ?? 0) + (p.firstTurnBonus ?? 0),
+    conquestOnlyTokens: (r.conquestOnlyTokens ?? 0) + (p.conquestOnlyTokens ?? 0),
+    tokenGenerators,
+    placesLair: (r.placesLair ?? false) || (p.placesLair ?? false),
+    noDefeatCasualties: (r.noDefeatCasualties ?? false) || (p.noDefeatCasualties ?? false),
+    keepAllTokensInDecline: (r.keepAllTokensInDecline ?? false) || (p.keepAllTokensInDecline ?? false),
+    declineRacesSurvive: (r.declineRacesSurvive ?? false) || (p.declineRacesSurvive ?? false),
+    canDeclineAfterConquest: (r.canDeclineAfterConquest ?? false) || (p.canDeclineAfterConquest ?? false),
+    berserkDie: (r.berserkDie ?? false) || (p.berserkDie ?? false),
+  };
 }
