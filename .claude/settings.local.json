@@ -44,7 +44,8 @@
       "Bash(git -C:*)",
       "mcp__taskmaster-ai__set_task_status",
       "Bash(npm test:*)",
-      "mcp__taskmaster-ai__get_task"
+      "mcp__taskmaster-ai__get_task",
+      "Bash(git stash:*)"
     ]
   }
 }
