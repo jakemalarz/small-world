@@ -139,20 +139,41 @@ export class AnimationChoreographer {
     await this._delay(1000 / this.speed);
   }
 
-  /** Reinforcement die tumble. */
-  async animateDieRoll(): Promise<void> {
+  /** Reinforcement die tumble — shows the result value on the die face. */
+  async animateDieRoll(result?: 0 | 1 | 2 | 3): Promise<void> {
     this.audio.playDieRoll();
 
-    const die = this.scene.add.rectangle(
-      this.scene.scale.width / 2, this.scene.scale.height / 2,
-      40, 40, 0xe8d5b7,
-    ).setDepth(30);
+    const cx = this.scene.scale.width / 2;
+    const cy = this.scene.scale.height / 2;
 
-    // Tumble: rotate while shrinking then growing
+    const die = this.scene.add.rectangle(cx, cy, 56, 56, 0xe8d5b7)
+      .setStrokeStyle(3, 0x4a3520)
+      .setDepth(30);
+
+    const resultLabel = this.scene.add.text(cx, cy, '', {
+      fontSize: '28px', fontFamily: 'Georgia, serif', color: '#1a1a30', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(31).setAlpha(0);
+
+    // Tumble: rotate while shrinking
     await this._tween(die, { angle: 720, scaleX: 0.5, scaleY: 0.5 }, 400 / this.speed);
     await this._tween(die, { scaleX: 1, scaleY: 1 }, 150 / this.speed);
-    await this._delay(300 / this.speed);
+
+    // Reveal result number
+    if (result !== undefined) {
+      resultLabel.setText(`${result}`);
+      resultLabel.setAlpha(1);
+      const isZero = result === 0;
+      resultLabel.setColor(isZero ? '#dc2626' : '#16a34a');
+    }
+
+    await this._delay(600 / this.speed);
+    // Fade out
+    await Promise.all([
+      this._tween(die, { alpha: 0 }, 200 / this.speed),
+      this._tween(resultLabel, { alpha: 0 }, 200 / this.speed),
+    ]);
     die.destroy();
+    resultLabel.destroy();
   }
 
   // ── Camera helpers ────────────────────────────────────────────────────────

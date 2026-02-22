@@ -10,6 +10,12 @@ import type { GameState, TurnPhase, GameAction, PlayerState } from '@/game/state
 export function getNextPhase(state: GameState, completedAction: GameAction): TurnPhase {
   switch (state.phase) {
     case 'selectCombo':
+      // Shop exhausted — skip to readyTroops (or ghoulConquest)
+      if (completedAction.type === 'endPhase') {
+        return hasGhoulsInDecline(state.players[state.activePlayerIndex])
+          ? 'ghoulConquest'
+          : 'readyTroops';
+      }
       // After picking a combo, Ghoul In-Decline tokens act before the active race
       return hasGhoulsInDecline(state.players[state.activePlayerIndex])
         ? 'ghoulConquest'
@@ -21,6 +27,8 @@ export function getNextPhase(state: GameState, completedAction: GameAction): Tur
       return 'ghoulConquest';
 
     case 'readyTroops':
+      // Decline from readyTroops applies immediately → skip to scoring
+      if (completedAction.type === 'decline') return 'score';
       if (completedAction.type === 'endPhase') return 'conquest';
       return 'readyTroops';
 

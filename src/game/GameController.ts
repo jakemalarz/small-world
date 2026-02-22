@@ -63,6 +63,14 @@ export class GameController {
   private running = false;
   /** True while the controller is blocked waiting for a player action (e2e sync point). */
   readyForInput = false;
+  /** True when combo shop is open in browse-only mode (FR-54). */
+  private _browseMode = false;
+  /** True when pan-only mode is active (FR-60). */
+  private _panMode = false;
+  /** Mutable deployment map for interactive redeployment (FR-57). */
+  private _redeployMap: Map<number, number> = new Map();
+  /** Tokens remaining in hand during redeployment. */
+  private _redeployTokensInHand = 0;
 
   constructor(
     boardScene: Board,
@@ -96,12 +104,40 @@ export class GameController {
 
     // Bridge HUD action button → shared eventBus
     this.hudScene.events.on('playerAction', (action: GameAction) => {
+      // FR-57: intercept endPhase during redeploy to submit deployment map
+      if (action.type === 'endPhase' && this.state.phase === 'redeploy' && this._redeployMap.size > 0) {
+        this.eventBus.emit('playerAction', { type: 'redeploy', deployment: new Map(this._redeployMap) });
+        this._redeployMap.clear();
+        this._redeployTokensInHand = 0;
+        return;
+      }
       this.eventBus.emit('playerAction', action);
+    });
+
+    // Browse mode events (FR-54)
+    this.hudScene.events.on('browseComboOpen', () => {
+      this._browseMode = true;
+      this._renderState();
+    });
+    this.hudScene.events.on('browseComboClose', () => {
+      this._browseMode = false;
+      this._renderState();
+    });
+
+    // Pan mode toggle (FR-60)
+    this.hudScene.events.on('panModeChanged', (panMode: boolean) => {
+      this._panMode = panMode;
+      this._renderState();
     });
 
     // Bridge Board region clicks → shared eventBus (convert to legal action)
     this.boardScene.events.on('regionClick', ({ regionId }: RegionEvent) => {
       this._onRegionClick(regionId);
+    });
+
+    // Right-click for redeploy token removal (FR-57)
+    this.boardScene.events.on('regionRightClick', ({ regionId }: RegionEvent) => {
+      this._onRegionRightClick(regionId);
     });
 
     // Bridge Board region hover → tooltip
@@ -128,6 +164,7 @@ export class GameController {
     this.tooltip.destroy();
     this.hudScene.events.off('playerAction');
     this.boardScene.events.off('regionClick');
+    this.boardScene.events.off('regionRightClick');
     this.boardScene.events.off('regionHover');
     this.boardScene.events.off('regionOut');
   }
@@ -146,7 +183,12 @@ export class GameController {
     if (this.state.phase === 'reinforcementDie' && !this.state.reinforcementDie) {
       const result = rollReinforcementDie();
       this.state = { ...this.state, reinforcementDie: { result, targetRegionId: null } };
-      await this.choreographer.animateDieRoll();
+      await this.choreographer.animateDieRoll(result);
+    }
+
+    // Initialize redeployment map when entering redeploy phase (FR-57)
+    if (this.state.phase === 'redeploy' && this._redeployMap.size === 0) {
+      this._initRedeployMap();
     }
 
     this.legalActions = getLegalActions(this.state);
@@ -161,11 +203,22 @@ export class GameController {
     this.state = applyAction(this.state, action);
 
     this.selectedRegionId = null;
+
+    // Clear redeploy state if phase changed away from redeploy
+    if (this.state.phase !== 'redeploy') {
+      this._redeployMap.clear();
+      this._redeployTokensInHand = 0;
+    }
   }
 
   private _renderState(): void {
     this.hudScene.refresh(this.state);
     this.tokenRenderer.render(this.state);
+
+    // Disable Board interactions while combo shop HUD is open (FR-55)
+    const shopOpen = this.state.phase === 'selectCombo' || this._browseMode;
+    this.boardScene.input.enabled = !shopOpen;
+    if (shopOpen) this.tooltip.showRegionTooltip(null, 0, 0);
 
     // Collect valid conquest/reinforcement target IDs for the glow overlay
     const validTargetIds = new Set<number>();
@@ -175,12 +228,27 @@ export class GameController {
       }
     }
 
-    this.regionRenderer.render(this.state, validTargetIds, this.selectedRegionId);
+    // Detect first conquest: active player has no tokens on board yet (FR-56)
+    const activePlayer = this.state.players[this.state.activePlayerIndex];
+    const isFirstConquest = this.state.phase === 'conquest' &&
+      activePlayer.activeRace !== null &&
+      activePlayer.activeRace.tokensOnBoard === 0;
+
+    this.regionRenderer.render(this.state, validTargetIds, this.selectedRegionId, isFirstConquest);
     this.tooltip.setGameState(this.state);
   }
 
   /** Convert a Board region-click into a playerAction event if it is legal. */
   private _onRegionClick(regionId: number): void {
+    // FR-60: pan mode suppresses all region interactions
+    if (this._panMode) return;
+
+    // FR-57: left-click during redeploy adds a token
+    if (this.state.phase === 'redeploy') {
+      this._redeployAddToken(regionId);
+      return;
+    }
+
     const action = this.legalActions.find(
       (a) =>
         (a.type === 'conquer' || a.type === 'useReinforcement') &&
@@ -190,6 +258,67 @@ export class GameController {
       this.selectedRegionId = regionId;
       this.eventBus.emit('playerAction', action);
     }
+  }
+
+  /** FR-57: right-click during redeploy removes a token. */
+  private _onRegionRightClick(regionId: number): void {
+    if (this._panMode) return;
+    if (this.state.phase !== 'redeploy') return;
+    this._redeployRemoveToken(regionId);
+  }
+
+  /** Initialize the deployment map from current board state. */
+  private _initRedeployMap(): void {
+    this._redeployMap.clear();
+    const player = this.state.players[this.state.activePlayerIndex];
+    this._redeployTokensInHand = player.availableTokens;
+
+    for (const region of this.state.board.regions) {
+      if (region.owner === this.state.activePlayerIndex && !region.isDeclined) {
+        this._redeployMap.set(region.id, region.tokens);
+      }
+    }
+  }
+
+  /** Add one token to a region during redeployment. */
+  private _redeployAddToken(regionId: number): void {
+    if (this._redeployTokensInHand <= 0) return;
+    const current = this._redeployMap.get(regionId);
+    if (current === undefined) return; // not an owned active region
+    this._redeployMap.set(regionId, current + 1);
+    this._redeployTokensInHand--;
+    this._renderRedeployPreview();
+  }
+
+  /** Remove one token from a region during redeployment (min 1). */
+  private _redeployRemoveToken(regionId: number): void {
+    const current = this._redeployMap.get(regionId);
+    if (current === undefined || current <= 1) return; // must leave at least 1
+    this._redeployMap.set(regionId, current - 1);
+    this._redeployTokensInHand++;
+    this._renderRedeployPreview();
+  }
+
+  /** Update token display with redeployment preview. */
+  private _renderRedeployPreview(): void {
+    // Create a temporary preview state to reflect the deploy map
+    const newRegions = this.state.board.regions.map((r) => {
+      const count = this._redeployMap.get(r.id);
+      if (count !== undefined) return { ...r, tokens: count };
+      return r;
+    });
+    const previewState = {
+      ...this.state,
+      board: { regions: newRegions },
+      players: this.state.players.map((p, i) =>
+        i === this.state.activePlayerIndex
+          ? { ...p, availableTokens: this._redeployTokensInHand }
+          : p,
+      ) as [typeof this.state.players[0], typeof this.state.players[1]],
+    };
+    this.hudScene.refresh(previewState);
+    this.tokenRenderer.render(previewState);
+    this.regionRenderer.render(previewState, new Set(), null);
   }
 
   private _onGameOver(): void {

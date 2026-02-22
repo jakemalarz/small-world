@@ -5,8 +5,9 @@ import { MAP_2P } from '@/game/data/map2p';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PLAYER_STROKE: readonly [number, number] = [0x3b82f6, 0xef4444]; // blue, red
-const VALID_TARGET_COLOR = 0x22c55e;   // green pulse for valid conquest targets
-const SELECTED_COLOR     = 0xfbbf24;  // gold for the selected region
+const VALID_TARGET_COLOR       = 0x22c55e; // green pulse for valid conquest targets
+const FIRST_CONQUEST_COLOR     = 0xf59e0b; // amber pulse for first-conquest entry regions (FR-56)
+const SELECTED_COLOR           = 0xfbbf24; // gold for the selected region
 
 const BORDER_ALPHA_ACTIVE   = 0.85;
 const BORDER_ALPHA_DECLINED = 0.4;
@@ -32,6 +33,7 @@ export class RegionRenderer {
   private readonly glowGfx: Phaser.GameObjects.Graphics;
 
   private lastValidTargets: ReadonlySet<number> = new Set();
+  private lastIsFirstConquest = false;
 
   constructor(scene: Phaser.Scene) {
     // Borders sit just above the map image
@@ -51,10 +53,12 @@ export class RegionRenderer {
     state: GameState,
     validTargetIds: ReadonlySet<number> = new Set(),
     selectedId: number | null = null,
+    isFirstConquest = false,
   ): void {
     this.lastValidTargets = validTargetIds;
+    this.lastIsFirstConquest = isFirstConquest;
     this._drawBorders(state, selectedId);
-    this._drawGlows(validTargetIds, 1.0); // static alpha; update() pulses it
+    this._drawGlows(validTargetIds, 1.0, isFirstConquest);
   }
 
   /**
@@ -63,7 +67,7 @@ export class RegionRenderer {
   update(time: number): void {
     if (this.lastValidTargets.size === 0) return;
     const alpha = 0.3 + 0.35 * Math.sin((time / PULSE_PERIOD_MS) * Math.PI * 2);
-    this._drawGlows(this.lastValidTargets, alpha);
+    this._drawGlows(this.lastValidTargets, alpha, this.lastIsFirstConquest);
   }
 
   destroy(): void {
@@ -107,20 +111,22 @@ export class RegionRenderer {
     }
   }
 
-  private _drawGlows(targetIds: ReadonlySet<number>, alpha: number): void {
+  private _drawGlows(targetIds: ReadonlySet<number>, alpha: number, isFirstConquest = false): void {
     this.glowGfx.clear();
     if (targetIds.size === 0 || alpha <= 0) return;
+
+    const color = isFirstConquest ? FIRST_CONQUEST_COLOR : VALID_TARGET_COLOR;
 
     for (const id of targetIds) {
       const mapRegion = MAP_2P.regions.find((r) => r.id === id);
       if (!mapRegion) continue;
 
-      this.glowGfx.fillStyle(VALID_TARGET_COLOR, alpha * 0.45);
+      this.glowGfx.fillStyle(color, alpha * 0.45);
       this.glowGfx.fillPoints(
         mapRegion.polygon.map(([x, y]) => new Phaser.Geom.Point(x, y)),
         true,
       );
-      this.glowGfx.lineStyle(3, VALID_TARGET_COLOR, alpha * 0.8);
+      this.glowGfx.lineStyle(3, color, alpha * 0.8);
       this.glowGfx.strokePoints(
         mapRegion.polygon.map(([x, y]) => new Phaser.Geom.Point(x, y)),
         true,

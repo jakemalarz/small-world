@@ -8,7 +8,7 @@
         "status": "done",
         "dependencies": [],
         "priority": "high",
-        "details": "Reference design/technical-design.md section 2 for the full type definitions. This is the foundational layer \u2014 all other tasks depend on these types being correct and complete. Note: each race has a finite maxSupply of tokens (see PRD race table). ActiveRaceState needs a maxSupply field. Lost Tribes have a supply of 18.",
+        "details": "Reference design/technical-design.md section 2 for the full type definitions. This is the foundational layer — all other tasks depend on these types being correct and complete. Note: each race has a finite maxSupply of tokens (see PRD race table). ActiveRaceState needs a maxSupply field. Lost Tribes have a supply of 18.",
         "testStrategy": "Vitest: verify types compile with strict TypeScript, create sample state objects to confirm structure.",
         "updatedAt": "2026-02-21T14:59:43.997Z",
         "subtasks": []
@@ -75,7 +75,7 @@
       {
         "id": "6",
         "title": "Implement Combo Shop Logic",
-        "description": "Create src/game/engine/comboShop.ts with: selectCombo(state, comboIndex) \u2014 applies coin cost for skipping, awards combo's coins to player, sets player's active race with correct token count (race base + power bonus), and replenishes the shop by shifting combos up and dealing a new one from the decks.",
+        "description": "Create src/game/engine/comboShop.ts with: selectCombo(state, comboIndex) — applies coin cost for skipping, awards combo's coins to player, sets player's active race with correct token count (race base + power bonus), and replenishes the shop by shifting combos up and dealing a new one from the decks.",
         "status": "done",
         "dependencies": [
           "1",
@@ -122,7 +122,7 @@
       {
         "id": "9",
         "title": "Implement Phase State Machine",
-        "description": "Create src/game/engine/phaseTransition.ts with getNextPhase(state, completedAction) implementing the turn phase state machine: selectCombo \u2192 readyTroops \u2192 conquest \u2192 reinforcementDie \u2192 redeploy \u2192 score \u2192 (optional decline for Stout). Handle conditional transitions: skip selectCombo if player has active race, skip reinforcementDie if not eligible, Ghoul decline conquest before active race.",
+        "description": "Create src/game/engine/phaseTransition.ts with getNextPhase(state, completedAction) implementing the turn phase state machine: selectCombo → readyTroops → conquest → reinforcementDie → redeploy → score → (optional decline for Stout). Handle conditional transitions: skip selectCombo if player has active race, skip reinforcementDie if not eligible, Ghoul decline conquest before active race.",
         "status": "done",
         "dependencies": [
           "1"
@@ -146,7 +146,7 @@
           "9"
         ],
         "priority": "high",
-        "details": "Must handle all GameAction types. Conquest actions must: place attacker tokens, handle defeated tokens (1 discarded, rest returned to defender), handle Lost Tribe/single In Decline token removal, update region ownership. Must enforce immutability \u2014 never mutate input state. Reference PRD FR-13 through FR-28.",
+        "details": "Must handle all GameAction types. Conquest actions must: place attacker tokens, handle defeated tokens (1 discarded, rest returned to defender), handle Lost Tribe/single In Decline token removal, update region ownership. Must enforce immutability — never mutate input state. Reference PRD FR-13 through FR-28.",
         "testStrategy": "Vitest: test each action type produces correct new state, original state unchanged, illegal actions rejected, action log appended.",
         "subtasks": [],
         "updatedAt": "2026-02-21T19:51:56.150Z"
@@ -224,7 +224,7 @@
           "10"
         ],
         "priority": "high",
-        "details": "Deployment is a map of regionId \u2192 tokenCount. Sum of all tokens must equal player's total active tokens. Each occupied region must have at least 1. Defender redeployment happens at end of active player's turn. If defender has no regions, they deploy on their next turn as first conquest. Reference PRD FR-26 through FR-28, FR-18b.",
+        "details": "Deployment is a map of regionId → tokenCount. Sum of all tokens must equal player's total active tokens. Each occupied region must have at least 1. Defender redeployment happens at end of active player's turn. If defender has no regions, they deploy on their next turn as first conquest. Reference PRD FR-26 through FR-28, FR-18b.",
         "testStrategy": "Vitest: test valid redeployment, minimum token enforcement, defender redeployment, no-region defender case.",
         "subtasks": [],
         "updatedAt": "2026-02-21T20:22:35.331Z"
@@ -300,7 +300,7 @@
           "17"
         ],
         "priority": "high",
-        "details": "The game loop is async: state \u2192 render \u2192 wait for player \u2192 animate \u2192 commit. Use Phaser.Events.EventEmitter as the shared event bus. GameController holds the canonical game state. Scenes are purely reactive (read state, render, emit user input). Reference design/technical-design.md section 5.4.",
+        "details": "The game loop is async: state → render → wait for player → animate → commit. Use Phaser.Events.EventEmitter as the shared event bus. GameController holds the canonical game state. Scenes are purely reactive (read state, render, emit user input). Reference design/technical-design.md section 5.4.",
         "testStrategy": "Vitest: test game loop with mock IPlayers, verify state progression through full turn cycle. Playwright: test full turn in browser.",
         "subtasks": [],
         "updatedAt": "2026-02-21T20:10:20.950Z"
@@ -421,7 +421,7 @@
           "18"
         ],
         "priority": "low",
-        "details": "Tooltips appear on pointer hover with a small delay (~300ms). Positioned to avoid going off-screen. Include race/power ability descriptions from the data tables. Valid action hints during conquest phase ('Click to conquer \u2014 costs 3 tokens'). Reference PRD US-12, FR-33, FR-35.",
+        "details": "Tooltips appear on pointer hover with a small delay (~300ms). Positioned to avoid going off-screen. Include race/power ability descriptions from the data tables. Valid action hints during conquest phase ('Click to conquer — costs 3 tokens'). Reference PRD US-12, FR-33, FR-35.",
         "testStrategy": "Playwright: verify tooltip appears on hover over region, shows correct terrain info, tooltip for race shows ability text.",
         "subtasks": [],
         "updatedAt": "2026-02-21T20:30:57.239Z"
@@ -429,7 +429,7 @@
       {
         "id": "29",
         "title": "Set Up Vitest for Unit Testing",
-        "description": "Install and configure Vitest for the project. Create vitest.config.ts with TypeScript support, path aliases matching vite.config.ts (@/ \u2192 src/), and coverage reporting. Create test directory structure under tests/unit/. Write a sample test to verify setup works.",
+        "description": "Install and configure Vitest for the project. Create vitest.config.ts with TypeScript support, path aliases matching vite.config.ts (@/ → src/), and coverage reporting. Create test directory structure under tests/unit/. Write a sample test to verify setup works.",
         "status": "done",
         "dependencies": [],
         "priority": "high",
@@ -461,7 +461,7 @@
         "status": "done",
         "dependencies": [],
         "priority": "high",
-        "details": "Command: `npx playwright test tests/e2e/mainMenu.spec.ts --reporter=line`\nExpected: 8 tests \u00d7 3 browsers = 24 test runs, all passing.\nTest file: tests/e2e/mainMenu.spec.ts\nResults saved to: playwright-report/index.html",
+        "details": "Command: `npx playwright test tests/e2e/mainMenu.spec.ts --reporter=line`\nExpected: 8 tests × 3 browsers = 24 test runs, all passing.\nTest file: tests/e2e/mainMenu.spec.ts\nResults saved to: playwright-report/index.html",
         "testStrategy": "Mark done when all 8 tests pass on all 3 browsers with 0 failures.",
         "subtasks": [],
         "updatedAt": "2026-02-21T23:04:43.488Z"
@@ -469,13 +469,13 @@
       {
         "id": "32",
         "title": "Run Human vs Human e2e tests",
-        "description": "Execute the Playwright e2e test suite for HvH game flow: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`. Verify all 14 tests pass. Tests cover: initial game state, combo selection, phase progression (readyTroops \u2192 conquest \u2192 reinforcementDie \u2192 redeploy \u2192 score), full turn completion, turn advance, player switching, and state immutability.",
+        "description": "Execute the Playwright e2e test suite for HvH game flow: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`. Verify all 14 tests pass. Tests cover: initial game state, combo selection, phase progression (readyTroops → conquest → reinforcementDie → redeploy → score), full turn completion, turn advance, player switching, and state immutability.",
         "status": "done",
         "dependencies": [
           "31"
         ],
         "priority": "high",
-        "details": "Command: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`\nExpected: 14 tests \u00d7 3 browsers = 42 test runs, all passing.\nTest file: tests/e2e/hvhGame.spec.ts\nNote: Tests require the dev server running (handled automatically by playwright.config.ts webServer).",
+        "details": "Command: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`\nExpected: 14 tests × 3 browsers = 42 test runs, all passing.\nTest file: tests/e2e/hvhGame.spec.ts\nNote: Tests require the dev server running (handled automatically by playwright.config.ts webServer).",
         "testStrategy": "Mark done when all 14 tests pass on all 3 browsers with 0 failures.",
         "subtasks": [],
         "updatedAt": "2026-02-21T23:28:05.334Z"
@@ -489,7 +489,7 @@
           "31"
         ],
         "priority": "high",
-        "details": "Command: `npx playwright test tests/e2e/hvaiGame.spec.ts --reporter=line`\nExpected: 12 tests \u00d7 3 browsers = 36 test runs, all passing.\nTest file: tests/e2e/hvaiGame.spec.ts\nNote: AI turn tests use 30s timeouts to allow AI to complete its turn at 600ms delay.",
+        "details": "Command: `npx playwright test tests/e2e/hvaiGame.spec.ts --reporter=line`\nExpected: 12 tests × 3 browsers = 36 test runs, all passing.\nTest file: tests/e2e/hvaiGame.spec.ts\nNote: AI turn tests use 30s timeouts to allow AI to complete its turn at 600ms delay.",
         "testStrategy": "Mark done when all 12 tests pass on all 3 browsers with 0 failures.",
         "subtasks": [],
         "updatedAt": "2026-02-21T23:28:05.338Z"
@@ -544,7 +544,7 @@
         "status": "done",
         "dependencies": [],
         "priority": "high",
-        "details": "Reference design/technical-design.md section 2 for the full type definitions. This is the foundational layer \u2014 all other tasks depend on these types being correct and complete. Note: each race has a finite maxSupply of tokens (see PRD race table). ActiveRaceState needs a maxSupply field. Lost Tribes have a supply of 18.",
+        "details": "Reference design/technical-design.md section 2 for the full type definitions. This is the foundational layer — all other tasks depend on these types being correct and complete. Note: each race has a finite maxSupply of tokens (see PRD race table). ActiveRaceState needs a maxSupply field. Lost Tribes have a supply of 18.",
         "testStrategy": "Vitest: verify types compile with strict TypeScript, create sample state objects to confirm structure.",
         "updatedAt": "2026-02-21T14:59:43.997Z",
         "subtasks": []
@@ -611,7 +611,7 @@
       {
         "id": "6",
         "title": "Implement Combo Shop Logic",
-        "description": "Create src/game/engine/comboShop.ts with: selectCombo(state, comboIndex) \u2014 applies coin cost for skipping, awards combo's coins to player, sets player's active race with correct token count (race base + power bonus), and replenishes the shop by shifting combos up and dealing a new one from the decks.",
+        "description": "Create src/game/engine/comboShop.ts with: selectCombo(state, comboIndex) — applies coin cost for skipping, awards combo's coins to player, sets player's active race with correct token count (race base + power bonus), and replenishes the shop by shifting combos up and dealing a new one from the decks.",
         "status": "done",
         "dependencies": [
           "1",
@@ -658,7 +658,7 @@
       {
         "id": "9",
         "title": "Implement Phase State Machine",
-        "description": "Create src/game/engine/phaseTransition.ts with getNextPhase(state, completedAction) implementing the turn phase state machine: selectCombo \u2192 readyTroops \u2192 conquest \u2192 reinforcementDie \u2192 redeploy \u2192 score \u2192 (optional decline for Stout). Handle conditional transitions: skip selectCombo if player has active race, skip reinforcementDie if not eligible, Ghoul decline conquest before active race.",
+        "description": "Create src/game/engine/phaseTransition.ts with getNextPhase(state, completedAction) implementing the turn phase state machine: selectCombo → readyTroops → conquest → reinforcementDie → redeploy → score → (optional decline for Stout). Handle conditional transitions: skip selectCombo if player has active race, skip reinforcementDie if not eligible, Ghoul decline conquest before active race.",
         "status": "done",
         "dependencies": [
           "1"
@@ -682,7 +682,7 @@
           "9"
         ],
         "priority": "high",
-        "details": "Must handle all GameAction types. Conquest actions must: place attacker tokens, handle defeated tokens (1 discarded, rest returned to defender), handle Lost Tribe/single In Decline token removal, update region ownership. Must enforce immutability \u2014 never mutate input state. Reference PRD FR-13 through FR-28.",
+        "details": "Must handle all GameAction types. Conquest actions must: place attacker tokens, handle defeated tokens (1 discarded, rest returned to defender), handle Lost Tribe/single In Decline token removal, update region ownership. Must enforce immutability — never mutate input state. Reference PRD FR-13 through FR-28.",
         "testStrategy": "Vitest: test each action type produces correct new state, original state unchanged, illegal actions rejected, action log appended.",
         "subtasks": [],
         "updatedAt": "2026-02-21T19:51:56.150Z"
@@ -760,7 +760,7 @@
           "10"
         ],
         "priority": "high",
-        "details": "Deployment is a map of regionId \u2192 tokenCount. Sum of all tokens must equal player's total active tokens. Each occupied region must have at least 1. Defender redeployment happens at end of active player's turn. If defender has no regions, they deploy on their next turn as first conquest. Reference PRD FR-26 through FR-28, FR-18b.",
+        "details": "Deployment is a map of regionId → tokenCount. Sum of all tokens must equal player's total active tokens. Each occupied region must have at least 1. Defender redeployment happens at end of active player's turn. If defender has no regions, they deploy on their next turn as first conquest. Reference PRD FR-26 through FR-28, FR-18b.",
         "testStrategy": "Vitest: test valid redeployment, minimum token enforcement, defender redeployment, no-region defender case.",
         "subtasks": [],
         "updatedAt": "2026-02-21T20:22:35.331Z"
@@ -836,7 +836,7 @@
           "17"
         ],
         "priority": "high",
-        "details": "The game loop is async: state \u2192 render \u2192 wait for player \u2192 animate \u2192 commit. Use Phaser.Events.EventEmitter as the shared event bus. GameController holds the canonical game state. Scenes are purely reactive (read state, render, emit user input). Reference design/technical-design.md section 5.4.",
+        "details": "The game loop is async: state → render → wait for player → animate → commit. Use Phaser.Events.EventEmitter as the shared event bus. GameController holds the canonical game state. Scenes are purely reactive (read state, render, emit user input). Reference design/technical-design.md section 5.4.",
         "testStrategy": "Vitest: test game loop with mock IPlayers, verify state progression through full turn cycle. Playwright: test full turn in browser.",
         "subtasks": [],
         "updatedAt": "2026-02-21T20:10:20.950Z"
@@ -957,7 +957,7 @@
           "18"
         ],
         "priority": "low",
-        "details": "Tooltips appear on pointer hover with a small delay (~300ms). Positioned to avoid going off-screen. Include race/power ability descriptions from the data tables. Valid action hints during conquest phase ('Click to conquer \u2014 costs 3 tokens'). Reference PRD US-12, FR-33, FR-35.",
+        "details": "Tooltips appear on pointer hover with a small delay (~300ms). Positioned to avoid going off-screen. Include race/power ability descriptions from the data tables. Valid action hints during conquest phase ('Click to conquer — costs 3 tokens'). Reference PRD US-12, FR-33, FR-35.",
         "testStrategy": "Playwright: verify tooltip appears on hover over region, shows correct terrain info, tooltip for race shows ability text.",
         "subtasks": [],
         "updatedAt": "2026-02-21T20:30:57.239Z"
@@ -965,7 +965,7 @@
       {
         "id": "29",
         "title": "Set Up Vitest for Unit Testing",
-        "description": "Install and configure Vitest for the project. Create vitest.config.ts with TypeScript support, path aliases matching vite.config.ts (@/ \u2192 src/), and coverage reporting. Create test directory structure under tests/unit/. Write a sample test to verify setup works.",
+        "description": "Install and configure Vitest for the project. Create vitest.config.ts with TypeScript support, path aliases matching vite.config.ts (@/ → src/), and coverage reporting. Create test directory structure under tests/unit/. Write a sample test to verify setup works.",
         "status": "done",
         "dependencies": [],
         "priority": "high",
@@ -997,7 +997,7 @@
         "status": "done",
         "dependencies": [],
         "priority": "high",
-        "details": "Command: `npx playwright test tests/e2e/mainMenu.spec.ts --reporter=line`\nExpected: 8 tests \u00d7 3 browsers = 24 test runs, all passing.\nTest file: tests/e2e/mainMenu.spec.ts\nResults saved to: playwright-report/index.html",
+        "details": "Command: `npx playwright test tests/e2e/mainMenu.spec.ts --reporter=line`\nExpected: 8 tests × 3 browsers = 24 test runs, all passing.\nTest file: tests/e2e/mainMenu.spec.ts\nResults saved to: playwright-report/index.html",
         "testStrategy": "Mark done when all 8 tests pass on all 3 browsers with 0 failures.",
         "subtasks": [],
         "updatedAt": "2026-02-21T23:04:43.488Z"
@@ -1005,13 +1005,13 @@
       {
         "id": "32",
         "title": "Run Human vs Human e2e tests",
-        "description": "Execute the Playwright e2e test suite for HvH game flow: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`. Verify all 14 tests pass. Tests cover: initial game state, combo selection, phase progression (readyTroops \u2192 conquest \u2192 reinforcementDie \u2192 redeploy \u2192 score), full turn completion, turn advance, player switching, and state immutability.",
+        "description": "Execute the Playwright e2e test suite for HvH game flow: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`. Verify all 14 tests pass. Tests cover: initial game state, combo selection, phase progression (readyTroops → conquest → reinforcementDie → redeploy → score), full turn completion, turn advance, player switching, and state immutability.",
         "status": "done",
         "dependencies": [
           "31"
         ],
         "priority": "high",
-        "details": "Command: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`\nExpected: 14 tests \u00d7 3 browsers = 42 test runs, all passing.\nTest file: tests/e2e/hvhGame.spec.ts\nNote: Tests require the dev server running (handled automatically by playwright.config.ts webServer).",
+        "details": "Command: `npx playwright test tests/e2e/hvhGame.spec.ts --reporter=line`\nExpected: 14 tests × 3 browsers = 42 test runs, all passing.\nTest file: tests/e2e/hvhGame.spec.ts\nNote: Tests require the dev server running (handled automatically by playwright.config.ts webServer).",
         "testStrategy": "Mark done when all 14 tests pass on all 3 browsers with 0 failures.",
         "subtasks": [],
         "updatedAt": "2026-02-21T23:28:05.334Z"
@@ -1025,7 +1025,7 @@
           "31"
         ],
         "priority": "high",
-        "details": "Command: `npx playwright test tests/e2e/hvaiGame.spec.ts --reporter=line`\nExpected: 12 tests \u00d7 3 browsers = 36 test runs, all passing.\nTest file: tests/e2e/hvaiGame.spec.ts\nNote: AI turn tests use 30s timeouts to allow AI to complete its turn at 600ms delay.",
+        "details": "Command: `npx playwright test tests/e2e/hvaiGame.spec.ts --reporter=line`\nExpected: 12 tests × 3 browsers = 36 test runs, all passing.\nTest file: tests/e2e/hvaiGame.spec.ts\nNote: AI turn tests use 30s timeouts to allow AI to complete its turn at 600ms delay.",
         "testStrategy": "Mark done when all 12 tests pass on all 3 browsers with 0 failures.",
         "subtasks": [],
         "updatedAt": "2026-02-21T23:28:05.338Z"
@@ -1076,19 +1076,19 @@
       {
         "id": "1",
         "title": "Fix Map Image Viewport Clipping",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [],
         "description": "The map image is clipped at the bottom of the screen, cutting off the round 8, 9, and 10 markers on the turn track. Fix the viewport/container sizing in the Board scene so the entire map image is accessible when panning and zooming.",
         "details": "Investigate the Board scene camera bounds, container sizing, and Phaser world bounds configuration. The full map including all turn markers must be reachable. Likely fix involves adjusting camera.setBounds() or the map image container dimensions.",
         "testStrategy": "Visually verify the bottom of the map including turn 8, 9, 10 markers is reachable by panning/zooming. Add Playwright E2E assertion that the map image height is fully rendered.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.601Z"
       },
       {
         "id": "2",
         "title": "Fix Race & Power HUD Interaction Passthrough (FR-55)",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "1"
@@ -1097,12 +1097,12 @@
         "details": "While the Race & Power HUD is visible, disable all Board scene region pointer events (hover, click) and suppress any active tooltips. The HUD must set a flag or emit an event that the Board scene and tooltip system respect. On HUD close, re-enable map interactions.",
         "testStrategy": "Open the Race & Power HUD, hover over HUD options, verify no map tooltips appear and no region clicks fire. Playwright E2E test to confirm no tooltip DOM elements appear behind the HUD.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.605Z"
       },
       {
         "id": "3",
         "title": "Fix Initial Camera Zoom Level (FR-58)",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "1"
@@ -1111,26 +1111,26 @@
         "details": "Calculate the correct initial zoom level by dividing the canvas height/width by the map image height/width and taking the minimum. Set camera zoom to this value in Board.create(). Verify that Phaser.GameObjects.Polygon hit zones scale correctly with the camera zoom.",
         "testStrategy": "Start a new game and verify the entire map is visible without any panning or zoom adjustment. Verify region hit zones register clicks accurately at default zoom. Playwright E2E screenshot comparison.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.609Z"
       },
       {
         "id": "4",
         "title": "Fix Tooltip Zoom Scaling (FR-59)",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [
           "3"
         ],
         "description": "Tooltips currently scale with the camera zoom, appearing huge when zoomed in and tiny when zoomed out. Refactor tooltip rendering to use screen-space coordinates so font size and panel dimensions remain constant at all zoom levels. References: FR-59.",
         "details": "Tooltips must be rendered in the HUD scene (fixed camera) or positioned using camera.getWorldPoint() to translate to screen coordinates. Move tooltip GameObjects to the HUD scene if they are currently in the Board scene, or use setScrollFactor(0) and manually position relative to the pointer in screen space.",
-        "testStrategy": "Hover over a region at minimum zoom, maximum zoom, and mid zoom \u2014 verify the tooltip appears identical in size and readability at all levels.",
+        "testStrategy": "Hover over a region at minimum zoom, maximum zoom, and mid zoom — verify the tooltip appears identical in size and readability at all levels.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.613Z"
       },
       {
         "id": "5",
-        "title": "Fix Decline Flow \u2014 Surface Decline Option to Player (FR-22)",
-        "status": "pending",
+        "title": "Fix Decline Flow — Surface Decline Option to Player (FR-22)",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "2"
@@ -1139,12 +1139,12 @@
         "details": "The Decline button should be available in the HUD during the conquest phase (as an alternative to conquering) and after scoring for players with Stout power. It must be hidden during phases where decline is not legal (e.g., first turn before selecting a combo, or if already declined this turn). On click, dispatch the decline GameAction through the GameController. The full decline animation must play: banner flip to gray, token reduction to 1 per region (except Ghouls), power badge removal (except Spirit).",
         "testStrategy": "Play through a turn and click Decline. Verify tokens reduce to 1 per region, banner grays out, power badge is removed. Test Ghoul exception (all tokens stay). Test Spirit exception (badge stays). Playwright E2E test for the basic decline flow.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.615Z"
       },
       {
         "id": "6",
         "title": "Fix First Conquest Entry Rule Enforcement (FR-13)",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "3"
@@ -1153,12 +1153,12 @@
         "details": "In getLegalActions(), when the active player has no currently occupied regions (tokensInHand > 0, no owned regions), filter conquest targets to only isEdge or isCoastal regions. Check for Halflings race and Flying power modifiers which override this restriction and allow any region. Verify that subsequent conquests (after the first region is taken) correctly use adjacency rules instead.",
         "testStrategy": "Start a game, enter conquest phase with no regions owned. Verify only border/coastal regions are highlighted as valid targets. Attempt to click a non-border non-coastal region and verify nothing happens. Start again as Halflings and verify all regions are valid. Playwright E2E test.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.618Z"
       },
       {
         "id": "7",
         "title": "Fix Conquest Cost Calculation and Tooltip Display (FR-15)",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "4",
@@ -1166,14 +1166,14 @@
         ],
         "description": "The conquest cost tooltip shows a flat 2 regardless of defenders. Fix calculateConquestCost() to correctly compute 2 (base) + 1 per Mountain + 1 per Encampment + 1 per Fortress + 1 per Troll's Lair + 1 per Lost Tribe token + 1 per enemy race token. Update the tooltip to display the correct cost. References: FR-15.",
         "details": "Review calculateConquestCost() in src/game/engine/conquestCost.ts. Ensure it reads region state correctly: mountain tokens, special markers (encampment, fortress, troll lair), lost tribe presence, and enemy token count. The conquest tooltip must call calculateConquestCost() and display the result. Also verify the game rejects conquest attempts where the player has fewer tokens than the cost.",
-        "testStrategy": "Hover over a region with a mountain token \u2014 tooltip should show cost 3. Hover over a region with 2 enemy tokens \u2014 tooltip should show cost 4. Hover over a region with a Lost Tribe \u2014 tooltip should show cost 3. Attempt to conquer a region with insufficient tokens and verify it is rejected.",
+        "testStrategy": "Hover over a region with a mountain token — tooltip should show cost 3. Hover over a region with 2 enemy tokens — tooltip should show cost 4. Hover over a region with a Lost Tribe — tooltip should show cost 3. Attempt to conquer a region with insufficient tokens and verify it is rejected.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.620Z"
       },
       {
         "id": "8",
         "title": "Add Race and Power Names as Text Labels in HUD (FR-53)",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [
           "2"
@@ -1182,12 +1182,12 @@
         "details": "Update the combo shop UI rendering to display the race name and power name as Phaser Text objects within each combo slot. Also update the player dashboard to show the active race name and power name as text. Use the name fields from the RaceDefinition and PowerDefinition data tables. Text must be legible at default zoom.",
         "testStrategy": "Start a game and verify all 6 combo shop slots show a race name and power name. Verify the active player dashboard shows the selected race name and power name after combo selection.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.623Z"
       },
       {
         "id": "9",
         "title": "Add Race and Power Ability Tooltips to HUD Combos (FR-33, FR-35)",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [
           "8"
@@ -1196,12 +1196,12 @@
         "details": "Use the tooltip descriptions already defined in the RaceDefinition and PowerDefinition data tables. On hover over a combo slot, show the race ability and power ability text in a tooltip panel. On hover over the player's active race banner, show the race ability. On hover over the power badge, show the power ability. Reuse the existing tooltip system.",
         "testStrategy": "Hover over each of the 6 combo shop slots and verify a tooltip appears with the race ability and power ability text. Hover over the active player race banner and power badge and verify correct tooltips appear.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.625Z"
       },
       {
         "id": "10",
         "title": "Allow Browsing Combo HUD During Any Turn Phase (FR-54)",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [
           "2",
@@ -1211,26 +1211,26 @@
         "details": "Add a button to the HUD (e.g., near the combo shop area) labeled 'View Shop' or similar that is always visible during a player's turn. When clicked during a non-selection phase, it opens the combo HUD in browse-only mode: combos are displayed with names and tooltips but clicking them does not trigger selection. The HUD must display a clear visual indicator that it is in browse mode (e.g., greyed-out combo slots, 'Browse Only' label). Closing the HUD returns to the current phase without state change.",
         "testStrategy": "During conquest phase, click the browse button. Verify the combo shop opens showing all combos. Click a combo and verify no selection action fires. Close the HUD and verify conquest phase continues normally.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.627Z"
       },
       {
         "id": "11",
         "title": "Highlight First-Conquest Eligible Regions Distinctly (FR-56)",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [
           "6"
         ],
         "description": "Border and coastal regions eligible for the player's first conquest are not visually distinguished from other regions. Apply a distinct highlight to these entry regions when the player has no owned regions, separate from the standard valid-target highlight used for subsequent conquests. References: FR-56.",
-        "details": "In RegionRenderer, detect when the player is about to make their first conquest (no currently owned regions). In this state, render border/coastal valid targets with a distinct visual treatment \u2014 for example, a pulsing gold or white border \u2014 while non-eligible regions remain visually muted or show a different style. This is in addition to the existing conquest-phase highlighting. Remove the distinct highlight after the first conquest is made.",
+        "details": "In RegionRenderer, detect when the player is about to make their first conquest (no currently owned regions). In this state, render border/coastal valid targets with a distinct visual treatment — for example, a pulsing gold or white border — while non-eligible regions remain visually muted or show a different style. This is in addition to the existing conquest-phase highlighting. Remove the distinct highlight after the first conquest is made.",
         "testStrategy": "Start a new game and enter conquest phase. Verify border/coastal regions show the distinct first-conquest entry highlight. Verify inland regions do not show this highlight. After conquering the first region, verify the highlight reverts to standard conquest highlighting.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.629Z"
       },
       {
         "id": "12",
         "title": "Improve Reinforcement Die Visual Feedback (FR-20, FR-21)",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [
           "7"
@@ -1239,12 +1239,12 @@
         "details": "After rollDie() returns a result, animate or display the die face result in the UI (e.g., a large number or die face icon in the die area of the HUD). The display must appear before the conquest resolution plays out. Keep the existing tumble animation. The result display should remain visible for at least 1.5 seconds so the player can read it before the conquest animation begins.",
         "testStrategy": "Roll the reinforcement die and verify the result value (0, 1, 2, or 3) is displayed visibly in the UI before the conquest resolves. Verify the display appears for enough time to be readable.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.631Z"
       },
       {
         "id": "13",
         "title": "Fix Reinforcement Die Flow Sequencing (FR-19)",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "12"
@@ -1253,26 +1253,26 @@
         "details": "In the HUD conquest action panel, when getLegalActions() returns a reinforcementDie action as available, display the Roll Die button as the primary/prominent action. The End Conquest button should be secondary or only appear after the player explicitly dismisses the die option. After the die is rolled (regardless of result), End Conquest becomes the only option. Reference PRD FR-19 and FR-21a.",
         "testStrategy": "Reach the state where only 1 token is in hand. Verify Roll Die button is displayed before End Conquest. Roll the die and verify End Conquest is the only option afterward. Verify End Conquest is still reachable if the player chooses not to roll.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.633Z"
       },
       {
         "id": "14",
         "title": "Implement Left/Right-Click Token Model for Redeployment (FR-57)",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "3"
         ],
         "description": "The redeployment phase lacks precise token control. Implement left-click to add one token and right-click to remove one token from a region during redeployment. Players must be able to freely adjust token distribution until confirming. References: FR-57, FR-26, FR-27.",
-        "details": "In the Board scene, during the redeployment phase, register both left-click (pointer down, button 0) and right-click (pointer down, button 2) on region hit zones. Left-click moves one token from the player's undeployed hand to the clicked region (if the player has tokens to place). Right-click moves one token from the clicked region back to the player's hand (only if the region has more than 1 token \u2014 enforce the minimum 1 per occupied region). Update the region overlay and token display reactively. The Confirm Redeployment button must always be visible. Prevent browser context menu on right-click.",
+        "details": "In the Board scene, during the redeployment phase, register both left-click (pointer down, button 0) and right-click (pointer down, button 2) on region hit zones. Left-click moves one token from the player's undeployed hand to the clicked region (if the player has tokens to place). Right-click moves one token from the clicked region back to the player's hand (only if the region has more than 1 token — enforce the minimum 1 per occupied region). Update the region overlay and token display reactively. The Confirm Redeployment button must always be visible. Prevent browser context menu on right-click.",
         "testStrategy": "In redeployment phase, left-click a region to add a token. Right-click a region to remove a token. Verify the 1-token minimum prevents right-clicking below 1. Confirm redeployment and verify state is correct. Test that right-click does not open the browser context menu.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.634Z"
       },
       {
         "id": "15",
         "title": "Add Interaction Mode / Pan Mode Toggle (FR-60, US-15)",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [
           "3",
@@ -1280,14 +1280,14 @@
         ],
         "description": "Players have no way to navigate the map without risking accidental game actions. Add a toggle between Interaction mode (clicks trigger game actions) and Pan mode (click-drag navigates without triggering actions). References: FR-60, US-15.",
         "details": "Add a toggle button in the HUD (e.g., a cursor/hand icon toggle). Default mode is Interaction. In Pan mode: disable all region click handlers on the Board scene; pointer drag pans the camera as normal; region hover highlights and tooltips remain active but do not trigger actions. In Interaction mode: restore all region click handlers. The current mode must be clearly indicated by the button state. Optionally support a keyboard shortcut (e.g., spacebar hold for temporary pan mode).",
-        "testStrategy": "Switch to Pan mode. Click a valid conquest target \u2014 verify no conquest fires. Drag the map \u2014 verify panning works. Switch back to Interaction mode \u2014 verify region clicks trigger actions again. Playwright E2E test for mode toggle.",
+        "testStrategy": "Switch to Pan mode. Click a valid conquest target — verify no conquest fires. Drag the map — verify panning works. Switch back to Interaction mode — verify region clicks trigger actions again. Playwright E2E test for mode toggle.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.636Z"
       },
       {
         "id": "16",
         "title": "Add Player Box Ability Tooltips (FR-61, US-16)",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [
           "9"
@@ -1296,12 +1296,12 @@
         "details": "Add pointer-over event handlers to the player dashboard area in the HUD scene. On hover over a player box, show a tooltip containing the active race ability description and the active power ability description. Use the same text from the RaceDefinition and PowerDefinition data tables used in the combo shop tooltips. Tooltips must appear for both Player 1 and Player 2 dashboards and update when the player selects a new race/power combo.",
         "testStrategy": "Hover over the Player 1 info box and verify a tooltip appears showing the race ability and power ability text. Hover over the Player 2 info box and verify the same. Select a new combo and verify the tooltip updates.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.637Z"
       },
       {
         "id": "17",
         "title": "Redraw Region Polygons to Match Reference Map (FR-62)",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": [
           "3"
@@ -1310,12 +1310,12 @@
         "details": "Using src/assets/reference/2-player-map.jpeg as the reference, retrace polygon vertices for all regions in src/game/data/map2p.ts. Each polygon should follow the visible border lines in the map image. After retracing, verify: adjacency relationships remain symmetric and correct, isEdge and isCoastal flags are still accurate, region center points are updated to fall within the new polygons, and all map data tests still pass. Consider using a browser devtools overlay or a canvas drawing tool to trace coordinates precisely.",
         "testStrategy": "Visually overlay the new polygon hit zones on the map image and verify they align with visible borders. Click along region boundaries and verify correct region is activated. Run all map data unit tests to verify adjacency symmetry and required fields.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.639Z"
       },
       {
         "id": "18",
         "title": "Phase 2 Full Regression Testing (E2E and Unit)",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "1",
@@ -1340,8 +1340,31 @@
         "details": "Write new Playwright E2E tests covering: decline flow (basic, Ghoul exception, Spirit exception), first conquest entry restriction, conquest cost tooltip accuracy, die roll sequencing (die before End Conquest), redeployment left/right-click model, interaction/pan mode toggle, HUD browse mode, and player box tooltips. Run the full test suite: all Phase 1 E2E tests (mainMenu, hvhGame, hvaiGame) plus all new Phase 2 tests across Chromium, Firefox, and WebKit. Run all Vitest unit tests. Investigate and fix any failures. All tests must pass with 0 failures before Phase 2 is marked complete.",
         "testStrategy": "npx playwright test (full suite, all browsers) with 0 failures. npx vitest run with 0 failures. Document any regressions found and resolved.",
         "subtasks": [],
-        "updatedAt": "2026-02-22T02:57:19.000Z"
+        "updatedAt": "2026-02-22T03:44:51.641Z"
+      },
+      {
+        "id": "19",
+        "title": "Execute Phase 2 E2E Test Suite",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [
+          "18"
+        ],
+        "description": "Run the full Playwright E2E test suite and Vitest unit tests to validate all Phase 2 changes. Write any missing E2E tests for new Phase 2 features (first-conquest amber glow, die result display, left/right-click redeployment, pan mode toggle, ability tooltips, updated region polygons). Execute across all browsers (Chromium, Firefox, WebKit) and fix any failures.",
+        "details": "1. Run existing Playwright E2E tests: npx playwright test (all browsers). 2. Run Vitest unit tests: npx vitest run. 3. Write new E2E tests covering Phase 2 features if not already covered by task 18. 4. Fix any test failures or regressions. 5. All tests must pass with 0 failures.",
+        "testStrategy": "npx playwright test --reporter=list (all browsers, 0 failures). npx vitest run (0 failures).",
+        "subtasks": [],
+        "updatedAt": "2026-02-22T04:00:00.000Z"
       }
-    ]
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2026-02-22T04:00:00.000Z",
+      "taskCount": 19,
+      "completedCount": 18,
+      "tags": [
+        "phase-2"
+      ]
+    }
   }
 }

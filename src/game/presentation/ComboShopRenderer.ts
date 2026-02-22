@@ -45,21 +45,37 @@ export class ComboShopRenderer {
   private slotContainers: Phaser.GameObjects.Container[] = [];
   private slotBgs: Phaser.GameObjects.Rectangle[] = [];
 
+  /** Tooltip container for ability descriptions (FR-33, FR-35). */
+  private tooltipContainer!: Phaser.GameObjects.Container;
+  private tooltipBg!: Phaser.GameObjects.Rectangle;
+  private tooltipRaceText!: Phaser.GameObjects.Text;
+  private tooltipPowerText!: Phaser.GameObjects.Text;
+
+  /** True when opened in browse-only mode (FR-54). */
+  private _browseMode = false;
+  /** Read-only label shown in browse mode. */
+  private browseLabel!: Phaser.GameObjects.Text;
+
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this._buildPanel();
+    this._buildTooltip();
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
 
   /**
    * Refresh the combo shop to reflect the current game state.
-   * Shows/hides the panel based on whether phase is 'selectCombo'.
+   * Shows in selectCombo phase or browse mode (FR-54).
    */
   refresh(state: GameState): void {
-    const visible = state.phase === 'selectCombo';
+    const visible = state.phase === 'selectCombo' || this._browseMode;
     this.panel.setVisible(visible);
-    if (!visible) return;
+    this.browseLabel.setVisible(this._browseMode);
+    if (!visible) {
+      this.tooltipContainer.setVisible(false);
+      return;
+    }
 
     const player = state.players[state.activePlayerIndex];
     const playerCoins = player.coins;
@@ -67,8 +83,18 @@ export class ComboShopRenderer {
     this._updateSlots(state.comboShop.visible, playerCoins);
   }
 
+  /** Get whether browse mode is active. */
+  get browseMode(): boolean { return this._browseMode; }
+
+  /** Toggle browse-only mode (FR-54). */
+  setBrowseMode(on: boolean): void {
+    this._browseMode = on;
+    if (!on) this.tooltipContainer.setVisible(false);
+  }
+
   destroy(): void {
     this.panel.destroy(true);
+    this.tooltipContainer.destroy(true);
   }
 
   // ── Private ───────────────────────────────────────────────────────────────
@@ -94,6 +120,25 @@ export class ComboShopRenderer {
       children.push(slotContainer);
       this.slotContainers.push(slotContainer);
     }
+
+    // Browse-only label (FR-54)
+    this.browseLabel = this.scene.add.text(PANEL_W / 2, (SLOT_H + GAP) * 6 + 38, 'BROWSE ONLY', {
+      fontSize: '11px',
+      fontFamily: 'Arial',
+      color: '#ff9999',
+    }).setOrigin(0.5, 0.5);
+    this.browseLabel.setVisible(false);
+    children.push(this.browseLabel);
+
+    // Close button for browse mode
+    const closeBtn = this.scene.add.text(PANEL_W - 12, 14, '✕', {
+      fontSize: '16px', fontFamily: 'Arial', color: '#ff6666', fontStyle: 'bold',
+    }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => {
+      this.setBrowseMode(false);
+      this.scene.events.emit('browseComboClose');
+    });
+    children.push(closeBtn);
 
     this.panel = this.scene.add.container(PANEL_X, PANEL_TOP, children).setDepth(25);
     this.panel.setVisible(false);
@@ -142,10 +187,18 @@ export class ComboShopRenderer {
     );
 
     // Pointer events
-    bg.on('pointerover', () => bg.setFillStyle(COL_HOVER));
-    bg.on('pointerout',  () => bg.setFillStyle(COL_BG));
+    bg.on('pointerover', () => {
+      bg.setFillStyle(COL_HOVER);
+      this._showSlotTooltip(index, y);
+    });
+    bg.on('pointerout',  () => {
+      bg.setFillStyle(COL_BG);
+      this.tooltipContainer.setVisible(false);
+    });
     bg.on('pointerdown', () => {
-      this.scene.events.emit('playerAction', { type: 'selectCombo', comboIndex: index });
+      if (!this._browseMode) {
+        this.scene.events.emit('playerAction', { type: 'selectCombo', comboIndex: index });
+      }
     });
 
     const slotContainer = this.scene.add.container(0, 0, [
@@ -165,6 +218,7 @@ export class ComboShopRenderer {
   }
 
   private _updateSlots(slots: readonly ComboSlot[], playerCoins: number): void {
+    this._lastSlots = slots;
     for (let i = 0; i < Math.max(slots.length, this.slotContainers.length); i++) {
       const container = this.slotContainers[i];
       if (!container) continue;
@@ -205,13 +259,62 @@ export class ComboShopRenderer {
         coinText.setText('');
       }
 
-      if (canAfford) {
+      if (canAfford || this._browseMode) {
         dimmer.setFillStyle(0x000000, 0);
-        bg.setInteractive({ useHandCursor: true });
+        bg.setInteractive({ useHandCursor: !this._browseMode });
       } else {
         dimmer.setFillStyle(0x000000, 0.5);
         bg.disableInteractive();
       }
     }
   }
+
+  /** Build the tooltip panel for displaying race/power abilities (FR-33, FR-35). */
+  private _buildTooltip(): void {
+    this.tooltipBg = this.scene.add.rectangle(0, 0, PANEL_W - 20, 80, 0x0a0a18, 0.95)
+      .setStrokeStyle(1, 0x5a5a8a, 0.8)
+      .setOrigin(0, 0);
+
+    this.tooltipRaceText = this.scene.add.text(8, 6, '', {
+      fontSize: '11px', fontFamily: 'Arial', color: TXT_RACE,
+      wordWrap: { width: PANEL_W - 40 },
+    });
+
+    this.tooltipPowerText = this.scene.add.text(8, 6, '', {
+      fontSize: '11px', fontFamily: 'Arial', color: TXT_POWER,
+      wordWrap: { width: PANEL_W - 40 },
+    });
+
+    this.tooltipContainer = this.scene.add.container(PANEL_X, 0, [
+      this.tooltipBg, this.tooltipRaceText, this.tooltipPowerText,
+    ]).setDepth(30).setVisible(false);
+  }
+
+  /** Show the ability tooltip for a given combo slot index. */
+  private _showSlotTooltip(index: number, slotY: number): void {
+    if (!this._lastSlots || !this._lastSlots[index]) return;
+
+    const slot = this._lastSlots[index];
+    const race = RACES[slot.raceId];
+    const power = POWERS[slot.powerId];
+
+    this.tooltipRaceText.setText(`${race.name}: ${race.tooltip}`);
+    this.tooltipPowerText.setText(`${power.name}: ${power.tooltip}`);
+
+    // Position race and power text
+    this.tooltipRaceText.setPosition(8, 6);
+    const raceH = this.tooltipRaceText.height;
+    this.tooltipPowerText.setPosition(8, 10 + raceH);
+    const totalH = 16 + raceH + this.tooltipPowerText.height;
+
+    this.tooltipBg.setSize(PANEL_W - 20, totalH);
+
+    // Position tooltip below the slot
+    const tipY = PANEL_TOP + slotY + SLOT_H + 4;
+    this.tooltipContainer.setPosition(PANEL_X + 4, tipY);
+    this.tooltipContainer.setVisible(true);
+  }
+
+  /** Cached slot data for tooltips. */
+  private _lastSlots: readonly ComboSlot[] = [];
 }

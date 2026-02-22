@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { applySelectCombo } from '@/game/engine/comboShop';
 import { createInitialState } from '@/game/engine/setup';
-import type { GameState } from '@/game/state/types';
+import { POWERS } from '@/game/data/powers';
+import type { GameState, PowerId } from '@/game/state/types';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -17,15 +18,19 @@ describe('applySelectCombo', () => {
   it('selecting index 1 costs 1 coin', () => {
     const state = createInitialState({ firstPlayerIndex: 0 });
     const before = state.players[0].coins; // 5
+    const slot = state.comboShop.visible[1];
+    const bonus = POWERS[slot.powerId as PowerId].modifiers.firstTurnBonus ?? 0;
     const result = applySelectCombo(state, 1);
-    expect(result.players[0].coins).toBe(before - 1);
+    expect(result.players[0].coins).toBe(before - 1 + slot.coinsOnSlot + bonus);
   });
 
   it('selecting index 2 costs 2 coins', () => {
     const state = createInitialState({ firstPlayerIndex: 0 });
     const before = state.players[0].coins; // 5
+    const slot = state.comboShop.visible[2];
+    const bonus = POWERS[slot.powerId as PowerId].modifiers.firstTurnBonus ?? 0;
     const result = applySelectCombo(state, 2);
-    expect(result.players[0].coins).toBe(before - 2);
+    expect(result.players[0].coins).toBe(before - 2 + slot.coinsOnSlot + bonus);
   });
 
   it('adds 1 coin to each skipped slot', () => {

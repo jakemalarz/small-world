@@ -22,7 +22,7 @@ const ALPHA_SELECTED = 0.45;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type RegionEventType = 'regionClick' | 'regionHover' | 'regionOut';
+export type RegionEventType = 'regionClick' | 'regionRightClick' | 'regionHover' | 'regionOut';
 
 export interface RegionEvent {
   regionId: number;
@@ -72,10 +72,11 @@ export class Board extends Phaser.Scene {
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
-  /** Place the map image at (0,0); it is the authoritative coordinate origin. */
+  /** Place the map image at (0,0); scale to match polygon coordinate space. */
   private _createMapImage(): void {
     this.add.image(0, 0, 'map-2p')
       .setOrigin(0, 0)
+      .setDisplaySize(MAP_W, MAP_H)
       .setDepth(0);
   }
 
@@ -128,9 +129,14 @@ export class Board extends Phaser.Scene {
         this.events.emit('regionOut', { regionId: id } satisfies RegionEvent);
       });
 
-      hitZone.on('pointerdown', (_pointer: Phaser.Input.Pointer) => {
-        this._selectRegion(id, region.polygon);
-        this.events.emit('regionClick', { regionId: id } satisfies RegionEvent);
+      hitZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        if (pointer.button === 2) {
+          // Right-click (FR-57: remove token during redeploy)
+          this.events.emit('regionRightClick', { regionId: id } satisfies RegionEvent);
+        } else {
+          this._selectRegion(id, region.polygon);
+          this.events.emit('regionClick', { regionId: id } satisfies RegionEvent);
+        }
       });
     }
   }
@@ -208,7 +214,13 @@ export class Board extends Phaser.Scene {
       MAP_W + PAN_PADDING * 2,
       MAP_H + PAN_PADDING * 2,
     );
-    cam.setZoom(1);
+    // Start at max zoom-out so the entire map is visible (FR-58)
+    const fitZoom = Math.min(
+      this.scale.width / MAP_W,
+      this.scale.height / MAP_H,
+    );
+    const initialZoom = Math.max(fitZoom, ZOOM_MIN);
+    cam.setZoom(initialZoom);
     // Centre the camera on the map
     cam.centerOn(MAP_W / 2, MAP_H / 2);
   }

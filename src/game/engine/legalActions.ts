@@ -55,6 +55,10 @@ function selectComboActions(state: GameState): GameAction[] {
       actions.push({ type: 'selectCombo', comboIndex: i });
     }
   }
+  // If no combos available (exhausted shop), player must end phase to skip selection
+  if (actions.length === 0) {
+    actions.push({ type: 'endPhase' });
+  }
   return actions;
 }
 
@@ -65,6 +69,10 @@ function selectComboActions(state: GameState): GameAction[] {
 
 function readyTroopsActions(state: GameState): GameAction[] {
   const actions: GameAction[] = [{ type: 'endPhase' }];
+  // Player may decline instead of conquering (FR-22)
+  if (state.players[state.activePlayerIndex].activeRace) {
+    actions.push({ type: 'decline' });
+  }
   for (const region of state.board.regions) {
     if (region.owner !== state.activePlayerIndex) continue;
     if (region.isDeclined) continue;

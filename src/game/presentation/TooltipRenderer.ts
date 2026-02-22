@@ -142,9 +142,14 @@ export class TooltipRenderer {
 
   private _positionAt(wx: number, wy: number): void {
     const cam = this.scene.cameras.main;
+    const zoom = cam.zoom;
+
+    // Apply inverse zoom so tooltip stays constant screen-space size (FR-59)
+    this.container.setScale(1 / zoom);
+
     // Convert world coordinates to screen coordinates
-    const sx = (wx - cam.scrollX) * cam.zoom;
-    const sy = (wy - cam.scrollY) * cam.zoom;
+    const sx = (wx - cam.scrollX) * zoom;
+    const sy = (wy - cam.scrollY) * zoom;
 
     const bgW = this.bg.width;
     const bgH = this.bg.height;
@@ -161,8 +166,8 @@ export class TooltipRenderer {
 
     // Convert back to world coords for container position
     this.container.setPosition(
-      tx / cam.zoom + cam.scrollX,
-      ty / cam.zoom + cam.scrollY,
+      tx / zoom + cam.scrollX,
+      ty / zoom + cam.scrollY,
     );
   }
 
