@@ -83,7 +83,7 @@ test.describe('Human vs AI — game setup', () => {
 });
 
 test.describe('Human vs AI — human player turn', () => {
-  test('human can select a combo and phase advances to readyTroops', async ({ page }) => {
+  test('human can select a combo and phase advances past selectCombo', async ({ page }) => {
     await startHvAIGame(page);
 
     // Wait for the human player's (player 0) turn in selectCombo with readyForInput
@@ -102,12 +102,13 @@ test.describe('Human vs AI — human player turn', () => {
     );
 
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
+    // First combo skips readyTroops (no tokens on board) → straight to conquest
+    await waitForPhase(page, 'conquest', 10_000);
 
-    expect(await getPhase(page)).toBe('readyTroops');
+    expect(await getPhase(page)).toBe('conquest');
   });
 
-  test('human player can advance through readyTroops to conquest', async ({ page }) => {
+  test('human player reaches conquest after selecting combo', async ({ page }) => {
     await startHvAIGame(page);
 
     // Wait for the human player's (player 0) turn in selectCombo
@@ -126,8 +127,7 @@ test.describe('Human vs AI — human player turn', () => {
     );
 
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
-    await clickActionButton(page);
+    // First combo skips readyTroops (no tokens on board) → straight to conquest
     await waitForPhase(page, 'conquest', 10_000);
 
     expect(await getPhase(page)).toBe('conquest');

@@ -90,10 +90,11 @@ test.describe('Human vs Human — combo selection', () => {
     await startHvHGame(page);
 
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
+    // First combo: readyTroops is skipped (no tokens on board) → goes to conquest
+    await waitForPhase(page, 'conquest', 10_000);
 
     const phase = await getPhase(page);
-    expect(phase).toBe('readyTroops');
+    expect(phase).toBe('conquest');
   });
 
   test('active player has an activeRace after selecting a combo', async ({ page }) => {
@@ -101,7 +102,7 @@ test.describe('Human vs Human — combo selection', () => {
     const activeBefore = await getActivePlayer(page);
 
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
+    await waitForPhase(page, 'conquest', 10_000);
 
     const activeRace = await page.evaluate((playerIdx) => {
       const game = (window as any).__phaserGame;
@@ -120,7 +121,7 @@ test.describe('Human vs Human — combo selection', () => {
     const activeBefore = await getActivePlayer(page);
 
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
+    await waitForPhase(page, 'conquest', 10_000);
 
     const tokens = await page.evaluate((playerIdx) => {
       const game = (window as any).__phaserGame;
@@ -138,16 +139,7 @@ test.describe('Human vs Human — phase progression', () => {
     await startHvHGame(page);
 
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
-
-    // Handle optional ghoulConquest before readyTroops
-    const phase = await getPhase(page);
-    if (phase === 'ghoulConquest') {
-      await clickActionButton(page);
-      await waitForPhase(page, 'readyTroops', 10_000);
-    }
-
-    await clickActionButton(page);
+    // First combo skips readyTroops (no tokens on board) → straight to conquest
     await waitForPhase(page, 'conquest', 10_000);
 
     expect(await getPhase(page)).toBe('conquest');
@@ -157,8 +149,6 @@ test.describe('Human vs Human — phase progression', () => {
     await startHvHGame(page);
 
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
-    await clickActionButton(page); // readyTroops → conquest
     await waitForPhase(page, 'conquest', 10_000);
     await clickActionButton(page); // conquest → reinforcementDie (tokens still in hand)
 
@@ -170,12 +160,10 @@ test.describe('Human vs Human — phase progression', () => {
     await startHvHGame(page);
 
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
-    await clickActionButton(page);
     await waitForPhase(page, 'conquest', 10_000);
     await clickActionButton(page);
     await waitForPhase(page, 'reinforcementDie', 10_000);
-    await clickActionButton(page); // Roll Die → redeploy
+    await clickActionButton(page); // Skip Final Conquest → redeploy
 
     await waitForPhase(page, 'redeploy', 10_000);
     expect(await getPhase(page)).toBe('redeploy');
@@ -185,8 +173,6 @@ test.describe('Human vs Human — phase progression', () => {
     await startHvHGame(page);
 
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
-    await clickActionButton(page);
     await waitForPhase(page, 'conquest', 10_000);
     await clickActionButton(page);
     await waitForPhase(page, 'reinforcementDie', 10_000);
@@ -207,10 +193,8 @@ test.describe('Human vs Human — phase progression', () => {
       return (gs as any)?.controller?.state?.players[idx]?.coins ?? 0;
     }, activeBefore as number);
 
-    // Advance to score phase
+    // Advance to score phase (first combo skips readyTroops)
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
-    await clickActionButton(page);
     await waitForPhase(page, 'conquest', 10_000);
     await clickActionButton(page);
     await waitForPhase(page, 'reinforcementDie', 10_000);
@@ -290,7 +274,7 @@ test.describe('Human vs Human — full turn', () => {
     });
 
     await clickComboSlot(page, 0);
-    await waitForPhase(page, 'readyTroops', 10_000);
+    await waitForPhase(page, 'conquest', 10_000);
 
     const logAfter = await page.evaluate(() => {
       const game = (window as any).__phaserGame;
