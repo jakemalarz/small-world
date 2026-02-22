@@ -41,11 +41,60 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ---
 
-## Phase 2: Visual Polish
+## Phase 2: Post-Phase 1 Fixes & UX Enhancements
+
+**Goal:** Address visual and game rule bugs discovered during Phase 1 testing, and improve the player experience before moving into visual polish.
+
+**Depends on:** Phase 1 complete
+
+### Visual Bug Fixes
+
+**Map**
+- Map image is clipped at the bottom, cutting off the round 8, 9, and 10 markers — fix viewport/container sizing
+
+**Race & Power HUD**
+- Region tooltips activate through the Race & Power selection HUD when hovering over options — disable map tooltips and all map interactions while the HUD is open `FR-55`
+
+**Zoom**
+- Map loads in a zoomed-in state — start at maximum zoom-out; resize region hit polygons to match `FR-58`
+- Map tooltips scale with zoom level — lock tooltip font size and dimensions to screen space, independent of zoom `FR-59`
+
+### Game Rule Fixes
+
+**Decline**
+- Decline option is not presented to the player — add and test the full decline flow `FR-22`
+
+**Conquest**
+- First conquest incorrectly allows any region — enforce the rule that the first conquest must target a border (map edge) or coastal (Sea/Lake-adjacent) region, unless overridden by race/power ability (e.g., Halflings) `FR-13`
+- Conquest cost tooltip shows a flat 2 tokens regardless of defenders — fix calculation to: 2 (base) + 1 per Mountain/Encampment/Fortress/Troll's Lair + 1 per Lost Tribe token + 1 per enemy race token `FR-15`
+
+### UX Enhancements
+
+**Race & Power HUD**
+- Display race and power names as text placeholders until visual assets ship in Phase 3 `FR-53`
+- Add tooltips explaining each race's special ability and each power `FR-33` `FR-35`
+- Allow players to open the HUD to browse upcoming combo options at any time during their turn `FR-54`
+
+**Conquest**
+- Visually highlight eligible first-conquest regions (border and coastal) to guide the player `FR-56`
+
+**Reinforcement Die**
+- Show the rolled value visually when the die result lands `FR-20` `FR-21`
+- Present the reinforcement die roll option on the final conquest before showing the End Conquest button — the last roll and conquest belong to the conquest phase `FR-19`
+
+**Player Interaction**
+- Left-click adds tokens to a region; right-click removes one — primary interaction model for redeployment (freely add/remove tokens across allowable regions until confirmed) `FR-57`
+- Add a toggle between Interaction mode (take game actions on the map) and Pan mode (drag to navigate without triggering actions) `FR-60` `US-15`
+- Add tooltips to Player boxes (race, power, token count, coin count) showing special abilities for the active race and power `FR-61` `US-16`
+- Redraw region polygons to more closely match what the background map image depicts `FR-62`
+
+---
+
+## Phase 3: Visual Polish
 
 **Goal:** Replace placeholder art with polished visuals matching the Small World board game aesthetic.
 
-**Depends on:** Phase 1 M3 (presentation layer in place)
+**Depends on:** Phase 2 complete
 
 ### Map Art
 
@@ -69,7 +118,7 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ---
 
-## Phase 3: Audio
+## Phase 4: Audio
 
 **Goal:** Full tabletop-style audio design.
 
@@ -100,7 +149,7 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ---
 
-## Phase 4: Online Multiplayer
+## Phase 5: Online Multiplayer
 
 **Goal:** Real-time networked 2-player games.
 
@@ -124,7 +173,7 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ---
 
-## Phase 5: Quality of Life
+## Phase 6: Quality of Life
 
 **Goal:** Features that improve the play experience but aren't core gameplay.
 
@@ -161,7 +210,7 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ---
 
-## Phase 6: MCP Bridge & Hard AI
+## Phase 7: MCP Bridge & Hard AI
 
 **Goal:** Expose the game engine as an MCP server so external AI (LLMs, custom bots) can play. Build a hybrid "Hard" AI that combines heuristics with LLM strategic reasoning.
 
@@ -218,3 +267,4 @@ These are ideas mentioned during design discussions that don't have a phase assi
 |---------|------|---------|
 | 1.0 | 2026-02-20 | Initial roadmap based on PRD, technical design, and AI opponent design discussions |
 | 1.1 | 2026-02-21 | Reordered phases: Visual Polish → P2, Audio → P3, Online Multiplayer → P4, QoL → P5, MCP Bridge & Hard AI → P6; removed Additional Player Counts |
+| 1.2 | 2026-02-21 | Inserted Phase 2: Post-Phase 1 Fixes & UX Enhancements; renumbered Visual Polish → P3, Audio → P4, Online Multiplayer → P5, QoL → P6, MCP Bridge → P7 |

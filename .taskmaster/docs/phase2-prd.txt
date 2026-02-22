@@ -1,0 +1,217 @@
+# Phase 2 Task Specification: Post-Phase 1 Fixes & UX Enhancements
+
+## Overview
+
+Phase 2 addresses visual and game rule bugs discovered during Phase 1 testing, and adds UX enhancements to improve the player experience. All work builds on the completed Phase 1 game engine and UI. Tasks are grouped by category but should be implemented roughly in order (bugs first, then enhancements, then testing).
+
+---
+
+## Task 1: Fix Map Image Viewport Clipping
+
+The map image is clipped at the bottom of the screen, cutting off the round 8, 9, and 10 markers on the turn track. The Board scene's camera or container sizing is incorrectly constraining the viewable area.
+
+Fix the viewport/container sizing in the Board scene so the entire map image is accessible when scrolling or zooming. The full map including all turn markers must be reachable by the player.
+
+Test: Visually verify the bottom of the map (including turn 8, 9, 10 markers) is accessible after zooming/panning. Playwright E2E test to verify map renders at full height.
+
+---
+
+## Task 2: Fix Race & Power HUD Interaction Passthrough (FR-55)
+
+When the Race & Power selection HUD is open, hovering over its options causes region tooltips on the map behind the HUD to activate incorrectly. The HUD does not capture pointer events fully.
+
+Fix the HUD so that while it is open, all map interactions are disabled: region hover events, region click events, and region tooltips must not fire. The HUD must fully capture pointer events and block passthrough to the Board scene beneath it.
+
+References: FR-55.
+
+Test: Open the Race & Power HUD, hover over HUD options, verify no map tooltips appear and no map regions respond to input.
+
+---
+
+## Task 3: Fix Initial Camera Zoom Level (FR-58)
+
+The Board scene camera starts in a zoomed-in state instead of the maximum zoomed-out state. Players should see the full map on first load without needing to zoom out manually.
+
+Set the initial camera zoom to the maximum zoom-out level so the entire map fits on screen when the game starts. Resize or recalculate region hit polygon scaling to remain accurate at this zoom level.
+
+References: FR-58.
+
+Test: Start a new game and verify the entire map is visible without panning or zooming. Verify region hit zones are accurate at default zoom.
+
+---
+
+## Task 4: Fix Tooltip Zoom Scaling (FR-59)
+
+Tooltips currently scale with the camera zoom level, causing them to appear very large when zoomed in and very small when zoomed out. Tooltips should maintain a constant visual size regardless of zoom.
+
+Refactor the tooltip rendering to use screen-space coordinates rather than world-space coordinates. The tooltip panel dimensions, font size, and positioning must remain constant at all zoom levels.
+
+References: FR-59.
+
+Test: Zoom in and out while hovering over a region; verify tooltip appearance is identical at all zoom levels.
+
+---
+
+## Task 5: Fix Decline Flow — Surface Decline Option to Player (FR-22)
+
+The decline option is not being presented to the player during their turn. Players have no way to initiate the decline action from the UI, making this core game mechanic inaccessible.
+
+Wire up the Decline button in the HUD so it appears at the correct phase of the player's turn (after ready troops, during or after conquest). Triggering decline must invoke the existing applyDecline() engine function and progress the game state correctly. The full decline animation (banner flip to gray, token reduction, power badge removal) must play.
+
+References: FR-22, FR-23, FR-23a, FR-24, FR-25, FR-25a.
+
+Test: Play through a turn and successfully put a race in decline. Verify tokens reduce to 1 per region, banner grays out, power badge is removed. Verify Spirit and Ghoul exceptions work correctly. Playwright E2E test for basic decline flow.
+
+---
+
+## Task 6: Fix First Conquest Entry Rule Enforcement (FR-13)
+
+The game currently allows a player's first conquest to target any region, violating the rule that the first conquest must target a border region (map edge) or a coastal region (bordering a Sea or Lake). Only race/power abilities like Halflings or Flying should override this restriction.
+
+Fix getLegalActions() to enforce that during the first conquest of the game (when the player has no occupied regions), only border and coastal regions are returned as valid conquest targets. Verify that Halflings and Flying power correctly bypass this restriction.
+
+References: FR-13.
+
+Test: Start a game, verify only border/coastal regions are highlighted as valid first conquest targets. Verify non-border non-coastal regions cannot be clicked. Verify Halflings can conquer anywhere.
+
+---
+
+## Task 7: Fix Conquest Cost Calculation and Tooltip (FR-15)
+
+The conquest cost tooltip displays a flat value of 2 tokens regardless of what defends the region. The actual conquest cost must account for all defenders and terrain modifiers.
+
+Fix calculateConquestCost() to correctly compute: 2 (base) + 1 per Mountain token + 1 per Encampment + 1 per Fortress + 1 per Troll's Lair + 1 per Lost Tribe token + 1 per enemy race token present. Update the conquest tooltip to display the correct computed cost for each region.
+
+References: FR-15.
+
+Test: Hover over regions with different combinations of defenders and terrain modifiers; verify tooltip shows the correct cost for each. Conquest attempt with insufficient tokens must be rejected.
+
+---
+
+## Task 8: Add Race and Power Names as Text Labels in HUD (FR-53)
+
+The Race & Power combo shop HUD and player dashboards do not display the names of races and powers as readable text. Players cannot identify combos without artwork.
+
+Add text labels showing the race name and power name to each combo slot in the shop and to the active player dashboard. These text labels must be present until artwork is introduced in Phase 3 and must be visually clear and legible at all zoom levels.
+
+References: FR-53.
+
+Test: Verify race name and power name text labels appear in each of the 6 combo shop slots and in the active player dashboard area.
+
+---
+
+## Task 9: Add Race and Power Ability Tooltips to HUD Combos (FR-33, FR-35)
+
+The combo shop and player dashboard do not show the special abilities of races and powers. Players have no in-game way to learn what a race or power does before selecting it.
+
+Add hover tooltips to each race/power combo in the shop that display the race's special ability description and the power's special ability description. These should use the tooltip descriptions already defined in the race and power data tables. Also ensure tooltips appear on the player's active race banner and power badge.
+
+References: FR-33, FR-35.
+
+Test: Hover over each combo in the shop; verify tooltip shows the race ability and power ability descriptions. Hover over the player's active race banner and power badge; verify tooltips appear with correct text.
+
+---
+
+## Task 10: Allow Browsing Combo HUD During Any Turn Phase (FR-54)
+
+Players can currently only see the Race & Power combo shop during the race selection phase. They have no way to preview upcoming combos while planning their turn.
+
+Add a persistent button or control that allows players to open the combo shop HUD in a read-only browse mode at any time during their turn. In browse mode, combos cannot be selected — only viewed. The HUD must clearly indicate it is in browse-only mode. Closing the HUD returns the player to their current phase.
+
+References: FR-54.
+
+Test: During conquest phase, open the combo HUD in browse mode; verify combos are visible but clicking them does not trigger selection. Verify the HUD closes and returns to the correct phase.
+
+---
+
+## Task 11: Highlight First-Conquest Eligible Regions Distinctly (FR-56)
+
+Valid conquest targets are already highlighted during the conquest phase, but first-conquest eligible regions (border and coastal) are not visually distinguished from subsequent-conquest targets. Players cannot tell which regions they are allowed to conquer first.
+
+When a player begins their very first conquest (no regions currently owned), highlight border and coastal regions with a distinct visual treatment that differs from the standard valid-target highlight. The visual distinction should make the entry constraint intuitive without requiring the player to read the rules.
+
+References: FR-56.
+
+Test: Start a game and enter conquest phase; verify border/coastal regions show the first-conquest entry highlight while inland regions are visually excluded.
+
+---
+
+## Task 12: Improve Reinforcement Die Visual Feedback (FR-20, FR-21)
+
+The reinforcement die result is not displayed visually when it lands. The player sees only an abstract outcome without a satisfying die-face reveal.
+
+After the player rolls the reinforcement die, animate or display the result clearly showing which face value landed (0, 0, 0, 1, 2, or 3). The result must be visible before the conquest outcome resolves. The existing tumble animation and wooden sound cue should be retained.
+
+References: FR-20, FR-21.
+
+Test: Roll the reinforcement die and verify the landed value is displayed visually. Verify the result is shown before the conquest resolves.
+
+---
+
+## Task 13: Fix Reinforcement Die Flow Sequencing (FR-19)
+
+The End Conquest button is currently presented before the reinforcement die option when the player has insufficient tokens for a standard conquest. The die roll is part of the conquest phase and should be presented first, before offering the option to end conquest.
+
+Reorder the conquest phase UI so that when the player has at least 1 token remaining but cannot afford a standard conquest, the reinforcement die roll option is the primary action presented. The End Conquest button should only appear after the player has declined the die roll or after the die has been rolled.
+
+References: FR-19.
+
+Test: Reach the point in conquest where only 1 token remains; verify the die roll option appears before End Conquest. Verify End Conquest is still accessible if the player chooses not to roll.
+
+---
+
+## Task 14: Implement Left/Right-Click Token Model for Redeployment (FR-57)
+
+The current redeployment interaction does not support a left-click/right-click token model. Players have no intuitive way to precisely control token placement during redeployment.
+
+Implement a left-click to add one token to a region and right-click to remove one token from a region during the redeployment phase. Players must be able to freely add and remove tokens across all eligible regions until they explicitly confirm redeployment. Enforce the minimum of 1 token per occupied region throughout. The confirm redeployment button must remain visible and accessible at all times during the phase.
+
+References: FR-57, FR-26, FR-27.
+
+Test: In redeployment phase, left-click to add tokens and right-click to remove tokens across multiple regions. Verify the 1-token minimum is enforced. Verify confirm button completes redeployment correctly.
+
+---
+
+## Task 15: Add Interaction Mode / Pan Mode Toggle (FR-60, US-15)
+
+Players currently have no way to navigate the map without risking accidental game actions. Clicking and dragging on the map may trigger region interactions when the player simply wants to pan.
+
+Add a toggle control (button in HUD or keyboard shortcut) that switches between Interaction mode and Pan mode. In Interaction mode (default), clicks on map regions trigger game actions. In Pan mode, click-drag navigates the map without triggering any game actions; region hover highlights and tooltips remain active but clicks do not fire game actions. The current mode must be clearly indicated in the UI.
+
+References: FR-60, US-15.
+
+Test: Toggle to Pan mode; click on a valid conquest target and verify no conquest action fires. Drag the map and verify panning works. Toggle back to Interaction mode and verify region clicks trigger actions normally.
+
+---
+
+## Task 16: Add Player Box Ability Tooltips (FR-61, US-16)
+
+Player info boxes (showing race banner, power badge, token count, and coins) do not provide any tooltip information. Players cannot reference their active race and power abilities from the dashboard.
+
+Add hover tooltips to the player info boxes that display the special abilities of the player's currently active race and power. The tooltip content should match the descriptions already used in the combo shop tooltips. Tooltips must work for both players' dashboards.
+
+References: FR-61, US-16.
+
+Test: Hover over Player 1 and Player 2 info boxes; verify tooltip appears showing the active race ability and power ability text for each player.
+
+---
+
+## Task 17: Redraw Region Polygons to Match Reference Map (FR-62)
+
+The current region hit polygons were traced as approximations and do not accurately reflect the actual region boundaries shown in the background map image. Players experience mismatches between visible region borders and interactive areas.
+
+Retrace and redraw all region polygon vertex arrays in src/game/data/map2p.ts to more accurately reflect the boundaries visible in src/assets/reference/2-player-map.jpeg. Adjacency relationships and all other region metadata must remain correct after the redraw. Region center points must also be updated if needed.
+
+References: FR-62.
+
+Test: Click along the visual borders of regions and verify the hit zones match what is shown in the map image. Verify adjacency relationships remain correct after the update.
+
+---
+
+## Task 18: Phase 2 Full Regression Testing (E2E and Unit)
+
+After all Phase 2 fixes and enhancements are implemented, run a full regression test suite to verify no Phase 1 functionality was broken and all Phase 2 features work correctly.
+
+Write new Playwright E2E tests covering: decline flow, first conquest entry restriction, conquest cost display, die roll sequencing, redeployment left/right-click model, interaction/pan mode toggle, HUD browse mode, and player box tooltips. Run the complete test suite (all Phase 1 E2E tests plus new Phase 2 tests) across Chromium, Firefox, and WebKit. Fix any regressions found. All tests must pass with 0 failures before Phase 2 is considered complete.
+
+Test: Full Playwright suite across all browsers with 0 failures. All unit tests passing.

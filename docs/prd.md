@@ -70,6 +70,8 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 | US-12 | As a player, I want contextual tooltips when I hover over game elements so that I can learn the rules as I play | P1 |
 | US-13 | As a player, I want to see the game end screen with final scores and a winner announcement so that the game has a satisfying conclusion | P1 |
 | US-14 | As a player, I want to watch an AI vs. AI game so that I can observe strategies and learn | P2 |
+| US-15 | As a player, I want to toggle between an interaction mode and a pan mode so that I can navigate the map without accidentally triggering game actions | P1 |
+| US-16 | As a player, I want to see my active race and power abilities in my player info box so that I can reference them without leaving my current phase | P1 |
 
 ## Scope
 
@@ -132,6 +134,9 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 - FR-10: Coins placed on skipped combos shall be visually displayed on those combos
 - FR-11: When a player selects a combo, they receive the race banner, power badge, any coins on it, and the appropriate number of tokens
 - FR-12: The shop shall replenish after each selection, shifting combos up and revealing a new one at the bottom
+- FR-53: Race and power names shall be displayed as text labels within the HUD (in addition to any artwork) so that combos are identifiable before visual assets are available
+- FR-54: Players may open the Race & Power combo HUD at any time during their turn to browse upcoming combos; the HUD shall be read-only when not in the race selection phase
+- FR-55: While the Race & Power HUD is open, all map interactions — including region clicks and region tooltips — shall be disabled
 
 #### Ready Troops
 
@@ -146,6 +151,7 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 - FR-15: Conquest cost shall be calculated as: 2 (base) + 1 per Mountain/Encampment/Fortress/Troll's Lair + 1 per Lost Tribe token + 1 per enemy race token
 - FR-15a: Sea and Lake regions cannot be conquered by default (exception: Seafaring power allows conquering Seas/Lakes as empty regions)
 - FR-16: Valid conquest targets shall be visually highlighted when a player begins their conquest phase
+- FR-56: Eligible first-conquest entry regions (border and coastal) shall be visually distinguished from other conquest targets before the player makes their first conquest; this distinction makes the entry constraint discoverable without requiring the player to read the rules
 - FR-17: Conquered regions shall animate the token placement with impact and settling effects
 - FR-18: When a region with an opponent's Active tokens is conquered: 1 token is permanently discarded, remaining tokens are returned to the defender for redeployment
 - FR-18a: Exception — if the region was defended by a single Lost Tribe token or a single In Decline token, that token is simply removed/discarded entirely
@@ -153,7 +159,7 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 
 #### Reinforcement Die
 
-- FR-19: The reinforcement die (sides: 0, 0, 0, 1, 2, 3) shall be available when a player has at least 1 token but not enough for a standard conquest
+- FR-19: The reinforcement die (sides: 0, 0, 0, 1, 2, 3) shall be available when a player has at least 1 token but not enough for a standard conquest. When this condition is met, the die roll option shall be presented to the player before the End Conquest option is offered — rolling the die is the final action of the conquest phase, not a post-conquest confirmation
 - FR-20: The die roll shall have a satisfying 3D tumble animation with a wooden tabletop sound
 - FR-21: The result shall be clearly displayed and the conquest resolved automatically. On failure, tokens remain in the player's previously occupied regions (not held in hand)
 - FR-21a: The reinforcement die ends the conquest phase regardless of success or failure — no further conquests may be attempted
@@ -172,6 +178,7 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 - FR-26: After conquests, the player may freely redistribute active tokens among occupied regions
 - FR-27: Redeployment shall enforce the minimum of 1 token per occupied region
 - FR-28: Token movement during redeployment shall animate smoothly between regions
+- FR-57: During redeployment, left-click on a region shall add one token to that region and right-click shall remove one token from it; the player may freely add and remove tokens across all eligible regions until explicitly confirming redeployment
 
 #### Scoring
 
@@ -254,8 +261,13 @@ All 20 special powers shall be implemented with the following bonus token counts
 
 - FR-49: The game canvas shall support smooth pan (click-drag or two-finger drag) in any direction
 - FR-50: The game canvas shall support smooth zoom (scroll wheel or pinch) with min/max bounds
+- FR-58: The game shall start each session at the maximum zoom-out level, showing the entire map on screen
+- FR-59: Tooltips shall render at a constant visual size (font size, panel dimensions) regardless of the current camera zoom level — tooltips are screen-space elements, not world-space
 - FR-51: The map shall be centered on the canvas with game elements (shop, player info, turn track, dice) arranged spatially around it
 - FR-52: Quick-navigation shortcuts or minimap to jump between the map and peripheral UI elements
+- FR-60: The game shall provide a toggle between Interaction mode (clicks trigger game actions on map regions) and Pan mode (click-drag navigates the map without triggering any game action)
+- FR-61: Player info boxes (displaying race banner, power badge, token count, and coins) shall show a tooltip on hover listing the special abilities of the player's active race and power
+- FR-62: Map region polygons shall accurately reflect the region boundaries depicted in the 2-player reference map image
 
 ### User Experience
 
@@ -398,3 +410,4 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 |---------|------|--------|---------|
 | 1.0 | 2026-02-20 | Jake + Claude | Initial draft based on interview and game rules |
 | 1.1 | 2026-02-20 | Jake + Claude | Rules accuracy pass — added Ready Troops phase, full race/power tables with token counts, coastal entry rule, Seas/Lakes restriction, defeat mechanics exceptions, Ghoul/Stout/Spirit decline details, defender redeployment timing, turn order, tie-breaker specificity; fixed reinforcement die failure behavior, edge cases for Spirit/Halflings/Dragon Master/Sorcerer; noted visible coins as deliberate deviation |
+| 1.2 | 2026-02-21 | Jake + Claude | Phase 2 requirements: added US-15 (interaction/pan mode toggle), US-16 (player box ability tooltips); added FR-53–55 (HUD text labels, browse-at-any-time, map interaction lock); FR-56 (visually distinguish first-conquest entry regions); clarified FR-19 (die roll before End Conquest option); FR-57 (left/right-click redeployment model); FR-58–59 (start at max zoom-out, constant tooltip size); FR-60–62 (interaction/pan toggle, player box tooltips, region polygons match map) |

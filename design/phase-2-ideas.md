@@ -1,0 +1,46 @@
+
+# Roadmap Phase 2: Post-Phase 1 Fixes and UX Enhancements
+
+## Overview
+This document contains ideas of what I would like to implement after Phase 1 was completed, before moving into Visual Polis.  There are a number of UI and game rule bugs to address, as well as enhancements to the user experience as it relates to game control.
+
+## Visual Bugs
+### Map
+- When the map loads, the bottom of the image of the map is cut-off. This excludes a portion of the map, including the round 8. 9 and 10 markers.  
+
+### Race and Poser HUB
+- When the Race and Power selection HUD is open, and the user hovers over the options, the map tile tooltip behind the options is activating.  The behavior should be that when the HUD is open, the tool tips and any other interaction with the background map should be disabled
+
+### Zoom
+- When the map first loads, it is in zoomed-in state.  It should start in the max zoomed out state. The game regions will also have to be resized to reflect the bigger map area
+- Zooming into the map also zooms the tool-tip.  The font and size of the tool-tip should remain constant, regardless the zoon level of the map
+
+## Missing Features
+### Decline
+- I didn't see the option for the player to put the current race into decline.  This feature should be added and tested
+
+## Game Rule Bugs
+### Conquest
+- The game is not enforcing the following rule: "The first conquest must target a border region (edge of map) or a coastal region (bordering a Sea/Lake), unless modified by race/power ability (e.g., Halflings may enter at any region)".  Instead, it is allowing the user to conquest any region on the map.  This should be fixed.
+- The tool tip provides an incorrect number of required tokens for conquest on certain regions, and the game allows this.  It shows that only 2 are needed, regardless of what is on that region.  The game rule and tool tip should be updated to reflect this rule: "Conquest cost shall be calculated as: 2 (base) + 1 per Mountain/Encampment/Fortress/Troll's Lair + 1 per Lost Tribe token + 1 per enemy race token"
+
+
+## Enhacements
+
+### The Race and Power HUB
+- provide the name of the race and power as a placeholder until the next phase of development, when the images will be provided
+- provide a tool-tip that informs the user of the special power and ability of the race and power
+- provide the ability for the players to open the HUB and view upcoming race and power combos 
+
+### Conquest
+- Visually distinguish which regions are available for the player to begin the conquest, according to this rule: The first conquest must target a border region (edge of map) or a coastal region (bordering a Sea/Lake), unless modified by race/power ability (e.g., Halflings may enter at any region)"
+
+### Reinforcement Die
+- add a visual of what the die lands on when the user rolls it
+
+### User Interaciton
+- I want to implement a convention where left-clicking a mouse button adds tokens to a region, and right clicking removes them.  I would like to use this especially in the re-deploy phase, where the user has to right click to remove one token at a time into his hand, and left click to re-deploy it, also one at a time.  The user should be able to freely repeat this, removing and adding tokens to allowable regions, during redeploy
+- Add an ability for the user to toggle between an 'interaction' mode and a 'pan' mode.  The interaction mode allows the user to take actions on the map. The pan mode allows the user to move around the map.
+- Add tool tips for the Player boxes (where the reace, power, tokens and coins are displayed) to show the special abilities associated with the race and power. 
+- Redraw the game regions to more closely correspond to the regions that the background map image depicts.  
+- Present the ability to roll the die on the last conquest before showing the 'End Conquest' button.  That last roll and conquest really are part of the conquest phase
