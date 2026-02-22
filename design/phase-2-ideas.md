@@ -44,3 +44,49 @@ This document contains ideas of what I would like to implement after Phase 1 was
 - Add tool tips for the Player boxes (where the reace, power, tokens and coins are displayed) to show the special abilities associated with the race and power. 
 - Redraw the game regions to more closely correspond to the regions that the background map image depicts.  
 - Present the ability to roll the die on the last conquest before showing the 'End Conquest' button.  That last roll and conquest really are part of the conquest phase
+
+
+
+
+
+## Round 2: bugs to work through manually with calude
+
+### H vs H player 2 goes first  FIXED
+
+### Add race and power title in the HUD, not just in the tooltip    FIXED
+
+### Region tooltip shows states 'Unocupied' when there is a lost tribe token.  This is confusing.  Change the logic to only show 'Unocupied' if there are no race or lost tribe tokens on that region.  FIXED
+
+### 'Go In Decline' button is visible during Ready Troops Phase - it should only be visible in rounds 2+   FIXED
+
+### Ready tropps - remove this step for round 1 and go directly into conquest.  FIXED
+
+### Clicking the confirm Redeploy button does not advance the game - it seems to be stuck
+
+
+
+### Make sure to follow this rule: 
+"A player’s race deploying on the map for the first time must enter it by conquering one of its border Regions (i.e. a Region adjacent to the edge of the board or one whose shore is on a Sea adjacent to the edge of the board, even if the Sea is occupied by a Seafaring Race)."
+ 
+### Conquest cost not correctly calculated for regions with mountains
+
+### Conquest cost not correctly calculated for regions with lost tribe
+
+### Reinforcement Die - fix sequenc to first select the region 
+
+During the final conquest attempt of his turn, a player may find himself with not enough Race tokens left to conquer
+another Region outright. Provided he still has at least one
+unused Race token, the player may attempt one final conquest
+for his turn by selecting a Region that he would normally be
+3 or less Race tokens short to conquer. Once the Region is
+selected, the player rolls the Reinforcement Die once. Note that
+the Region the player wishes to make his last conquest target
+for the turn must be selected before rolling the die. This Region
+does not have to be the weakest one available for attack either,
+provided it could still be conquered with a lucky die roll.
+
+
+
+
+
+

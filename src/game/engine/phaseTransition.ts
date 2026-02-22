@@ -14,16 +14,16 @@ export function getNextPhase(state: GameState, completedAction: GameAction): Tur
       if (completedAction.type === 'endPhase') {
         return hasGhoulsInDecline(state.players[state.activePlayerIndex])
           ? 'ghoulConquest'
-          : 'readyTroops';
+          : nextAfterCombo(state);
       }
       // After picking a combo, Ghoul In-Decline tokens act before the active race
       return hasGhoulsInDecline(state.players[state.activePlayerIndex])
         ? 'ghoulConquest'
-        : 'readyTroops';
+        : nextAfterCombo(state);
 
     case 'ghoulConquest':
       // Player explicitly ends the ghoul conquest phase
-      if (completedAction.type === 'endPhase') return 'readyTroops';
+      if (completedAction.type === 'endPhase') return nextAfterCombo(state);
       return 'ghoulConquest';
 
     case 'readyTroops':
@@ -106,6 +106,13 @@ export function getStartingPhaseForNextPlayer(state: GameState): TurnPhase {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Skip readyTroops on turn 1 (no tokens on board to pick up). */
+function nextAfterCombo(state: GameState): TurnPhase {
+  const player = state.players[state.activePlayerIndex];
+  const hasTokensOnBoard = player.activeRace !== null && player.activeRace.tokensOnBoard > 0;
+  return hasTokensOnBoard ? 'readyTroops' : 'conquest';
+}
 
 function hasGhoulsInDecline(player: PlayerState): boolean {
   return player.declinedRaces.some((r) => r.raceId === 'ghouls');

@@ -91,8 +91,8 @@ export class Game extends Phaser.Scene {
         ];
     }
 
-    // Randomly decide who goes first
-    const firstPlayerIndex: 0 | 1 = Math.random() < 0.5 ? 0 : 1;
+    // Player 1 always goes first
+    const firstPlayerIndex: 0 | 1 = 0;
 
     this.controller = new GameController(boardScene, hudScene, eventBus, {
       players,

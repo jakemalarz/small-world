@@ -117,8 +117,9 @@ export class HUD extends Phaser.Scene {
       this.actionButton.setVisible(false);
     }
 
-    // Show decline button during readyTroops and conquest phases (FR-22)
-    const canDecline = (state.phase === 'readyTroops' || state.phase === 'conquest') &&
+    // Show decline button during readyTroops and conquest phases, turn 2+ only (FR-22)
+    const canDecline = state.turn >= 2 &&
+      (state.phase === 'readyTroops' || state.phase === 'conquest') &&
       state.players[state.activePlayerIndex].activeRace !== null;
     this.declineButton.setVisible(canDecline);
 
@@ -441,8 +442,16 @@ class PlayerDashboard {
     const race = player.activeRace;
     this._currentRaceId = race?.raceId ?? null;
     this._currentPowerId = race?.powerId ?? null;
-    this.raceText.setText(race ? race.raceId.charAt(0).toUpperCase() + race.raceId.slice(1) : '—');
-    this.powerText.setText(race ? race.powerId.charAt(0).toUpperCase() + race.powerId.slice(1) : '—');
+
+    if (race) {
+      const raceDef = RACES[race.raceId as keyof typeof RACES];
+      const powerDef = POWERS[race.powerId as keyof typeof POWERS];
+      this.raceText.setText(raceDef?.name ?? race.raceId);
+      this.powerText.setText(powerDef?.name ?? race.powerId);
+    } else {
+      this.raceText.setText('—');
+      this.powerText.setText('—');
+    }
     this.tokensText.setText(`Tokens: ${player.availableTokens} / ${race?.totalTokens ?? '—'}`);
     this.coinsText.setText(`Coins: ${player.coins}`);
   }

@@ -192,7 +192,9 @@ function _buildTooltipLines(region: RegionState, state: GameState): string[] {
   lines.push(`Terrain: ${_capitalize(region.terrain)}`);
 
   // Line 2: Owner + status
-  if (region.owner === null) {
+  if (region.owner === null && region.hasLostTribe) {
+    lines.push('Lost Tribe');
+  } else if (region.owner === null) {
     lines.push('Unoccupied');
   } else {
     const owner = state.players[region.owner];
@@ -209,7 +211,6 @@ function _buildTooltipLines(region: RegionState, state: GameState): string[] {
 
   // Line 3+: Special markers
   const markers: string[] = [];
-  if (region.hasLostTribe) markers.push('Lost Tribe');
   if (region.hasMountain) markers.push('Mountain');
   if (region.hasTrollLair) markers.push('Troll Lair');
   if (region.hasFortress) markers.push('Fortress');

@@ -34,8 +34,26 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
 
 describe('getNextPhase', () => {
   describe('selectCombo', () => {
-    it('transitions to readyTroops when no ghouls in decline', () => {
+    it('transitions to conquest when player has no tokens on board (turn 1)', () => {
       const state = makeState({ phase: 'selectCombo' });
+      expect(getNextPhase(state, { type: 'selectCombo', comboIndex: 0 })).toBe('conquest');
+    });
+
+    it('transitions to readyTroops when player has tokens on board (turn 2+)', () => {
+      const state = makeState({
+        phase: 'selectCombo',
+        turn: 2,
+        players: [
+          makePlayer({
+            activeRace: {
+              raceId: 'orcs', powerId: 'flying', maxSupply: 10,
+              totalTokens: 10, tokensOnBoard: 5, conquestsThisTurn: 0,
+              hasDeclinedThisTurn: false,
+            },
+          }),
+          makePlayer(),
+        ],
+      });
       expect(getNextPhase(state, { type: 'selectCombo', comboIndex: 0 })).toBe('readyTroops');
     });
 
@@ -54,8 +72,25 @@ describe('getNextPhase', () => {
       expect(getNextPhase(state, { type: 'ghoulConquer', regionId: 1 })).toBe('ghoulConquest');
     });
 
-    it('transitions to readyTroops on endPhase', () => {
+    it('transitions to conquest on endPhase when no tokens on board', () => {
       const state = makeState({ phase: 'ghoulConquest' });
+      expect(getNextPhase(state, { type: 'endPhase' })).toBe('conquest');
+    });
+
+    it('transitions to readyTroops on endPhase when player has tokens on board', () => {
+      const state = makeState({
+        phase: 'ghoulConquest',
+        players: [
+          makePlayer({
+            activeRace: {
+              raceId: 'orcs', powerId: 'flying', maxSupply: 10,
+              totalTokens: 10, tokensOnBoard: 5, conquestsThisTurn: 0,
+              hasDeclinedThisTurn: false,
+            },
+          }),
+          makePlayer(),
+        ],
+      });
       expect(getNextPhase(state, { type: 'endPhase' })).toBe('readyTroops');
     });
   });

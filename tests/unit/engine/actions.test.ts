@@ -63,10 +63,10 @@ function conquestState(
 // ── selectCombo ───────────────────────────────────────────────────────────────
 
 describe('applyAction — selectCombo', () => {
-  it('transitions phase from selectCombo to readyTroops', () => {
+  it('transitions phase from selectCombo to conquest (no tokens on board)', () => {
     const state = createInitialState({ firstPlayerIndex: 0 }); // phase: selectCombo
     const next = applyAction(state, { type: 'selectCombo', comboIndex: 0 });
-    expect(next.phase).toBe('readyTroops');
+    expect(next.phase).toBe('conquest');
   });
 
   it('sets activeRace on player', () => {

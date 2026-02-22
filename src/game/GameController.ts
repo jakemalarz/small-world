@@ -71,6 +71,8 @@ export class GameController {
   private _redeployMap: Map<number, number> = new Map();
   /** Tokens remaining in hand during redeployment. */
   private _redeployTokensInHand = 0;
+  /** True after redeploy submission — next tick should auto-advance with endPhase. */
+  private _redeploySubmitted = false;
 
   constructor(
     boardScene: Board,
@@ -106,6 +108,7 @@ export class GameController {
     this.hudScene.events.on('playerAction', (action: GameAction) => {
       // FR-57: intercept endPhase during redeploy to submit deployment map
       if (action.type === 'endPhase' && this.state.phase === 'redeploy' && this._redeployMap.size > 0) {
+        this._redeploySubmitted = true;
         this.eventBus.emit('playerAction', { type: 'redeploy', deployment: new Map(this._redeployMap) });
         this._redeployMap.clear();
         this._redeployTokensInHand = 0;
@@ -186,6 +189,13 @@ export class GameController {
       await this.choreographer.animateDieRoll(result);
     }
 
+    // After redeploy submission, auto-advance with endPhase (FR-57)
+    if (this.state.phase === 'redeploy' && this._redeploySubmitted) {
+      this._redeploySubmitted = false;
+      this.state = applyAction(this.state, { type: 'endPhase' });
+      return;
+    }
+
     // Initialize redeployment map when entering redeploy phase (FR-57)
     if (this.state.phase === 'redeploy' && this._redeployMap.size === 0) {
       this._initRedeployMap();
@@ -208,6 +218,7 @@ export class GameController {
     if (this.state.phase !== 'redeploy') {
       this._redeployMap.clear();
       this._redeployTokensInHand = 0;
+      this._redeploySubmitted = false;
     }
   }
 

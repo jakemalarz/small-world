@@ -202,7 +202,7 @@ export class ComboShopRenderer {
     });
 
     const slotContainer = this.scene.add.container(0, 0, [
-      costBadge, costText, raceText, powerText, tokenText, coinText, dimmer, bg,
+      bg, costBadge, costText, raceText, powerText, tokenText, coinText, dimmer,
     ]);
 
     // Store data refs for update
