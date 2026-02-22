@@ -18,6 +18,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "phaser": "^3.87.0"
+    "phaser": "^3.87.0",
+    "task-master-ai": "^0.43.0"
   }
 }

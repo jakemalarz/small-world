@@ -155,6 +155,12 @@ export const HUD = {
   actionButton: { x: 640, y: 696 },
   /** Combo shop slot center (slot 0 = FREE, slot 1 costs 1 coin, etc.) */
   comboSlot: (index: number) => ({ x: 640, y: 130 + index * 84 }),
+  /** Decline button — left of the action button (FR-22). */
+  declineButton: { x: 510, y: 696 },
+  /** Pan/Interact mode toggle — top-right corner (FR-60). */
+  panToggle: { x: 1080, y: 32 },
+  /** Browse Combos button — top-right area (FR-54). */
+  browseButton: { x: 1200, y: 34 },
 } as const;
 
 // ── High-level game flow helpers ──────────────────────────────────────────────
@@ -317,4 +323,166 @@ export async function completeHumanTurn(
       { timeout: 10_000 },
     );
   }
+}
+
+// ── Phase 2 helpers ─────────────────────────────────────────────────────────
+
+/** Click the Decline button in the HUD (FR-22). */
+export async function clickDeclineButton(page: Page): Promise<void> {
+  await clickGame(page, HUD.declineButton.x, HUD.declineButton.y);
+}
+
+/** Click the Pan/Interact toggle button (FR-60). */
+export async function clickPanToggle(page: Page): Promise<void> {
+  await clickGame(page, HUD.panToggle.x, HUD.panToggle.y);
+}
+
+/** Click the Browse Combos button (FR-54). */
+export async function clickBrowseButton(page: Page): Promise<void> {
+  await clickGame(page, HUD.browseButton.x, HUD.browseButton.y);
+}
+
+/** Read whether pan mode is currently active. */
+export async function getPanMode(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const hudScene = game?.scene.getScene('HUD');
+    return (hudScene as any)?.panMode ?? false;
+  });
+}
+
+/** Read whether browse mode is currently active on the controller. */
+export async function getBrowseMode(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const gameScene = game?.scene.getScene('Game');
+    return (gameScene as any)?.controller?._browseMode ?? false;
+  });
+}
+
+/** Read the reinforcement die result from state (null if not rolled). */
+export async function getDieResult(page: Page): Promise<number | null> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const gs = game?.scene.getScene('Game');
+    const state = (gs as any)?.controller?.state;
+    return state?.reinforcementDie?.result ?? null;
+  });
+}
+
+/** Read the redeployment tokens in hand from the controller. */
+export async function getRedeployTokensInHand(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const gs = game?.scene.getScene('Game');
+    return (gs as any)?.controller?._redeployTokensInHand ?? 0;
+  });
+}
+
+/** Read the redeployment map from the controller as a plain object. */
+export async function getRedeployMap(page: Page): Promise<Record<string, number>> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const gs = game?.scene.getScene('Game');
+    const map = (gs as any)?.controller?._redeployMap;
+    if (!map) return {};
+    const result: Record<string, number> = {};
+    map.forEach((v: number, k: number) => { result[String(k)] = v; });
+    return result;
+  });
+}
+
+/** Read the active player's tokensOnBoard count. */
+export async function getTokensOnBoard(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const gs = game?.scene.getScene('Game');
+    const state = (gs as any)?.controller?.state;
+    const p = state?.players[state.activePlayerIndex];
+    return p?.activeRace?.tokensOnBoard ?? 0;
+  });
+}
+
+/** Read the active player's availableTokens (tokens in hand). */
+export async function getAvailableTokens(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const gs = game?.scene.getScene('Game');
+    const state = (gs as any)?.controller?.state;
+    return state?.players[state.activePlayerIndex]?.availableTokens ?? 0;
+  });
+}
+
+/** Right-click at a game-world coordinate (for redeployment token removal). */
+export async function rightClickGame(page: Page, gameX: number, gameY: number): Promise<void> {
+  const canvas = page.locator('canvas');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas element not found');
+  const sx = box.x + gameX * (box.width / GAME_W);
+  const sy = box.y + gameY * (box.height / GAME_H);
+  await page.mouse.click(sx, sy, { button: 'right' });
+}
+
+/**
+ * Drive a human player through selectCombo + readyTroops to reach conquest phase.
+ * Useful as setup for Phase 2 tests that need to test conquest-phase features.
+ */
+export async function advanceToConquest(page: Page, comboSlotIndex = 0): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const game = (window as any).__phaserGame;
+      const gs = game?.scene.getScene('Game');
+      const c = (gs as any)?.controller;
+      const phase = c?.state?.phase;
+      return (
+        c?.readyForInput === true &&
+        (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulConquest')
+      );
+    },
+    { timeout: 15_000 },
+  );
+
+  const turnStartPhase = await getPhase(page);
+
+  if (turnStartPhase === 'selectCombo') {
+    await clickComboSlot(page, comboSlotIndex);
+    await page.waitForFunction(
+      () => {
+        const game = (window as any).__phaserGame;
+        const gs = game?.scene.getScene('Game');
+        const phase = (gs as any)?.controller?.state?.phase;
+        return phase === 'readyTroops' || phase === 'ghoulConquest';
+      },
+      { timeout: 10_000 },
+    );
+    const afterCombo = await getPhase(page);
+    if (afterCombo === 'ghoulConquest') {
+      await clickActionButton(page);
+    }
+  } else if (turnStartPhase === 'ghoulConquest') {
+    await clickActionButton(page);
+  }
+
+  await waitForPhase(page, 'readyTroops');
+  await clickActionButton(page);
+  await waitForPhase(page, 'conquest');
+}
+
+/** Read all legal action types from the controller. */
+export async function getLegalActionTypes(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const gs = game?.scene.getScene('Game');
+    const actions = (gs as any)?.controller?.legalActions ?? [];
+    return actions.map((a: { type: string }) => a.type);
+  });
+}
+
+/** Check whether board input is currently enabled. */
+export async function isBoardInputEnabled(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const board = game?.scene.getScene('Board');
+    return board?.input?.enabled ?? false;
+  });
 }

@@ -2,28 +2,15 @@
 
 A web-based implementation of the Small World board game (by Days of Wonder) for 2 players, built with Phaser.js.
 
-## Session 1 Summary (2026-02-14)
+## Project Status
 
-Set up the complete development harness from scratch. Started with just two reference files (rulebook PDF + 2-player map image) in an empty directory.
+### Phase 1 — Core Game Engine (COMPLETE)
+All 35 tasks done. Full game loop working: game state types, map data, race/power definitions, ability modifier system, combo shop, conquest, decline, scoring, reinforcement die, redeployment, legal action generation, phase state machine, Board + HUD scenes, token/region rendering, animation choreographer, audio manager (stub), GameController, HumanPlayer, Easy AI, Medium AI, end game screen, tooltips, main menu with mode selection (HvH, HvAI, AivAI). Unit tests (Vitest, 266 tests) and E2E tests (Playwright) passing.
 
-### What was built:
-1. **Git repository** initialized with `.gitignore` (node_modules, dist, .env, .DS_Store, Claude session state)
-2. **Vite + TypeScript project** scaffolded with Phaser.js v3 as the game engine
-3. **Three Phaser scenes** wired up in sequence: Boot → MainMenu → Game
-   - `Boot` — Loading progress bar, asset preloading (currently no assets to load)
-   - `MainMenu` — Title screen with a clickable "2-Player Game" button
-   - `Game` — Placeholder game board with "← Back to Menu" navigation
-4. **Claude Code plugin** (`.claude-plugin/`) with:
-   - MCP servers for Puppeteer (browser automation/screenshots) and Nano Banana (Gemini image generation)
-   - Slash commands: `/preview`, `/screenshot`, `/generate-asset`
-5. **Permissions** pre-approved for npm, git, open, and file operations in `.claude/settings.local.json`
+### Phase 2 — UX Enhancements & Bug Fixes (IN PROGRESS)
+All 18 implementation tasks (36–53) done. E2E tests written and passing (213 tests across Chromium/Firefox/WebKit). Fixes: map viewport clipping, camera zoom, HUD interaction passthrough, tooltip zoom scaling, conquest cost calculation, first conquest entry rule, decline flow, reinforcement die sequencing, region polygon redraw. Features: race/power text labels, ability tooltips, player box tooltips, first-conquest highlighting, browse combo mode, left/right-click redeployment, pan/interact mode toggle.
 
-### Current state:
-- `npm run dev` serves the game at `localhost:5173` — verified working
-- TypeScript compiles clean with `npx tsc --noEmit`
-- No game logic implemented yet — scenes are UI placeholders only
-- No assets loaded yet (Boot scene has loading bar but nothing to load)
-- 2 git commits on `main` branch
+**Next steps**: Manual playtesting to find remaining issues, then 1-on-1 bug fixing.
 
 ---
 
@@ -33,40 +20,69 @@ Set up the complete development harness from scratch. Started with just two refe
 - **Bundler**: Vite v7 (fast HMR, manual chunking for Phaser)
 - **Language**: TypeScript (strict mode)
 - **Canvas**: 1280x720 with `Phaser.Scale.FIT` scaling (responsive 16:9)
-- **Scene flow**: Boot → MainMenu → Game (scene keys match class names)
+- **Scene flow**: Boot → MainMenu → Game (with Board + HUD parallel scenes)
 
 ## Project Structure
 
 ```
 small-world/
-├── .claude-plugin/              # Claude Code plugin
-│   ├── plugin.json              # Plugin metadata
-│   ├── .mcp.json                # Puppeteer + Nano Banana MCP servers
-│   ├── commands/                # Slash command definitions
-│   │   ├── preview.md           # /preview — dev server + browser
-│   │   ├── screenshot.md        # /screenshot — Puppeteer visual QA
-│   │   └── generate-asset.md    # /generate-asset — Gemini image gen
 ├── src/
-│   ├── main.ts                  # Phaser game bootstrap (4 lines)
+│   ├── main.ts                  # Phaser game bootstrap
 │   ├── game/
 │   │   ├── config.ts            # GameConfig: 1280x720, FIT, scene list
-│   │   └── scenes/
-│   │       ├── Boot.ts          # Asset preloading with progress bar
-│   │       ├── MainMenu.ts      # Title + "2-Player Game" button
-│   │       └── Game.ts          # Main gameplay (placeholder)
-│   └── assets/
-│       ├── images/              # Static game images (empty)
-│       ├── sprites/             # Sprite sheets (empty)
-│       ├── generated/           # AI-generated assets via Gemini (empty)
-│       └── reference/           # Source materials
-│           ├── 2-player-map.jpeg
-│           └── small world rule book.pdf
-├── screenshots/                 # Visual QA captures (empty)
-├── CLAUDE.md                    # This file
-├── index.html                   # Minimal HTML shell (dark background, no DOM)
-├── vite.config.ts               # Path aliases (@/), Phaser chunking
-├── tsconfig.json                # Strict TS, bundler resolution, path aliases
-└── package.json                 # Deps: phaser, vite, typescript
+│   │   ├── GameController.ts    # Game loop orchestrator (state → render → input → animate)
+│   │   ├── state/types.ts       # All TypeScript interfaces (GameState, PlayerState, etc.)
+│   │   ├── data/
+│   │   │   ├── map2p.ts         # 2-player map: polygons, adjacency, terrain, markers
+│   │   │   ├── races.ts         # 14 race definitions (tokens, abilities, maxSupply)
+│   │   │   └── powers.ts        # 20 power definitions (bonuses, modifiers)
+│   │   ├── engine/              # Pure-function game logic (no Phaser dependency)
+│   │   │   ├── actions.ts       # applyAction — central state transition
+│   │   │   ├── legalActions.ts  # getLegalActions — valid moves per phase
+│   │   │   ├── phaseTransition.ts # Phase state machine
+│   │   │   ├── setup.ts         # createInitialState
+│   │   │   ├── comboShop.ts     # Combo selection + shop replenishment
+│   │   │   ├── conquestCost.ts  # Conquest cost with ability modifiers
+│   │   │   ├── decline.ts       # Decline mechanics (Spirit, Ghoul exceptions)
+│   │   │   ├── scoring.ts       # End-of-turn scoring with race/power bonuses
+│   │   │   ├── reinforcementDie.ts # Die roll + final conquest attempt
+│   │   │   └── redeployment.ts  # Token redistribution
+│   │   ├── abilities/
+│   │   │   ├── modifiers.ts     # AbilityModifiers interface + getActiveModifiers
+│   │   │   ├── raceAbilities.ts # Custom handlers (Sorcerers, Halflings, etc.)
+│   │   │   └── powerAbilities.ts # Custom handlers (Dragon Master, Heroic, etc.)
+│   │   ├── scenes/
+│   │   │   ├── Boot.ts          # Asset preloading with progress bar
+│   │   │   ├── MainMenu.ts      # Mode selection (HvH, HvAI, AivAI) + difficulty
+│   │   │   ├── Game.ts          # Orchestrates Board + HUD scenes
+│   │   │   ├── Board.ts         # Map image, hit polygons, camera pan/zoom
+│   │   │   └── HUD.ts           # Turn track, dashboards, action buttons, combo shop
+│   │   ├── players/
+│   │   │   ├── IPlayer.ts       # Async IPlayer interface
+│   │   │   ├── HumanPlayer.ts   # Resolves via UI events
+│   │   │   ├── AIPlayer.ts      # Easy AI (random valid moves)
+│   │   │   └── MediumAIPlayer.ts # Medium AI (heuristic evaluation)
+│   │   └── presentation/
+│   │       ├── TokenRenderer.ts     # Colored circles with race initials
+│   │       ├── RegionRenderer.ts    # Ownership borders, valid target highlights
+│   │       ├── AnimationChoreographer.ts # Tween sequences for actions
+│   │       └── AudioManager.ts      # Stub (no-op, ready for Phase 3)
+│   └── assets/reference/        # Source materials (rulebook PDF, map image)
+├── tests/
+│   ├── unit/                    # Vitest unit tests (266 tests)
+│   └── e2e/                     # Playwright E2E tests (71 per browser)
+│       ├── helpers.ts           # Shared test utilities and coordinates
+│       ├── mainMenu.spec.ts     # Main menu tests
+│       ├── hvhGame.spec.ts      # Human vs Human game flow
+│       ├── hvaiGame.spec.ts     # Human vs AI game flow
+│       └── phase2.spec.ts       # Phase 2 feature tests
+├── docs/prd.md                  # Product requirements document
+├── design/
+│   ├── technical-design.md      # Architecture and engine design
+│   └── roadmap.md               # Phased delivery plan
+├── playwright.config.ts         # Chromium + Firefox + WebKit
+├── vitest.config.ts             # Unit test config
+└── package.json
 ```
 
 ## Coding Conventions
@@ -102,13 +118,14 @@ Skill source files live in `pm-skills/skills/` with templates and examples. When
 
 - **Puppeteer** (`@modelcontextprotocol/server-puppeteer`) — Browser automation, screenshots for visual QA
 - **Nano Banana** (`nano-banana-mcp`) — Google Gemini image generation (requires `GEMINI_API_KEY` env var)
-- **Task Master** (`taskmaster-ai`) — Development task tracking for this project. Use `mcp__taskmaster-ai__*` tools to get, update, and manage tasks. Project root: `/Users/jakemalarz/cc-dmz/small-world`. Phase 1 tasks (30 tasks across M1–M4) are the current implementation scope — always check Task Master before starting new work.
+- **Task Master** (`taskmaster-ai`) — Development task tracking for this project. Use `mcp__taskmaster-ai__*` tools to get, update, and manage tasks. Project root: `/Users/jakemalarz/cc-dmz/small-world`. Phase 1 (tasks 1–35) and Phase 2 (tasks 36–53) are complete. Always check Task Master before starting new work.
 
 ## Project Documents
 
 - **PRD**: `docs/prd.md` — Full product requirements: user stories, functional requirements, all 14 races, all 20 powers, edge cases, milestones
 - **Technical Design**: `design/technical-design.md` — Architecture decisions, game state model, engine structure, scene graph, ability system, testing strategy
-- **Roadmap**: `design/roadmap.md` — Phased delivery plan; Phase 1 (current scope) tracked in Task Master, Phases 2–7 document future features (MCP bridge, visual polish, audio, online multiplayer, additional player counts, QoL)
+- **Roadmap**: `design/roadmap.md` — Phased delivery plan; Phases 2–7 document future features (visual polish, audio, MCP bridge, online multiplayer, additional player counts, QoL)
+- **Phase 2 E2E Tasks**: `.taskmaster/docs/phase2-e2e-tasks.txt` — Phase 2 E2E test plan (completed)
 
 ## Game Reference
 
@@ -129,4 +146,5 @@ npx playwright show-report       # View last test report
 
 ## Testing
 
-- **Playwright** (`@playwright/test`) — End-to-end browser testing. Tests go in `tests/` directory. Browsers installed: Chromium, Firefox, WebKit. Config: `playwright.config.ts`. Use for visual QA, interaction testing, and verifying game scenes render correctly. Docs: https://playwright.dev/docs/intro
+- **Vitest** — 266 unit tests covering engine logic (scoring, setup, conquest cost, redeployment, ready troops), data tables (races, powers), state types, and audio manager stub. Run: `npx vitest run`
+- **Playwright** (`@playwright/test`) — 71 E2E tests per browser (Chromium, Firefox, WebKit = 213 total). Covers main menu, HvH game flow, HvAI game flow, and Phase 2 features (decline, first conquest, pan mode, browse mode, redeployment, tooltips). Config: `playwright.config.ts`. Run: `npx playwright test`

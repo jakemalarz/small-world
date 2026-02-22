@@ -1,0 +1,13 @@
+# Phase 2 E2E Testing Tasks
+
+## Task 1: Update E2E Tests Based on Phase 2 Implementation
+
+Review all existing Playwright E2E tests and update them to reflect the changes made in Phase 2. This includes updates for: new decline flow UI, first-conquest border/coastal restriction and highlighting, corrected conquest cost calculation and tooltip, reinforcement die flow reordering, left/right-click redeployment model, interaction/pan mode toggle, combo HUD browse mode, race/power text labels and tooltips, player box ability tooltips, and redrawn region polygons. Write new E2E tests for any Phase 2 features not yet covered. All tests should be in the tests/e2e/ directory.
+
+Test: All new and updated E2E tests compile and are syntactically correct. Tests cover all Phase 2 features listed above.
+
+## Task 2: Execute All E2E Tests and Resolve Issues
+
+Run the complete Playwright E2E test suite (all Phase 1 and Phase 2 tests) across Chromium, Firefox, and WebKit using `npx playwright test`. Investigate any failures using traces, screenshots, and debug mode. Fix all failing tests — whether the failure is in the test code or in the application code. Re-run until the full suite passes with 0 failures across all browsers.
+
+Test: `npx playwright test` passes with 0 failures across all 3 browsers. `npx vitest run` passes with 0 failures.
