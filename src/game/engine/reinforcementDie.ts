@@ -1,6 +1,7 @@
 import type { GameState, GameAction } from '@/game/state/types';
 import { calculateConquestCost } from '@/game/engine/conquestCost';
 import { getActiveModifiers } from '@/game/abilities/modifiers';
+import { isBorderRegion } from '@/game/engine/legalActions';
 
 // ── Reinforcement Die ─────────────────────────────────────────────────────────
 //
@@ -17,6 +18,17 @@ const DIE_SIDES: readonly (0 | 1 | 2 | 3)[] = [0, 0, 0, 1, 2, 3];
 /** Roll the reinforcement die. Returns one of: 0, 0, 0, 1, 2, 3 (uniform). */
 export function rollReinforcementDie(): 0 | 1 | 2 | 3 {
   return DIE_SIDES[Math.floor(Math.random() * DIE_SIDES.length)];
+}
+
+/**
+ * Returns all regions the active player could potentially conquer with a
+ * final conquest attempt, assuming the maximum die roll (3).
+ *
+ * Used during step 1 of the reinforcement phase (before the die is rolled)
+ * to highlight valid target regions for the player to select.
+ */
+export function getFinalConquestTargets(state: GameState): readonly GameAction[] {
+  return getLegalReinforcementTargets(state, 3);
 }
 
 /**
@@ -52,7 +64,7 @@ export function getLegalReinforcementTargets(
       if (!isAdjacent) continue;
     }
     if (isFirst && !mods.firstConquestAnywhere && !mods.ignoreAdjacency) {
-      if (!region.isEdge && !region.isCoastal) continue;
+      if (!isBorderRegion(state, region)) continue;
     }
 
     // Can't conquer own active regions

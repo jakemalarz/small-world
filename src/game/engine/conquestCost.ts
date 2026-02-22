@@ -4,7 +4,7 @@ import { getActiveModifiers } from '@/game/abilities/modifiers';
 // ── Conquest Cost ─────────────────────────────────────────────────────────────
 //
 // Formula (per game rules):
-//   cost = max(2, totalDefenseTokens + 1)
+//   cost = defenseTokens + 2  (empty region = 2, each defender adds 1)
 //   then apply ability modifiers (some reduce cost)
 //   then enforce minimum of 1
 //
@@ -37,8 +37,8 @@ export function calculateConquestCost(state: GameState, regionId: number): numbe
   if (region.hasFortress)   defenseTokens += 1;
   if (region.hasEncampment) defenseTokens += 1;
 
-  // Base cost: always at least 2 (the "+1 more than defenders, min 2" rule)
-  let cost = Math.max(2, defenseTokens + 1);
+  // Base cost: 2 for an empty region, +1 per defensive feature/token
+  let cost = defenseTokens + 2;
 
   // ── Ability modifiers ──────────────────────────────────────────────────────
   const mods = getActiveModifiers(state.players[state.activePlayerIndex]);

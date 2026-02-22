@@ -183,38 +183,34 @@ test.describe('Phase 2 — Conquest Cost', () => {
   });
 });
 
-// ── Reinforcement Die (FR-19, FR-20, FR-21) ─────────────────────────────────
+// ── Reinforcement Die / Final Conquest (FR-19, FR-20, FR-21) ────────────────
+// New two-step flow: player selects region first, THEN die is rolled.
 
-test.describe('Phase 2 — Reinforcement Die', () => {
-  test('reinforcementDie phase sets a die result in state', async ({ page }) => {
+test.describe('Phase 2 — Final Conquest', () => {
+  test('reinforcementDie phase starts with die result null (step 1)', async ({ page }) => {
     await startHvHGame(page);
 
     await advanceToConquest(page);
     await clickActionButton(page); // End Conquest → reinforcementDie
     await waitForPhase(page, 'reinforcementDie');
 
+    // Step 1: die has NOT been rolled yet
     const dieResult = await getDieResult(page);
-    expect(dieResult).not.toBeNull();
-    expect([0, 1, 2, 3]).toContain(dieResult);
+    expect(dieResult).toBeNull();
   });
 
-  test('die result clears after leaving reinforcementDie phase', async ({ page }) => {
+  test('skip final conquest advances to redeploy', async ({ page }) => {
     await startHvHGame(page);
 
     await advanceToConquest(page);
-    await clickActionButton(page); // → reinforcementDie
+    await clickActionButton(page); // End Conquest → reinforcementDie
     await waitForPhase(page, 'reinforcementDie');
 
-    // Die result should be set
-    const resultDuring = await getDieResult(page);
-    expect(resultDuring).not.toBeNull();
-
-    // Advance past the die phase
+    // Click "Skip Final Conquest" button
     await clickActionButton(page);
     await waitForPhase(page, 'redeploy');
 
-    // Die state should be cleared after action is applied
-    // (Note: it may persist in state.reinforcementDie until next tick resets it)
+    expect(await getPhase(page)).toBe('redeploy');
   });
 });
 

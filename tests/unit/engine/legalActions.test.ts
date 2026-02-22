@@ -179,28 +179,36 @@ describe('conquest phase — first conquest', () => {
     expect(has20).toBe(true);
   });
 
-  it('includes conquer for coastal regions (first conquest)', () => {
+  it('includes conquer for regions adjacent to edge sea (first conquest)', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 0 });
     state = patchState(state, { phase: 'conquest' });
     const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
-    // Region 2 isCoastal:true (borders Sea)
+    // Region 2 is isEdge:true and borders Sea (1) — valid border region
     const has2 = conquests.some(
       (a) => (a as { type: 'conquer'; regionId: number }).regionId === 2,
     );
     expect(has2).toBe(true);
   });
 
-  it('does not include non-edge/non-coastal interior regions (first conquest)', () => {
+  it('excludes interior lake-adjacent regions (first conquest)', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 0 });
     state = patchState(state, { phase: 'conquest' });
     const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
-    // Region 8 (Rolling Farms) — isEdge:false, isCoastal:true (borders lake!)
-    // Let's check for region 14 (Bogmoss) — isEdge:true so it's valid
-    // Actually check region 15 (Meadow Run): isEdge:false, isCoastal:true — valid!
-    // Find a region that is neither edge nor coastal
-    // Region 17 (River Bend): isEdge:false, isCoastal:false
+    // Region 8 borders Lake (9) but lake is not at edge — NOT a border region
+    const has8 = conquests.some(
+      (a) => (a as { type: 'conquer'; regionId: number }).regionId === 8,
+    );
+    expect(has8).toBe(false);
+  });
+
+  it('does not include fully interior regions (first conquest)', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 0 });
+    state = patchState(state, { phase: 'conquest' });
+    const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
+    // Region 17 (River Bend): isEdge:false, not adjacent to any edge water
     const has17 = conquests.some(
       (a) => (a as { type: 'conquer'; regionId: number }).regionId === 17,
     );
@@ -212,6 +220,36 @@ describe('conquest phase — first conquest', () => {
     state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 0 });
     state = patchState(state, { phase: 'conquest' });
     expect(actionTypes(state)).toContain('endPhase');
+  });
+
+  it('enforces border restriction for player 2 first conquest (after player 1 played)', () => {
+    // Simulate: player 1 conquered region 8 (interior, lake-adjacent), then
+    // it's player 2's first turn. Player 2 should NOT be able to conquer region 8.
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    // Player 1 owns region 8 with tokens
+    state = patchRegion(state, 8, { owner: 0, tokens: 3, hasLostTribe: false });
+    // Switch to player 2 (index 1) for their first conquest
+    state = patchState(state, { activePlayerIndex: 1, phase: 'conquest' });
+    state = patchPlayer(state, 1, {
+      activeRace: {
+        raceId: 'orcs' as never,
+        powerId: 'alchemist' as never,
+        maxSupply: 20,
+        totalTokens: 10,
+        tokensOnBoard: 0,
+        conquestsThisTurn: 0,
+        hasDeclinedThisTurn: false,
+      },
+      availableTokens: 10,
+    });
+    const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
+    const regionIds = conquests.map((a) => (a as { regionId: number }).regionId);
+    // Region 8 is interior (lake-adjacent, not edge) — should NOT be a target
+    expect(regionIds).not.toContain(8);
+    // Region 17 is fully interior — should NOT be a target
+    expect(regionIds).not.toContain(17);
+    // Region 20 is edge — should be a target
+    expect(regionIds).toContain(20);
   });
 });
 
@@ -349,5 +387,41 @@ describe('conquest — Halflings (first conquest anywhere)', () => {
     const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
     const has17 = conquests.some((a) => (a as { type: 'conquer'; regionId: number }).regionId === 17);
     expect(has17).toBe(true);
+  });
+});
+
+// ── reinforcementDie — two-step flow ────────────────────────────────────────
+
+describe('reinforcementDie phase — two-step flow', () => {
+  it('step 1 (die not rolled): returns useReinforcement targets + endPhase', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 3 });
+    state = patchPlayer(state, 0, { availableTokens: 2 });
+    state = patchRegion(state, 20, { owner: 0, tokens: 3, isDeclined: false });
+    state = patchState(state, { phase: 'reinforcementDie', reinforcementDie: null });
+    const types = actionTypes(state);
+    expect(types).toContain('endPhase');
+    expect(types).toContain('useReinforcement');
+  });
+
+  it('step 2 (die rolled): returns only endPhase', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 3 });
+    state = patchPlayer(state, 0, { availableTokens: 2 });
+    state = patchRegion(state, 20, { owner: 0, tokens: 3, isDeclined: false });
+    state = patchState(state, {
+      phase: 'reinforcementDie',
+      reinforcementDie: { result: 2, targetRegionId: 20 },
+    });
+    expect(actionTypes(state)).toEqual(['endPhase']);
+  });
+
+  it('step 1 with no valid targets: returns only endPhase', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    // No active race → no targets
+    state = patchState(state, { phase: 'reinforcementDie', reinforcementDie: null });
+    const actions = getLegalActions(state);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].type).toBe('endPhase');
   });
 });

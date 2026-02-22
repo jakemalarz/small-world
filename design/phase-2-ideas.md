@@ -61,18 +61,20 @@ This document contains ideas of what I would like to implement after Phase 1 was
 
 ### Ready tropps - remove this step for round 1 and go directly into conquest.  FIXED
 
-### Clicking the confirm Redeploy button does not advance the game - it seems to be stuck
+### Clicking the confirm Redeploy button does not advance the game - it seems to be stuck FIXED
 
 
 
-### Make sure to follow this rule: 
+### Currently a player can begin coqnuest on any region.  Make sure the game enforcces the following rule.  Also double check and update the prd.md doc if necessary.   FIXED
 "A player’s race deploying on the map for the first time must enter it by conquering one of its border Regions (i.e. a Region adjacent to the edge of the board or one whose shore is on a Sea adjacent to the edge of the board, even if the Sea is occupied by a Seafaring Race)."
  
-### Conquest cost not correctly calculated for regions with mountains
+### Conquest cost not correctly calculated for regions with mountains   FIXED
 
-### Conquest cost not correctly calculated for regions with lost tribe
+### Conquest cost are not correctly calculated for regions with lost tribe FIXED
 
-### Reinforcement Die - fix sequenc to first select the region 
+
+
+### Reinforcement Die - On the final conquest, if the player still has one token and the ability to roll the die, update the phase name to "Final Conquest".  Also, only show the Roll Die button on this last conqueset.  Also change the sequence so that the player needs to select the region first before rolling the die.  Here is the full game rule:
 
 During the final conquest attempt of his turn, a player may find himself with not enough Race tokens left to conquer
 another Region outright. Provided he still has at least one

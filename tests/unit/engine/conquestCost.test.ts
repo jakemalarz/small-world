@@ -52,21 +52,21 @@ describe('calculateConquestCost', () => {
     expect(calculateConquestCost(state, BASE_REGION)).toBe(2);
   });
 
-  it('costs 2 for a lost-tribe-only region (0 + 1 lost tribe → max(2,2) = 2)', () => {
+  it('costs 3 for a lost-tribe-only region (0 + 1 lost tribe + 2 base = 3)', () => {
     // Region 2 has a lost tribe
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist');
-    expect(calculateConquestCost(state, 2)).toBe(2);
+    expect(calculateConquestCost(state, 2)).toBe(3);
   });
 
-  it('costs 3 for a region with 1 lost tribe + 1 mountain token', () => {
+  it('costs 4 for a region with 1 lost tribe + 1 mountain', () => {
     // Region 3: Highrock — hasMountain: true, no lost tribe
     // Patch region 3 to also have a lost tribe for this test
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist');
     state = patchRegion(state, 3, { hasLostTribe: true }); // hasMountain already true
-    // defenseTokens = 0 (tokens) + 1 (lostTribe) + 1 (mountain) = 2 → cost = max(2, 3) = 3
-    expect(calculateConquestCost(state, 3)).toBe(3);
+    // defenseTokens = 0 (tokens) + 1 (lostTribe) + 1 (mountain) = 2 → cost = 2 + 2 = 4
+    expect(calculateConquestCost(state, 3)).toBe(4);
   });
 
   it('adds 1 per enemy token in region', () => {
@@ -74,32 +74,32 @@ describe('calculateConquestCost', () => {
     state = withRace(state, 'humans', 'alchemist');
     // Put 3 enemy tokens in region 20
     state = patchRegion(state, BASE_REGION, { owner: 1, tokens: 3 });
-    // defenseTokens = 3 → max(2, 4) = 4
-    expect(calculateConquestCost(state, BASE_REGION)).toBe(4);
+    // defenseTokens = 3 → cost = 3 + 2 = 5
+    expect(calculateConquestCost(state, BASE_REGION)).toBe(5);
   });
 
   it('adds 1 for troll lair', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist');
     state = patchRegion(state, BASE_REGION, { hasTrollLair: true });
-    // defenseTokens = 1 → max(2, 2) = 2
-    expect(calculateConquestCost(state, BASE_REGION)).toBe(2);
+    // defenseTokens = 1 → cost = 1 + 2 = 3
+    expect(calculateConquestCost(state, BASE_REGION)).toBe(3);
   });
 
   it('adds 1 for fortress', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist');
     state = patchRegion(state, BASE_REGION, { hasFortress: true, owner: 1, tokens: 2 });
-    // defenseTokens = 2 (tokens) + 1 (fortress) = 3 → max(2, 4) = 4
-    expect(calculateConquestCost(state, BASE_REGION)).toBe(4);
+    // defenseTokens = 2 (tokens) + 1 (fortress) = 3 → cost = 3 + 2 = 5
+    expect(calculateConquestCost(state, BASE_REGION)).toBe(5);
   });
 
   it('adds 1 for encampment', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist');
     state = patchRegion(state, BASE_REGION, { hasEncampment: true, owner: 1, tokens: 1 });
-    // defenseTokens = 1 + 1 = 2 → max(2, 3) = 3
-    expect(calculateConquestCost(state, BASE_REGION)).toBe(3);
+    // defenseTokens = 1 + 1 = 2 → cost = 2 + 2 = 4
+    expect(calculateConquestCost(state, BASE_REGION)).toBe(4);
   });
 
   it('applies Commando -1 flat modifier', () => {
@@ -121,7 +121,7 @@ describe('calculateConquestCost', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'tritons', 'seafaring');
     // Tritons: conquestCostCoastalModifier = -1
-    // Region 2: empty + lost tribe = 2, coastal -1 = 1
+    // Region 2: empty + lost tribe = 3, coastal -1 = 2
     const costWithTritons = calculateConquestCost(state, 2);
     state = withRace(state, 'humans', 'alchemist');
     const costWithoutTritons = calculateConquestCost(state, 2);
@@ -201,7 +201,7 @@ describe('calculateConquestCost', () => {
   });
 
   it('stacks multiple defense tokens correctly', () => {
-    // Region with 2 tokens + mountain + troll lair = 4 defense → cost = max(2, 5) = 5
+    // Region with 2 tokens + mountain + troll lair = 4 defense → cost = 4 + 2 = 6
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist');
     state = patchRegion(state, BASE_REGION, {
@@ -210,6 +210,6 @@ describe('calculateConquestCost', () => {
       hasTrollLair: true,
       hasMountain: true,
     });
-    expect(calculateConquestCost(state, BASE_REGION)).toBe(5);
+    expect(calculateConquestCost(state, BASE_REGION)).toBe(6);
   });
 });

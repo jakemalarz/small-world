@@ -146,16 +146,16 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 
 #### Conquest
 
-- FR-13: The first conquest must target a border region (edge of map) or a coastal region (bordering a Sea/Lake), unless modified by race/power ability (e.g., Halflings may enter at any region)
+- FR-13: The first conquest must target a border region — one at the edge of the map, or one whose shore is on a Sea adjacent to the edge of the board. Interior lake shores do NOT count as border regions. Exception: race/power abilities may override (e.g., Halflings may enter at any region, Flying ignores adjacency)
 - FR-14: Subsequent conquests must target regions adjacent to currently occupied regions (unless modified by race/power)
 - FR-15: Conquest cost shall be calculated as: 2 (base) + 1 per Mountain/Encampment/Fortress/Troll's Lair + 1 per Lost Tribe token + 1 per enemy race token
 - FR-15a: Sea and Lake regions cannot be conquered by default (exception: Seafaring power allows conquering Seas/Lakes as empty regions)
 - FR-16: Valid conquest targets shall be visually highlighted when a player begins their conquest phase
-- FR-56: Eligible first-conquest entry regions (border and coastal) shall be visually distinguished from other conquest targets before the player makes their first conquest; this distinction makes the entry constraint discoverable without requiring the player to read the rules
+- FR-56: Eligible first-conquest border regions shall be visually distinguished from other conquest targets before the player makes their first conquest; this distinction makes the entry constraint discoverable without requiring the player to read the rules
 - FR-17: Conquered regions shall animate the token placement with impact and settling effects
 - FR-18: When a region with an opponent's Active tokens is conquered: 1 token is permanently discarded, remaining tokens are returned to the defender for redeployment
 - FR-18a: Exception — if the region was defended by a single Lost Tribe token or a single In Decline token, that token is simply removed/discarded entirely
-- FR-18b: Defender redeployment timing: defeated tokens are placed in other regions the defender still controls at the end of the current active player's turn (not immediately). If the defender holds no regions, they deploy on their next turn as a first conquest (border/coastal entry)
+- FR-18b: Defender redeployment timing: defeated tokens are placed in other regions the defender still controls at the end of the current active player's turn (not immediately). If the defender holds no regions, they deploy on their next turn as a first conquest (border region entry)
 
 #### Reinforcement Die
 
@@ -317,7 +317,7 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 |----------|------------------|
 | Player cannot afford any combo in the shop | This cannot happen — the top combo is always free |
 | Player has no valid conquest targets | Player may still choose to decline. If they chose conquest but have no valid targets, skip to redeployment and scoring |
-| Player's last token is defeated while they hold no regions | They redeploy on their next turn as a first conquest (border or coastal entry) |
+| Player's last token is defeated while they hold no regions | They redeploy on their next turn as a first conquest (border region entry) |
 | Reinforcement die roll of 0 with only 1 token | Conquest fails; tokens are placed back in the player's previously occupied regions as part of redeployment |
 | Single In Decline token or Lost Tribe conquered | The single token is simply removed/discarded entirely (no "1 discarded + remaining returned" — there are no remaining tokens) |
 | Spirit power + decline | Spirit-powered race tokens are exempt from the normal In Decline removal. When the player declines again, the Spirit race stays and any other non-Spirit In Decline race is removed normally. A player can have at most 2 declined races (1 Spirit + 1 other) |

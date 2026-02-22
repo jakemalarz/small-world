@@ -21,7 +21,7 @@ const PHASE_LABELS: Record<TurnPhase, string> = {
   ghoulConquest:    'Ghouls Advance',
   readyTroops:      'Ready Troops',
   conquest:         'Conquest',
-  reinforcementDie: 'Reinforcement Die — Pick Target',
+  reinforcementDie: 'Final Conquest',
   redeploy:         'Redeploy',
   score:            'Scoring',
   optionalDecline:  'Optional Decline',
@@ -32,7 +32,7 @@ const PHASE_LABELS: Record<TurnPhase, string> = {
 const ACTION_BUTTONS: Partial<Record<TurnPhase, string>> = {
   readyTroops:      'Begin Conquest →',
   conquest:         'End Conquest',
-  reinforcementDie: 'Skip (End Conquest)',
+  reinforcementDie: 'Skip Final Conquest',
   redeploy:         'Confirm Redeploy',
   score:            'End Turn',
   optionalDecline:  'Skip Decline',
@@ -102,14 +102,7 @@ export class HUD extends Phaser.Scene {
     }
 
     // Update action button (hide during selectCombo — combo shop handles input)
-    let label = ACTION_BUTTONS[state.phase];
-    // FR-19: During conquest, show "Roll Die →" when die will trigger on end
-    if (state.phase === 'conquest' && label) {
-      const player = state.players[state.activePlayerIndex];
-      if (player.availableTokens > 0) {
-        label = 'Roll Die →';
-      }
-    }
+    const label = ACTION_BUTTONS[state.phase];
     if (label && state.phase !== 'selectCombo') {
       this.actionBtnLabel.setText(label);
       this.actionButton.setVisible(true);

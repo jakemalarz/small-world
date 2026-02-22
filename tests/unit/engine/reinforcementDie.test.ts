@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rollReinforcementDie, getLegalReinforcementTargets } from '@/game/engine/reinforcementDie';
+import { rollReinforcementDie, getLegalReinforcementTargets, getFinalConquestTargets } from '@/game/engine/reinforcementDie';
 import { createInitialState } from '@/game/engine/setup';
 import type { GameState, PlayerState } from '@/game/state/types';
 
@@ -154,17 +154,18 @@ describe('getLegalReinforcementTargets', () => {
     }
   });
 
-  it('first conquest targets only edge/coastal regions (no Flying)', () => {
+  it('first conquest targets only border regions (no Flying)', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActivePlayer(state, 0, 5); // tokensOnBoard === 0 → first
     const actions = getLegalReinforcementTargets(state, 3);
     const reinforcementActions = actions.filter(
       (a): a is Extract<typeof a, { type: 'useReinforcement' }> => a.type === 'useReinforcement',
     );
-    const mapRegions = state.board.regions;
+    // All targets must be border regions (edge or adjacent to edge sea)
+    // Interior lake-adjacent regions (e.g. region 8) should be excluded
     for (const a of reinforcementActions) {
-      const region = mapRegions.find((r) => r.id === a.regionId)!;
-      expect(region.isEdge || region.isCoastal).toBe(true);
+      const region = state.board.regions.find((r) => r.id === a.regionId)!;
+      expect(region.isEdge).toBe(true);
     }
   });
 
@@ -174,5 +175,44 @@ describe('getLegalReinforcementTargets', () => {
     const lowTargets = getLegalReinforcementTargets(state, 0).filter((a) => a.type !== 'endPhase');
     const highTargets = getLegalReinforcementTargets(state, 3).filter((a) => a.type !== 'endPhase');
     expect(highTargets.length).toBeGreaterThanOrEqual(lowTargets.length);
+  });
+});
+
+// ── getFinalConquestTargets ──────────────────────────────────────────────────
+
+describe('getFinalConquestTargets', () => {
+  it('returns same results as getLegalReinforcementTargets with max die (3)', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActivePlayer(state, 0, 5);
+    const finalTargets = getFinalConquestTargets(state);
+    const maxDieTargets = getLegalReinforcementTargets(state, 3);
+    expect(finalTargets).toEqual(maxDieTargets);
+  });
+
+  it('returns only endPhase when no active race', () => {
+    const state = createInitialState({ firstPlayerIndex: 0 });
+    const actions = getFinalConquestTargets(state);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].type).toBe('endPhase');
+  });
+
+  it('includes targets reachable with max die but not with 0 tokens alone', () => {
+    // Player has 0 tokens but die max (3) could reach cost-2 targets
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActivePlayer(state, 0, 0); // 0 tokens in hand
+    const targets = getFinalConquestTargets(state);
+    const reinforcements = targets.filter((a) => a.type === 'useReinforcement');
+    // With 0 tokens + max die 3, can reach regions costing up to 3
+    expect(reinforcements.length).toBeGreaterThan(0);
+  });
+
+  it('returns useReinforcement actions with dieResult 3', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActivePlayer(state, 0, 5);
+    const targets = getFinalConquestTargets(state);
+    const reinforcements = targets.filter(
+      (a): a is Extract<typeof a, { type: 'useReinforcement' }> => a.type === 'useReinforcement',
+    );
+    expect(reinforcements.every((a) => a.dieResult === 3)).toBe(true);
   });
 });

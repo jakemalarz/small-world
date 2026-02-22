@@ -1,7 +1,7 @@
 import type { GameState, GameAction } from '@/game/state/types';
 import { getActiveModifiers } from '@/game/abilities/modifiers';
 import { calculateConquestCost } from '@/game/engine/conquestCost';
-import { getLegalReinforcementTargets } from '@/game/engine/reinforcementDie';
+import { getFinalConquestTargets } from '@/game/engine/reinforcementDie';
 import { RACE_HANDLERS } from '@/game/abilities/raceAbilities';
 import { POWER_HANDLERS } from '@/game/abilities/powerAbilities';
 
@@ -14,7 +14,8 @@ import { POWER_HANDLERS } from '@/game/abilities/powerAbilities';
 //   • applyAction  — validates submitted action is in the list.
 //
 // Key conquest eligibility rules (PRD FR-13 to FR-18):
-//   First conquest  → target must be an edge OR coastal region
+//   First conquest  → target must be a border region (edge of board, or adjacent
+//                     to an edge sea) — interior lake shores don't count
 //                     (unless Flying → any non-sea/lake; or Halflings → anywhere)
 //   Subsequent     → target must be adjacent to an own active region
 //                     (unless Flying → any non-sea/lake)
@@ -186,13 +187,18 @@ function conquestActions(state: GameState): GameAction[] {
 }
 
 // ── reinforcementDie ──────────────────────────────────────────────────────────
-// Die result is on state.reinforcementDie. Player picks one more conquest
-// target reachable with (availableTokens + dieResult) budget, or ends phase.
+// Two-step phase:
+//   Step 1 (die not rolled): Player selects a target region. Show all regions
+//     conquerable assuming max die (3). Controller rolls die on click.
+//   Step 2 (die rolled): Controller has already resolved — only endPhase remains.
 
 function reinforcementDieActions(state: GameState): readonly GameAction[] {
-  const die = state.reinforcementDie;
-  if (!die) return [{ type: 'endPhase' }];
-  return getLegalReinforcementTargets(state, die.result);
+  if (!state.reinforcementDie) {
+    // Step 1: region selection before rolling
+    return getFinalConquestTargets(state);
+  }
+  // Step 2: die already rolled, controller resolved — just endPhase
+  return [{ type: 'endPhase' }];
 }
 
 // ── redeploy ──────────────────────────────────────────────────────────────────
@@ -206,6 +212,18 @@ function redeployActions(_state: GameState): GameAction[] {
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
+
+/**
+ * A border region is at the edge of the board, or adjacent to a Sea/Lake
+ * that is itself at the edge. Interior lake shores do NOT count.
+ */
+export function isBorderRegion(state: GameState, region: { isEdge: boolean; adjacentRegionIds: readonly number[] }): boolean {
+  if (region.isEdge) return true;
+  return region.adjacentRegionIds.some((adjId) => {
+    const adj = state.board.regions.find((r) => r.id === adjId);
+    return adj !== undefined && adj.isEdge && (adj.terrain === 'sea' || adj.terrain === 'lake');
+  });
+}
 
 /**
  * Build the set of region IDs that are "reachable" for conquest given the
@@ -231,9 +249,9 @@ function buildReachableSet(
     if (firstConquestAnywhere) {
       state.board.regions.forEach((r) => reachable.add(r.id));
     } else {
-      // Default first conquest: edge or coastal regions
+      // Default first conquest: border regions only
       state.board.regions
-        .filter((r) => r.isEdge || r.isCoastal)
+        .filter((r) => isBorderRegion(state, r))
         .forEach((r) => reachable.add(r.id));
     }
     return reachable;

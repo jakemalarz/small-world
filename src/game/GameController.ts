@@ -7,6 +7,7 @@ import { createInitialState } from '@/game/engine/setup';
 import { getLegalActions } from '@/game/engine/legalActions';
 import { applyAction } from '@/game/engine/actions';
 import { rollReinforcementDie } from '@/game/engine/reinforcementDie';
+import { calculateConquestCost } from '@/game/engine/conquestCost';
 import { AnimationChoreographer } from '@/game/presentation/AnimationChoreographer';
 import { PlaceholderTokenRenderer } from '@/game/presentation/TokenRenderer';
 import { RegionRenderer } from '@/game/presentation/RegionRenderer';
@@ -182,13 +183,6 @@ export class GameController {
   // ── Private game loop ────────────────────────────────────────────────────
 
   private async _tick(): Promise<void> {
-    // Roll reinforcement die on first tick of that phase
-    if (this.state.phase === 'reinforcementDie' && !this.state.reinforcementDie) {
-      const result = rollReinforcementDie();
-      this.state = { ...this.state, reinforcementDie: { result, targetRegionId: null } };
-      await this.choreographer.animateDieRoll(result);
-    }
-
     // After redeploy submission, auto-advance with endPhase (FR-57)
     if (this.state.phase === 'redeploy' && this._redeploySubmitted) {
       this._redeploySubmitted = false;
@@ -260,6 +254,16 @@ export class GameController {
       return;
     }
 
+    // Final conquest step 1: player selects target, then we roll the die
+    if (this.state.phase === 'reinforcementDie' && !this.state.reinforcementDie) {
+      const isValidTarget = this.legalActions.some(
+        (a) => a.type === 'useReinforcement' && (a as { regionId: number }).regionId === regionId,
+      );
+      if (!isValidTarget) return;
+      this._resolveFinalConquest(regionId);
+      return;
+    }
+
     const action = this.legalActions.find(
       (a) =>
         (a.type === 'conquer' || a.type === 'useReinforcement') &&
@@ -268,6 +272,32 @@ export class GameController {
     if (action) {
       this.selectedRegionId = regionId;
       this.eventBus.emit('playerAction', action);
+    }
+  }
+
+  /**
+   * Final conquest: roll the die, animate, then resolve.
+   * Success → emit useReinforcement. Failure → emit endPhase (→ redeploy).
+   */
+  private async _resolveFinalConquest(regionId: number): Promise<void> {
+    const result = rollReinforcementDie();
+    this.selectedRegionId = regionId;
+
+    // Store die result on state so HUD can display it
+    this.state = { ...this.state, reinforcementDie: { result, targetRegionId: regionId } };
+    this._renderState();
+
+    await this.choreographer.animateDieRoll(result);
+
+    const player = this.state.players[this.state.activePlayerIndex];
+    const cost = calculateConquestCost(this.state, regionId);
+
+    if (player.availableTokens + result >= cost) {
+      // Success — conquer the region
+      this.eventBus.emit('playerAction', { type: 'useReinforcement', regionId, dieResult: result });
+    } else {
+      // Failure — skip to redeploy
+      this.eventBus.emit('playerAction', { type: 'endPhase' });
     }
   }
 
