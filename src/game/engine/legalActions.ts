@@ -197,8 +197,18 @@ function reinforcementDieActions(state: GameState): readonly GameAction[] {
     // Step 1: region selection before rolling
     return getFinalConquestTargets(state);
   }
-  // Step 2: die already rolled, controller resolved — just endPhase
-  return [{ type: 'endPhase' }];
+  // Step 2: die already rolled, controller resolved.
+  // Include the target region as a legal useReinforcement action so the
+  // controller's emitted action passes the legality check in applyAction.
+  const { result, targetRegionId } = state.reinforcementDie;
+  if (targetRegionId === null) return [{ type: 'endPhase' }];
+  const player = state.players[state.activePlayerIndex];
+  const cost = calculateConquestCost(state, targetRegionId);
+  const actions: GameAction[] = [{ type: 'endPhase' }];
+  if (player.availableTokens + result >= cost) {
+    actions.unshift({ type: 'useReinforcement', regionId: targetRegionId, dieResult: result });
+  }
+  return actions;
 }
 
 // ── redeploy ──────────────────────────────────────────────────────────────────

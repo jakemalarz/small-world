@@ -199,6 +199,81 @@ test.describe('Phase 2 — Final Conquest', () => {
     expect(dieResult).toBeNull();
   });
 
+  test('successful final conquest places tokens from hand onto the conquered region', async ({ page }) => {
+    await startHvHGame(page);
+    await advanceToConquest(page);
+
+    // End conquest immediately (no conquests) to enter reinforcementDie with all tokens
+    await clickActionButton(page);
+    await waitForPhase(page, 'reinforcementDie');
+
+    // Record tokens in hand before final conquest
+    const tokensBefore = await page.evaluate(() => {
+      const game = (window as any).__phaserGame;
+      const gs = game?.scene.getScene('Game');
+      const state = (gs as any)?.controller?.state;
+      return state?.players[state.activePlayerIndex]?.availableTokens ?? 0;
+    });
+    expect(tokensBefore).toBeGreaterThan(0);
+
+    // Get a valid final conquest target
+    const targetRegionId = await page.evaluate(() => {
+      const game = (window as any).__phaserGame;
+      const gs = game?.scene.getScene('Game');
+      const c = (gs as any)?.controller;
+      const actions = c?.legalActions ?? [];
+      const useAction = actions.find((a: any) => a.type === 'useReinforcement');
+      return useAction?.regionId ?? null;
+    });
+    expect(targetRegionId).not.toBeNull();
+
+    // Force Math.random to return max die roll (3): index 5 of [0,0,0,1,2,3]
+    await page.evaluate(() => {
+      (window as any).__origRandom = Math.random;
+      Math.random = () => 5 / 6 + 0.01; // floor(0.8433.. * 6) = 5 → die value 3
+    });
+
+    // Emit regionClick on the Board scene to trigger final conquest through
+    // the normal event flow (Board → GameController._onRegionClick)
+    await page.evaluate((rid: number) => {
+      const game = (window as any).__phaserGame;
+      const board = game?.scene.getScene('Board');
+      board.events.emit('regionClick', { regionId: rid });
+    }, targetRegionId!);
+
+    // Restore Math.random
+    await page.evaluate(() => {
+      if ((window as any).__origRandom) {
+        Math.random = (window as any).__origRandom;
+        delete (window as any).__origRandom;
+      }
+    });
+
+    // Wait for phase to advance to redeploy (die animation + state transition)
+    await waitForPhase(page, 'redeploy');
+
+    // Verify: the conquered region should now have tokens placed on it
+    const regionAfter = await page.evaluate((rid: number) => {
+      const game = (window as any).__phaserGame;
+      const gs = game?.scene.getScene('Game');
+      const state = (gs as any)?.controller?.state;
+      const region = state?.board?.regions?.find((r: any) => r.id === rid);
+      const player = state?.players[state.activePlayerIndex];
+      return {
+        regionTokens: region?.tokens ?? 0,
+        regionOwner: region?.owner,
+        activePlayerIndex: state?.activePlayerIndex,
+        availableTokens: player?.availableTokens ?? 0,
+      };
+    }, targetRegionId!);
+
+    // Region should be owned by the active player with tokens on it
+    expect(regionAfter.regionOwner).toBe(regionAfter.activePlayerIndex);
+    expect(regionAfter.regionTokens).toBeGreaterThan(0);
+    // Tokens in hand should have decreased (some were placed on the region)
+    expect(regionAfter.availableTokens).toBeLessThan(tokensBefore);
+  });
+
   test('skip final conquest advances to redeploy', async ({ page }) => {
     await startHvHGame(page);
 

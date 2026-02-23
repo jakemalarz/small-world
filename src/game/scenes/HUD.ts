@@ -121,8 +121,8 @@ export class HUD extends Phaser.Scene {
       state.phase !== 'selectCombo' && state.phase !== 'gameOver' && !this.comboShop.browseMode,
     );
 
-    // Show die result during reinforcementDie phase (FR-20, FR-21)
-    if (state.phase === 'reinforcementDie' && state.reinforcementDie) {
+    // Show die result during reinforcementDie and redeploy phases (FR-20, FR-21)
+    if ((state.phase === 'reinforcementDie' || state.phase === 'redeploy') && state.reinforcementDie) {
       const r = state.reinforcementDie.result;
       this.dieResultText.setText(`Die: ${r}`);
       this.dieResultText.setColor(r === 0 ? '#ef4444' : '#4ade80');

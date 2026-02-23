@@ -377,7 +377,6 @@ function applyUseReinforcement(
         conquestsThisTurn: player.activeRace.conquestsThisTurn + (wasNonEmpty ? 1 : 0),
       },
     }),
-    reinforcementDie: null,
   };
 
   const nextPhase = getNextPhase(s, logEntry.action);
@@ -595,6 +594,7 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
     activePlayerIndex: nextPlayerIndex,
     turn: newTurn,
     round: newRound,
+    reinforcementDie: null,
   }, logEntry);
 }
 
