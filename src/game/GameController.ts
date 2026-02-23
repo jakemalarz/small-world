@@ -8,6 +8,7 @@ import { getLegalActions } from '@/game/engine/legalActions';
 import { applyAction } from '@/game/engine/actions';
 import { rollReinforcementDie } from '@/game/engine/reinforcementDie';
 import { calculateConquestCost } from '@/game/engine/conquestCost';
+import { getActiveModifiers } from '@/game/abilities/modifiers';
 import { AnimationChoreographer } from '@/game/presentation/AnimationChoreographer';
 import { PlaceholderTokenRenderer } from '@/game/presentation/TokenRenderer';
 import { RegionRenderer } from '@/game/presentation/RegionRenderer';
@@ -82,6 +83,8 @@ export class GameController {
   private _gatherSubmitted = false;
   /** True while the abandon confirmation dialog is showing. */
   private _abandonDialogActive = false;
+  /** First selected hero region during placeHeroes phase. */
+  private _heroFirstRegion: number | null = null;
 
   constructor(
     boardScene: Board,
@@ -233,10 +236,32 @@ export class GameController {
     const action = await player.chooseAction(this.state, this.legalActions);
     this.readyForInput = false;
 
-    await this.choreographer.playAction(action);
-    this.state = applyAction(this.state, action);
+    // Berserk: AI conquer actions need die roll resolution
+    let resolvedAction = action;
+    if (action.type === 'conquer' && this.state.phase === 'conquest') {
+      const activePlayer = this.state.players[this.state.activePlayerIndex];
+      const mods = getActiveModifiers(activePlayer);
+      if (mods.berserkDie && action.dieResult === undefined) {
+        const dieResult = rollReinforcementDie();
+        const cost = calculateConquestCost(this.state, action.regionId);
+        if (activePlayer.availableTokens + dieResult >= cost) {
+          resolvedAction = { ...action, dieResult };
+        } else {
+          // Die roll failed — skip this conquest, try next action
+          return;
+        }
+      }
+    }
+
+    await this.choreographer.playAction(resolvedAction);
+    this.state = applyAction(this.state, resolvedAction);
 
     this.selectedRegionId = null;
+
+    // Clear hero selection state if phase changed away from placeHeroes
+    if (this.state.phase !== 'placeHeroes') {
+      this._heroFirstRegion = null;
+    }
 
     // Clear redeploy state if phase changed away from redeploy
     if (this.state.phase !== 'redeploy') {
@@ -269,6 +294,13 @@ export class GameController {
       // Highlight owned active regions during gathering (FR-13a/b)
       for (const [id, count] of this._gatherMap) {
         if (count > 0) validTargetIds.add(id);
+      }
+    } else if (this.state.phase === 'placeHeroes') {
+      // Highlight owned active regions during hero placement
+      for (const r of this.state.board.regions) {
+        if (r.owner === this.state.activePlayerIndex && !r.isDeclined) {
+          validTargetIds.add(r.id);
+        }
       }
     } else {
       for (const a of this.legalActions) {
@@ -305,6 +337,12 @@ export class GameController {
       return;
     }
 
+    // Heroic: select 2 regions for hero placement
+    if (this.state.phase === 'placeHeroes') {
+      this._heroRegionClick(regionId);
+      return;
+    }
+
     // Final conquest step 1: player selects target, then we roll the die
     if (this.state.phase === 'reinforcementDie' && !this.state.reinforcementDie) {
       const isValidTarget = this.legalActions.some(
@@ -321,6 +359,15 @@ export class GameController {
         (a as { regionId: number }).regionId === regionId,
     );
     if (action) {
+      // Berserk: roll die before every conquest attempt
+      if (action.type === 'conquer' && this.state.phase === 'conquest') {
+        const player = this.state.players[this.state.activePlayerIndex];
+        const mods = getActiveModifiers(player);
+        if (mods.berserkDie) {
+          this._resolveBerserkConquest(regionId);
+          return;
+        }
+      }
       this.selectedRegionId = regionId;
       this.eventBus.emit('playerAction', action);
     }
@@ -349,6 +396,55 @@ export class GameController {
     } else {
       // Failure — skip to redeploy
       this.eventBus.emit('playerAction', { type: 'endPhase' });
+    }
+  }
+
+  /**
+   * Berserk: roll the die for every conquest attempt.
+   * Success → emit conquer with dieResult. Failure → nothing (player can try again).
+   */
+  private async _resolveBerserkConquest(regionId: number): Promise<void> {
+    const result = rollReinforcementDie();
+    this.selectedRegionId = regionId;
+
+    // Store die result for HUD display
+    this.state = { ...this.state, reinforcementDie: { result, targetRegionId: regionId } };
+    this._renderState();
+
+    await this.choreographer.animateDieRoll(result);
+
+    const player = this.state.players[this.state.activePlayerIndex];
+    const cost = calculateConquestCost(this.state, regionId);
+
+    // Clear die display after resolution
+    this.state = { ...this.state, reinforcementDie: null };
+
+    if (player.availableTokens + result >= cost) {
+      // Success — conquer the region with die assistance
+      this.eventBus.emit('playerAction', { type: 'conquer', regionId, dieResult: result });
+    } else {
+      // Failure — conquest attempt wasted, player stays in conquest phase
+      this._renderState();
+    }
+  }
+
+  /** Heroic: handle region click during placeHeroes phase. */
+  private _heroRegionClick(regionId: number): void {
+    const region = this.state.board.regions.find((r) => r.id === regionId);
+    if (!region || region.owner !== this.state.activePlayerIndex || region.isDeclined) return;
+
+    if (this._heroFirstRegion === null) {
+      // First hero selection
+      this._heroFirstRegion = regionId;
+      this.selectedRegionId = regionId;
+      this._renderState();
+    } else if (regionId !== this._heroFirstRegion) {
+      // Second hero selection — emit the placeHeroes action
+      const ids: [number, number] = this._heroFirstRegion < regionId
+        ? [this._heroFirstRegion, regionId]
+        : [regionId, this._heroFirstRegion];
+      this._heroFirstRegion = null;
+      this.eventBus.emit('playerAction', { type: 'placeHeroes', regionIds: ids });
     }
   }
 

@@ -43,8 +43,11 @@ export function getNextPhase(state: GameState, completedAction: GameAction): Tur
       return 'redeploy';
 
     case 'redeploy':
-      if (completedAction.type === 'endPhase') return 'score';
+      if (completedAction.type === 'endPhase') return nextAfterRedeploy(state);
       return 'redeploy';
+
+    case 'placeHeroes':
+      return 'score';
 
     case 'score':
       if (completedAction.type === 'endPhase') {
@@ -115,6 +118,19 @@ function nextAfterCombo(state: GameState): TurnPhase {
 
 function hasGhoulsInDecline(player: PlayerState): boolean {
   return player.declinedRaces.some((r) => r.raceId === 'ghouls');
+}
+
+/** After redeployment, go to placeHeroes if Heroic, otherwise score. */
+function nextAfterRedeploy(state: GameState): TurnPhase {
+  const player = state.players[state.activePlayerIndex];
+  if (player.activeRace?.powerId === 'heroic') {
+    // Need at least 2 owned active regions to place heroes
+    const ownedActive = state.board.regions.filter(
+      (r) => r.owner === state.activePlayerIndex && !r.isDeclined,
+    );
+    if (ownedActive.length >= 2) return 'placeHeroes';
+  }
+  return 'score';
 }
 
 function canDeclineWithStout(state: GameState): boolean {

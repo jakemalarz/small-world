@@ -7,6 +7,7 @@ export type TurnPhase =
   | 'conquest'
   | 'reinforcementDie'
   | 'redeploy'
+  | 'placeHeroes'       // Heroic power: place 2 heroes after redeployment
   | 'score'
   | 'optionalDecline'   // Stout power: decline offered after scoring
   | 'decline'
@@ -70,7 +71,7 @@ export type PowerId =
 export type GameAction =
   | { readonly type: 'selectCombo'; readonly comboIndex: number }
   | { readonly type: 'pickUpTokens'; readonly regionId: number; readonly count: number }
-  | { readonly type: 'conquer'; readonly regionId: number }
+  | { readonly type: 'conquer'; readonly regionId: number; readonly dieResult?: 0 | 1 | 2 | 3 }
   | { readonly type: 'ghoulConquer'; readonly regionId: number }
   | { readonly type: 'useReinforcement'; readonly regionId: number; readonly dieResult: 0 | 1 | 2 | 3 }
   | { readonly type: 'readyTroopsDeploy'; readonly deployment: ReadonlyMap<number, number> }
@@ -137,6 +138,7 @@ export interface ActiveRaceState {
   readonly conquestsThisTurn: number;  // Non-empty regions conquered this turn
                                        //   (used by Orcs, Pillaging, Skeletons)
   readonly hasDeclinedThisTurn: boolean; // Stout: tracks decline within same turn
+  readonly sorcererConversionsThisTurn: number; // Sorcerer: once per turn per opponent
   // Power-specific persistent state (undefined = not applicable)
   readonly fortressesPlaced?: number;
   readonly encampmentRegions?: readonly number[];
@@ -144,6 +146,7 @@ export interface ActiveRaceState {
   readonly dragonRegion?: number | null;
   readonly halflingHoles?: readonly number[];
   readonly diplomatAlly?: 0 | 1 | null;
+  readonly wealthyBonusApplied?: boolean;  // Wealthy: +7 applied on first scoring turn
 }
 
 // ─── Declined Race State ──────────────────────────────────────────────────────

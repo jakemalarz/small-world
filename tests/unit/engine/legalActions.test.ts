@@ -42,6 +42,7 @@ function withRace(
       tokensOnBoard: 0,
       conquestsThisTurn: 0,
       hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
       ...extra,
     },
     availableTokens: 10,
@@ -239,6 +240,7 @@ describe('conquest phase — first conquest', () => {
         tokensOnBoard: 0,
         conquestsThisTurn: 0,
         hasDeclinedThisTurn: false,
+        sorcererConversionsThisTurn: 0,
       },
       availableTokens: 10,
     });
@@ -448,5 +450,185 @@ describe('reinforcementDie phase — two-step flow', () => {
     const actions = getLegalActions(state);
     expect(actions).toHaveLength(1);
     expect(actions[0].type).toBe('endPhase');
+  });
+});
+
+// ── Feature 7: Berserk die on every conquest ──────────────────────────────────
+
+describe('conquest — Berserk die supplements affordability', () => {
+  it('Berserk includes regions affordable with availableTokens + 3', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    // First conquest scenario (tokensOnBoard=0): any border region is reachable.
+    // Player has exactly 1 token in hand. Without Berserk, cost 2 is unaffordable.
+    // With Berserk effectiveTokens = 1 + 3 = 4 >= 2 → region 20 should be included.
+    state = withRace(state, 'ratmen', 'berserk', { tokensOnBoard: 0 });
+    state = patchPlayer(state, 0, { availableTokens: 1 });
+    state = patchState(state, { phase: 'conquest' });
+    const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
+    expect(conquests.length).toBeGreaterThan(0);
+  });
+
+  it('Berserk allows conquering a region that costs more than availableTokens alone', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    // Region 20 is empty → base cost 2.
+    // First conquest; player has 1 token only (normally cannot afford), but Berserk +3 = effective 4.
+    state = withRace(state, 'ratmen', 'berserk', { tokensOnBoard: 0 });
+    state = patchPlayer(state, 0, { availableTokens: 1 });
+    state = patchState(state, { phase: 'conquest' });
+    const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
+    const has20 = conquests.some(
+      (a) => (a as { type: 'conquer'; regionId: number }).regionId === 20,
+    );
+    expect(has20).toBe(true);
+  });
+
+  it('Berserk does not include regions beyond availableTokens + 3', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    // First conquest; player has 0 tokens in hand; effectiveTokens = 0 + 3 = 3.
+    // Region 20 is at an edge (border), cost = 3 (defender 2 tokens + 1 = 3).
+    // 3 <= 3 → would be included. Make it cost 4 to exceed the effective cap.
+    state = withRace(state, 'ratmen', 'berserk', { tokensOnBoard: 0 });
+    state = patchPlayer(state, 0, { availableTokens: 0 });
+    state = patchState(state, { phase: 'conquest' });
+    // Give player 1 three tokens on region 20 + a mountain: cost = 3 + 1 (mountain) + 1 = 5
+    state = patchRegion(state, 20, {
+      owner: 1, tokens: 3, isDeclined: false, hasMountain: true,
+    });
+    state = patchPlayer(state, 1, {
+      activeRace: {
+        raceId: 'humans' as never,
+        powerId: 'alchemist' as never,
+        maxSupply: 20, totalTokens: 5, tokensOnBoard: 3,
+        conquestsThisTurn: 0, hasDeclinedThisTurn: false, sorcererConversionsThisTurn: 0,
+      },
+      availableTokens: 2,
+    });
+    const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
+    const has20 = conquests.some(
+      (a) => (a as { type: 'conquer'; regionId: number }).regionId === 20,
+    );
+    // effectiveTokens = 0 + 3 = 3; cost = 3 + 1 (mountain) + 1 = 5; 3 < 5 → excluded
+    expect(has20).toBe(false);
+  });
+
+  it('non-Berserk player does not get +3 effective tokens', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    // First conquest; player has 1 token; empty border region costs 2. Without Berserk → too expensive.
+    state = withRace(state, 'ratmen', 'bivouacking', { tokensOnBoard: 0 });
+    state = patchPlayer(state, 0, { availableTokens: 1 });
+    state = patchState(state, { phase: 'conquest' });
+    // Empty region costs 2; player has 1 token → too expensive without Berserk
+    const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
+    expect(conquests).toHaveLength(0);
+  });
+});
+
+// ── Feature 8: Heroic placeHeroes phase ───────────────────────────────────────
+
+describe('placeHeroes phase', () => {
+  function heroicState(): GameState {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'humans', 'heroic', { tokensOnBoard: 3 });
+    state = patchState(state, { phase: 'placeHeroes' });
+    state = patchRegion(state, 19, { owner: 0, tokens: 2, isDeclined: false });
+    state = patchRegion(state, 20, { owner: 0, tokens: 1, isDeclined: false });
+    return state;
+  }
+
+  it('generates placeHeroes actions for all pairs of owned active regions', () => {
+    const state = heroicState();
+    const actions = getLegalActions(state);
+    const heroActions = actions.filter((a) => a.type === 'placeHeroes');
+    // 2 regions → C(2,2) = 1 pair
+    expect(heroActions).toHaveLength(1);
+    const first = heroActions[0] as { type: 'placeHeroes'; regionIds: [number, number] };
+    const ids = new Set(first.regionIds);
+    expect(ids.has(19)).toBe(true);
+    expect(ids.has(20)).toBe(true);
+  });
+
+  it('generates pairs for 3 owned regions — C(3,2) = 3 pairs', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'humans', 'heroic', { tokensOnBoard: 4 });
+    state = patchState(state, { phase: 'placeHeroes' });
+    state = patchRegion(state, 18, { owner: 0, tokens: 1, isDeclined: false });
+    state = patchRegion(state, 19, { owner: 0, tokens: 2, isDeclined: false });
+    state = patchRegion(state, 20, { owner: 0, tokens: 1, isDeclined: false });
+    const heroActions = getLegalActions(state).filter((a) => a.type === 'placeHeroes');
+    expect(heroActions).toHaveLength(3);
+  });
+
+  it('always includes endPhase (can skip hero placement)', () => {
+    const state = heroicState();
+    expect(actionTypes(state)).toContain('endPhase');
+  });
+
+  it('returns only endPhase when fewer than 2 owned active regions', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'humans', 'heroic', { tokensOnBoard: 1 });
+    state = patchState(state, { phase: 'placeHeroes' });
+    state = patchRegion(state, 20, { owner: 0, tokens: 1, isDeclined: false });
+    const actions = getLegalActions(state);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].type).toBe('endPhase');
+  });
+
+  it('does not include declined regions as hero targets', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'humans', 'heroic', { tokensOnBoard: 2 });
+    state = patchState(state, { phase: 'placeHeroes' });
+    state = patchRegion(state, 19, { owner: 0, tokens: 1, isDeclined: true }); // declined
+    state = patchRegion(state, 20, { owner: 0, tokens: 1, isDeclined: false }); // active
+    const heroActions = getLegalActions(state).filter((a) => a.type === 'placeHeroes');
+    // Only 1 active region → no valid pair → no placeHeroes actions
+    expect(heroActions).toHaveLength(0);
+  });
+});
+
+// ── Sorcerer — once per turn per opponent ──────────────────────────────────
+
+describe('conquest — Sorcerer conversion limit', () => {
+  function sorcererState(): GameState {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'sorcerers', 'bivouacking', { tokensOnBoard: 3 });
+    state = patchState(state, { phase: 'conquest' });
+    // Player 0 owns region 20 (active)
+    state = patchRegion(state, 20, { owner: 0, tokens: 3, isDeclined: false });
+    // Opponent (player 1) has a lone token adjacent to region 20
+    // Region 19 is adjacent to 20
+    state = patchPlayer(state, 1, {
+      activeRace: {
+        raceId: 'humans' as never,
+        powerId: 'alchemist' as never,
+        maxSupply: 20,
+        totalTokens: 5,
+        tokensOnBoard: 1,
+        conquestsThisTurn: 0,
+        hasDeclinedThisTurn: false,
+        sorcererConversionsThisTurn: 0,
+      },
+      availableTokens: 4,
+    });
+    state = patchRegion(state, 19, { owner: 1, tokens: 1, isDeclined: false });
+    return state;
+  }
+
+  it('sorcerer can convert an adjacent lone enemy token', () => {
+    const state = sorcererState();
+    const types = actionTypes(state);
+    expect(types).toContain('sorcererConvert');
+  });
+
+  it('sorcerer cannot convert after already using conversion this turn', () => {
+    let state = sorcererState();
+    // Mark that a conversion was already used this turn
+    state = patchPlayer(state, 0, {
+      activeRace: {
+        ...state.players[0].activeRace!,
+        sorcererConversionsThisTurn: 1,
+      },
+    });
+    const types = actionTypes(state);
+    expect(types).not.toContain('sorcererConvert');
   });
 });

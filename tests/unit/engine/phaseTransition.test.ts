@@ -49,6 +49,7 @@ describe('getNextPhase', () => {
               raceId: 'orcs', powerId: 'flying', maxSupply: 10,
               totalTokens: 10, tokensOnBoard: 5, conquestsThisTurn: 0,
               hasDeclinedThisTurn: false,
+              sorcererConversionsThisTurn: 0,
             },
           }),
           makePlayer(),
@@ -86,6 +87,7 @@ describe('getNextPhase', () => {
               raceId: 'orcs', powerId: 'flying', maxSupply: 10,
               totalTokens: 10, tokensOnBoard: 5, conquestsThisTurn: 0,
               hasDeclinedThisTurn: false,
+              sorcererConversionsThisTurn: 0,
             },
           }),
           makePlayer(),
@@ -197,6 +199,7 @@ describe('getNextPhase', () => {
               tokensOnBoard: 9,
               conquestsThisTurn: 0,
               hasDeclinedThisTurn: false,
+              sorcererConversionsThisTurn: 0,
             },
           }),
           makePlayer(),
@@ -218,6 +221,7 @@ describe('getNextPhase', () => {
               tokensOnBoard: 9,
               conquestsThisTurn: 0,
               hasDeclinedThisTurn: true,
+              sorcererConversionsThisTurn: 0,
             },
           }),
           makePlayer(),
@@ -255,6 +259,122 @@ describe('getNextPhase', () => {
   });
 });
 
+// ── Feature 8: Heroic — redeploy → placeHeroes transition ────────────────────
+
+describe('getNextPhase — Heroic placeHeroes transition', () => {
+  it('redeploy → placeHeroes when player has Heroic and >= 2 owned active regions', () => {
+    const state = makeState({
+      phase: 'redeploy',
+      players: [
+        makePlayer({
+          activeRace: {
+            raceId: 'humans',
+            powerId: 'heroic',
+            maxSupply: 10,
+            totalTokens: 8,
+            tokensOnBoard: 3,
+            conquestsThisTurn: 0,
+            hasDeclinedThisTurn: false,
+            sorcererConversionsThisTurn: 0,
+          },
+        }),
+        makePlayer(),
+      ],
+      board: {
+        regions: [
+          // 2 active owned regions
+          { id: 19, owner: 0, tokens: 2, isDeclined: false } as never,
+          { id: 20, owner: 0, tokens: 1, isDeclined: false } as never,
+        ],
+      },
+    });
+    expect(getNextPhase(state, { type: 'endPhase' })).toBe('placeHeroes');
+  });
+
+  it('redeploy → score when player has Heroic but only 1 owned active region', () => {
+    const state = makeState({
+      phase: 'redeploy',
+      players: [
+        makePlayer({
+          activeRace: {
+            raceId: 'humans',
+            powerId: 'heroic',
+            maxSupply: 10,
+            totalTokens: 8,
+            tokensOnBoard: 1,
+            conquestsThisTurn: 0,
+            hasDeclinedThisTurn: false,
+            sorcererConversionsThisTurn: 0,
+          },
+        }),
+        makePlayer(),
+      ],
+      board: {
+        regions: [
+          { id: 20, owner: 0, tokens: 1, isDeclined: false } as never,
+        ],
+      },
+    });
+    expect(getNextPhase(state, { type: 'endPhase' })).toBe('score');
+  });
+
+  it('redeploy → score when player has Heroic but 0 owned active regions', () => {
+    const state = makeState({
+      phase: 'redeploy',
+      players: [
+        makePlayer({
+          activeRace: {
+            raceId: 'humans',
+            powerId: 'heroic',
+            maxSupply: 10,
+            totalTokens: 8,
+            tokensOnBoard: 0,
+            conquestsThisTurn: 0,
+            hasDeclinedThisTurn: false,
+            sorcererConversionsThisTurn: 0,
+          },
+        }),
+        makePlayer(),
+      ],
+      board: { regions: [] },
+    });
+    expect(getNextPhase(state, { type: 'endPhase' })).toBe('score');
+  });
+
+  it('redeploy → score when player does NOT have Heroic (even with 2+ owned regions)', () => {
+    const state = makeState({
+      phase: 'redeploy',
+      players: [
+        makePlayer({
+          activeRace: {
+            raceId: 'humans',
+            powerId: 'bivouacking',
+            maxSupply: 10,
+            totalTokens: 8,
+            tokensOnBoard: 3,
+            conquestsThisTurn: 0,
+            hasDeclinedThisTurn: false,
+            sorcererConversionsThisTurn: 0,
+          },
+        }),
+        makePlayer(),
+      ],
+      board: {
+        regions: [
+          { id: 19, owner: 0, tokens: 2, isDeclined: false } as never,
+          { id: 20, owner: 0, tokens: 1, isDeclined: false } as never,
+        ],
+      },
+    });
+    expect(getNextPhase(state, { type: 'endPhase' })).toBe('score');
+  });
+
+  it('placeHeroes always transitions to score', () => {
+    const state = makeState({ phase: 'placeHeroes' });
+    expect(getNextPhase(state, { type: 'placeHeroes', regionIds: [19, 20] })).toBe('score');
+  });
+});
+
 describe('getStartingPhaseForNextPlayer', () => {
   it('returns selectCombo when next player has no active race', () => {
     const state = makeState({
@@ -274,6 +394,7 @@ describe('getStartingPhaseForNextPlayer', () => {
         tokensOnBoard: 10,
         conquestsThisTurn: 0,
         hasDeclinedThisTurn: false,
+        sorcererConversionsThisTurn: 0,
       },
       declinedRaces: [{ raceId: 'ghouls', powerId: 'hill', isSpirit: false }],
     });

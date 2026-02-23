@@ -34,6 +34,7 @@ export function getLegalActions(state: GameState): readonly GameAction[] {
     case 'conquest':         return conquestActions(state);
     case 'reinforcementDie': return reinforcementDieActions(state);
     case 'redeploy':         return redeployActions(state);
+    case 'placeHeroes':      return placeHeroesActions(state);
     case 'score':            return [{ type: 'endPhase' }];
     case 'optionalDecline':  return [{ type: 'decline' }, { type: 'endPhase' }];
     case 'decline':          return [{ type: 'decline' }];
@@ -153,6 +154,11 @@ function conquestActions(state: GameState): GameAction[] {
     mods.cavernsAreAdjacent,
   );
 
+  // Berserk: die roll supplements every conquest attempt (max die = 3)
+  const effectiveTokens = mods.berserkDie
+    ? player.availableTokens + 3
+    : player.availableTokens;
+
   const standardConquests: GameAction[] = [];
   for (const region of state.board.regions) {
     if (!reachable.has(region.id)) continue;
@@ -164,8 +170,8 @@ function conquestActions(state: GameState): GameAction[] {
     if (region.hasHoleInTheGround) continue;
     if (region.hasHero) continue;
     if (region.hasDragon) continue;
-    // Affordability
-    if (player.availableTokens < calculateConquestCost(state, region.id)) continue;
+    // Affordability (Berserk gets +3 potential from die)
+    if (effectiveTokens < calculateConquestCost(state, region.id)) continue;
 
     standardConquests.push({ type: 'conquer', regionId: region.id });
   }
@@ -230,6 +236,32 @@ function redeployActions(_state: GameState): GameAction[] {
   // A placeholder redeploy action — actionsMatch() for 'redeploy' returns true
   // for any Map, so this entry validates any deployment the player submits.
   return [{ type: 'redeploy', deployment: new Map() }, { type: 'endPhase' }];
+}
+
+// ── placeHeroes ────────────────────────────────────────────────────────────
+// Heroic power: place 2 heroes on any 2 distinct owned active regions.
+
+function placeHeroesActions(state: GameState): GameAction[] {
+  const player = state.players[state.activePlayerIndex];
+  if (!player.activeRace) return [{ type: 'endPhase' }];
+
+  const ownedActive = state.board.regions
+    .filter((r) => r.owner === state.activePlayerIndex && !r.isDeclined)
+    .map((r) => r.id);
+
+  if (ownedActive.length < 2) return [{ type: 'endPhase' }];
+
+  const actions: GameAction[] = [];
+  for (let i = 0; i < ownedActive.length; i++) {
+    for (let j = i + 1; j < ownedActive.length; j++) {
+      actions.push({
+        type: 'placeHeroes',
+        regionIds: [ownedActive[i], ownedActive[j]] as [number, number],
+      });
+    }
+  }
+  actions.push({ type: 'endPhase' }); // skip hero placement
+  return actions;
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────

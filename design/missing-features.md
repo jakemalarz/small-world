@@ -12,14 +12,14 @@ _Audited 2026-02-22 against `docs/prd.md` and `src/assets/reference/Small World 
 
 | Rank | Feature | Category | Status | Effort | Value | Priority | Key Files |
 |------|---------|----------|--------|--------|-------|----------|-----------|
-| 1 | Troll Lair scoring bug | Bug | Incorrect | 1 | 5 | 5.0 | `scoring.ts:83-86` |
-| 2 | Amazons conquest-only token removal | Race ability | Missing | 2 | 4 | 2.0 | `raceAbilities.ts:19-21`, `actions.ts` |
-| 3 | Bivouacking encampments disappear on decline | Power ability | Missing | 1 | 3 | 3.0 | `actions.ts` (applyDecline) |
-| 4 | Sorcerer once-per-opponent limit | Race ability | Missing | 2 | 3 | 1.5 | `raceAbilities.ts:52-78` |
-| 5 | Seafaring "keep in decline" | Power ability | Missing | 2 | 3 | 1.5 | `actions.ts` (applyDecline), `legalActions.ts` |
-| 6 | Wealthy bonus timing | Bug | Wrong timing | 2 | 3 | 1.5 | `comboShop.ts:84-86`, `scoring.ts` |
-| 7 | Berserk die on every conquest | Power ability | Missing | 3 | 4 | 1.3 | `legalActions.ts`, `GameController.ts`, `HUD.ts` |
-| 8 | Heroic hero placement | Power ability | Partial | 3 | 4 | 1.3 | `powerAbilities.ts:46-47`, `legalActions.ts`, `actions.ts:472-494` |
+| 1 | Troll Lair scoring bug | Bug | **DONE** (2026-02-23) | 1 | 5 | 5.0 | `scoring.ts` |
+| 2 | Amazons conquest-only token removal | Race ability | **DONE** (2026-02-23) | 2 | 4 | 2.0 | `actions.ts` |
+| 3 | Bivouacking encampments disappear on decline | Power ability | **DONE** (2026-02-23) | 1 | 3 | 3.0 | `actions.ts` (applyDecline) |
+| 4 | Sorcerer once-per-opponent limit | Race ability | **DONE** (2026-02-23) | 2 | 3 | 1.5 | `raceAbilities.ts`, `actions.ts`, `types.ts` |
+| 5 | Seafaring "keep in decline" | Power ability | **DONE** (2026-02-23) | 2 | 3 | 1.5 | `actions.ts` (applyDecline) |
+| 6 | Wealthy bonus timing | Bug | **DONE** (2026-02-23) | 2 | 3 | 1.5 | `comboShop.ts`, `scoring.ts` |
+| 7 | Berserk die on every conquest | Power ability | **DONE** (2026-02-23) | 3 | 4 | 1.3 | `legalActions.ts`, `actions.ts`, `GameController.ts`, `HUD.ts` |
+| 8 | Heroic hero placement | Power ability | **DONE** (2026-02-23) | 3 | 4 | 1.3 | `legalActions.ts`, `actions.ts`, `phaseTransition.ts`, `GameController.ts`, `HUD.ts` |
 | 9 | Fortified fortress placement | Power ability | Partial | 3 | 4 | 1.3 | `powerAbilities.ts:42-43`, `legalActions.ts`, `actions.ts` |
 | 10 | Dragon Master conquest mechanic | Power ability | Partial | 3 | 3 | 1.0 | `powerAbilities.ts:16-40`, `actions.ts:308-331` |
 | 11 | Diplomat alliance | Power ability | Missing | 4 | 4 | 1.0 | `powerAbilities.ts:12-13`, `legalActions.ts`, `actions.ts:530-546` |
@@ -63,29 +63,27 @@ _Audited 2026-02-22 against `docs/prd.md` and `src/assets/reference/Small World 
 
 ---
 
-### 5. Seafaring "Keep in Decline"
+### 5. Seafaring "Keep in Decline" (DONE)
 
-**What's missing**: Seafaring power says "May conquer Seas and Lakes... Keep them In Decline." When a Seafaring race declines, sea/lake regions they own should be retained (not lost). Currently, decline mechanics don't distinguish sea/lake regions.
-
----
-
-### 6. Wealthy Bonus Timing
-
-**What's wrong**: The +7 bonus is applied immediately at combo selection (`comboShop.ts:84-86`). The PRD and rulebook say "Gain 7 bonus Victory Coins at the end of first turn only." Should be applied during the scoring phase of the player's first turn with the Wealthy power.
-
-**Impact**: Minor — the coins arrive slightly early but the total amount is correct. In edge cases (e.g., going to decline on the very first turn before scoring), timing could matter.
+**Resolved**: Sea/lake regions are already retained when a Seafaring race declines — `applyDecline()` marks all active regions as `isDeclined: true` with 1 token, including sea/lake regions. Since only Seafaring races can own sea/lake regions, no special exclusion is needed. Added explicit comments documenting this behavior. Also added `hasHero: false` cleanup to the decline flow.
 
 ---
 
-### 7. Berserk Die on Every Conquest
+### 6. Wealthy Bonus Timing (DONE)
 
-**What's missing**: The `berserkDie: true` modifier flag exists in `modifiers.ts:80-81` but is never checked during conquest flow. Berserk should allow using the reinforcement die on every conquest attempt (not just the final one). This requires significant changes to the conquest flow — each conquest gets an optional die roll step.
+**Resolved**: Moved +7 bonus from `applySelectCombo` (combo selection) to `calculateScore` (scoring phase). Added `wealthyBonusApplied` flag to `ActiveRaceState`. The bonus is now awarded during the first scoring turn only. `applyScoring` sets `wealthyBonusApplied = true` to prevent re-application on subsequent turns.
 
 ---
 
-### 8. Heroic Hero Placement
+### 7. Berserk Die on Every Conquest (DONE)
 
-**What's missing**: The `applyPlaceHeroes()` action handler exists (`actions.ts:472-494`) and hero immunity works (`legalActions.ts:165`), but there is no legal action generation for `placeHeroes`. Players can never trigger hero placement. Need to add hero placement as a sub-phase (likely after redeployment) and generate the legal action when the player has the Heroic power.
+**Resolved**: Berserk die now rolls on every conquest attempt. Legal actions include regions affordable with `availableTokens + 3` (max die). `conquer` action type extended with optional `dieResult` field. `applyConquer` places `min(availableTokens, cost)` tokens when die assists. `GameController` rolls die before each Berserk conquest (human and AI). Failed rolls waste the attempt but stay in conquest phase.
+
+---
+
+### 8. Heroic Hero Placement (DONE)
+
+**Resolved**: Added `placeHeroes` phase after `redeploy` for Heroic power. Phase transition: `redeploy→endPhase` goes to `placeHeroes` if player has Heroic power and ≥2 owned active regions, otherwise straight to `score`. Legal actions enumerate all pairs of owned active regions. Heroes are cleared at player switch (`heroRegions: undefined`, `hasHero: false` on board) and on decline. HUD shows "Place Heroes" label and "Skip Heroes" button. Human players click 2 regions sequentially. AI picks the first valid pair.
 
 ---
 

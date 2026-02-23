@@ -43,6 +43,7 @@ function withRace(
       tokensOnBoard: 0,
       conquestsThisTurn: 0,
       hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
       ...extra,
     },
     availableTokens: 10,
@@ -306,6 +307,72 @@ describe('applyAction — endPhase transitions', () => {
   });
 });
 
+// ── Amazons — conquest-only token removal ────────────────────────────────────
+
+describe('applyAction — Amazons conquestOnlyTokens', () => {
+  function amazonConquestState(): GameState {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'amazons', 'bivouacking', {
+      tokensOnBoard: 0,
+      totalTokens: 6, // 6 base (power adds 0 for bivouacking)
+    });
+    state = patchPlayer(state, 0, { availableTokens: 6 });
+    return patchState(state, { phase: 'readyTroops' });
+  }
+
+  it('adds conquestOnlyTokens to hand when transitioning readyTroops → conquest', () => {
+    const state = amazonConquestState();
+    const before = state.players[0].availableTokens; // 6
+    const next = applyAction(state, { type: 'endPhase' });
+    expect(next.phase).toBe('conquest');
+    expect(next.players[0].availableTokens).toBe(before + 4); // +4 conquest-only
+    expect(next.players[0].activeRace!.totalTokens).toBe(6 + 4); // totalTokens also +4
+  });
+
+  it('removes conquestOnlyTokens from board after redeployment', () => {
+    // Set up: Amazons in redeploy phase with 10 tokens on board across 3 regions
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'amazons', 'bivouacking', {
+      tokensOnBoard: 10,
+      totalTokens: 10,
+    });
+    state = patchPlayer(state, 0, { availableTokens: 0 });
+    state = patchState(state, { phase: 'redeploy' });
+    state = patchRegion(state, 19, { owner: 0, tokens: 4, isDeclined: false });
+    state = patchRegion(state, 20, { owner: 0, tokens: 3, isDeclined: false });
+    state = patchRegion(state, 18, { owner: 0, tokens: 3, isDeclined: false });
+
+    const deployment = new Map([[19, 4], [20, 3], [18, 3]]);
+    const next = applyAction(state, { type: 'redeploy', deployment });
+
+    // 4 tokens removed from board (largest stacks first: region 19 has 4→1 min so remove 3, then region 20 has 3→2 remove 1)
+    const totalOnBoard = next.board.regions
+      .filter((r) => r.owner === 0 && !r.isDeclined)
+      .reduce((sum, r) => sum + r.tokens, 0);
+    expect(totalOnBoard).toBe(10 - 4); // 6 remain
+    expect(next.players[0].activeRace!.tokensOnBoard).toBe(6);
+    expect(next.players[0].activeRace!.totalTokens).toBe(6); // back to base
+  });
+
+  it('non-Amazon races are not affected by conquestOnlyTokens removal', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'ratmen', 'bivouacking', {
+      tokensOnBoard: 8,
+      totalTokens: 8,
+    });
+    state = patchPlayer(state, 0, { availableTokens: 0 });
+    state = patchState(state, { phase: 'redeploy' });
+    state = patchRegion(state, 19, { owner: 0, tokens: 4, isDeclined: false });
+    state = patchRegion(state, 20, { owner: 0, tokens: 4, isDeclined: false });
+
+    const deployment = new Map([[19, 4], [20, 4]]);
+    const next = applyAction(state, { type: 'redeploy', deployment });
+
+    expect(next.players[0].activeRace!.tokensOnBoard).toBe(8);
+    expect(next.players[0].activeRace!.totalTokens).toBe(8);
+  });
+});
+
 // ── immutability ──────────────────────────────────────────────────────────────
 
 describe('immutability', () => {
@@ -315,5 +382,134 @@ describe('immutability', () => {
     // Apply a bunch of actions
     try { applyAction(state, { type: 'selectCombo', comboIndex: 0 }); } catch { /* ok */ }
     expect(JSON.stringify(state)).toBe(snapshot);
+  });
+});
+
+// ── Feature 7: Berserk — applyConquer with dieResult ─────────────────────────
+
+describe('applyAction — Berserk conquest with dieResult', () => {
+  it('places min(availableTokens, cost) tokens when dieResult is provided', () => {
+    // First conquest (tokensOnBoard=0): border regions are reachable.
+    // Empty region 20 costs 2. Player has 1 token. With Berserk die result = 2: 1+2=3 >= 2.
+    // But applyConquer places min(availableTokens=1, cost=2) = 1 token.
+    let state = conquestState('ratmen', 'berserk', 0);
+    state = patchPlayer(state, 0, {
+      ...state.players[0],
+      availableTokens: 1,
+      activeRace: { ...state.players[0].activeRace!, tokensOnBoard: 0 },
+    });
+
+    // Berserk: region 20 is in legal list because effectiveTokens = 1+3=4 >= 2.
+    // Submit with dieResult — actionsMatch allows dieResult on conquer actions.
+    const next = applyAction(state, { type: 'conquer', regionId: 20, dieResult: 2 });
+    const region = next.board.regions.find((r) => r.id === 20)!;
+    expect(region.owner).toBe(0);
+    // Tokens placed = min(availableTokens=1, cost=2) = 1
+    expect(region.tokens).toBe(1);
+    expect(next.players[0].availableTokens).toBe(0);
+  });
+
+  it('places full cost tokens when availableTokens >= cost (die not needed)', () => {
+    // First conquest; availableTokens = 5, cost = 2 → tokensPlaced = min(5, 2) = 2
+    let state = conquestState('ratmen', 'berserk', 0);
+    state = patchPlayer(state, 0, {
+      ...state.players[0],
+      availableTokens: 5,
+      activeRace: { ...state.players[0].activeRace!, tokensOnBoard: 0 },
+    });
+
+    const next = applyAction(state, { type: 'conquer', regionId: 20, dieResult: 1 });
+    const region = next.board.regions.find((r) => r.id === 20)!;
+    expect(region.owner).toBe(0);
+    // Tokens placed = min(5, 2) = 2
+    expect(region.tokens).toBe(2);
+    expect(next.players[0].availableTokens).toBe(3);
+  });
+
+  it('normal conquest (no dieResult) still places exactly cost tokens', () => {
+    // Without dieResult, should behave as normal: place exactly cost tokens
+    const state = conquestState('ratmen', 'berserk', 0);
+    const next = applyAction(state, { type: 'conquer', regionId: 20 });
+    const region = next.board.regions.find((r) => r.id === 20)!;
+    expect(region.tokens).toBe(2); // empty region cost = 2
+  });
+});
+
+// ── Feature 8: Heroic placeHeroes and hero lifecycle ─────────────────────────
+
+describe('applyAction — placeHeroes', () => {
+  function heroicPlaceState(): GameState {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'humans', 'heroic', { tokensOnBoard: 3 });
+    state = patchState(state, { phase: 'placeHeroes' });
+    state = patchRegion(state, 19, { owner: 0, tokens: 2, isDeclined: false });
+    state = patchRegion(state, 20, { owner: 0, tokens: 1, isDeclined: false });
+    return state;
+  }
+
+  it('sets hasHero=true on both selected regions', () => {
+    const state = heroicPlaceState();
+    const next = applyAction(state, { type: 'placeHeroes', regionIds: [19, 20] });
+    expect(next.board.regions.find((r) => r.id === 19)!.hasHero).toBe(true);
+    expect(next.board.regions.find((r) => r.id === 20)!.hasHero).toBe(true);
+  });
+
+  it('sets heroRegions on activeRace to the selected pair', () => {
+    const state = heroicPlaceState();
+    const next = applyAction(state, { type: 'placeHeroes', regionIds: [19, 20] });
+    expect(next.players[0].activeRace!.heroRegions).toEqual([19, 20]);
+  });
+
+  it('transitions phase to score after placeHeroes', () => {
+    const state = heroicPlaceState();
+    const next = applyAction(state, { type: 'placeHeroes', regionIds: [19, 20] });
+    expect(next.phase).toBe('score');
+  });
+
+  it('clears previous hero markers before placing new ones', () => {
+    let state = heroicPlaceState();
+    // Pre-set heroes on 19 and 20 from a prior turn
+    state = patchPlayer(state, 0, {
+      ...state.players[0],
+      activeRace: { ...state.players[0].activeRace!, heroRegions: [19, 20] },
+    });
+    state = patchRegion(state, 19, { hasHero: true });
+    state = patchRegion(state, 20, { hasHero: true });
+    // Now place heroes on 20 only (with another region added)
+    let stateWith18 = patchRegion(state, 18, { owner: 0, tokens: 1, isDeclined: false });
+    const next = applyAction(stateWith18, { type: 'placeHeroes', regionIds: [18, 20] });
+    expect(next.board.regions.find((r) => r.id === 19)!.hasHero).toBe(false); // cleared
+    expect(next.board.regions.find((r) => r.id === 18)!.hasHero).toBe(true);
+    expect(next.board.regions.find((r) => r.id === 20)!.hasHero).toBe(true);
+  });
+
+  it('appends a log entry for placeHeroes', () => {
+    const state = heroicPlaceState();
+    const next = applyAction(state, { type: 'placeHeroes', regionIds: [19, 20] });
+    const last = next.log[next.log.length - 1];
+    expect(last.action.type).toBe('placeHeroes');
+  });
+});
+
+describe('applyAction — Heroic hero cleared at player switch (endPhase from score)', () => {
+  it('heroRegions and hasHero are cleared when player switch occurs', () => {
+    // Set up player 0 with Heroic in score phase, heroes placed
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'humans', 'heroic', {
+      tokensOnBoard: 3,
+      heroRegions: [19, 20] as unknown as [number, number],
+    });
+    state = patchState(state, { phase: 'score' });
+    state = patchRegion(state, 19, { owner: 0, tokens: 2, isDeclined: false, hasHero: true });
+    state = patchRegion(state, 20, { owner: 0, tokens: 1, isDeclined: false, hasHero: true });
+
+    const next = applyAction(state, { type: 'endPhase' });
+
+    // After switching to the next player, hero markers should be gone
+    // (may or may not still have owner=0 on regions, but hasHero should be cleared)
+    expect(next.board.regions.find((r) => r.id === 19)!.hasHero).toBe(false);
+    expect(next.board.regions.find((r) => r.id === 20)!.hasHero).toBe(false);
+    // heroRegions on the previous player's activeRace should be gone
+    expect(next.players[0].activeRace?.heroRegions).toBeUndefined();
   });
 });

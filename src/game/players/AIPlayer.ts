@@ -85,6 +85,10 @@ function _pickAction(actions: readonly GameAction[]): GameAction {
     return declineAction;
   }
 
+  // --- placeHeroes: pick the first valid pair --------------------------------
+  const heroAction = actions.find((a) => a.type === 'placeHeroes');
+  if (heroAction) return heroAction;
+
   // --- Final conquest: 50% chance to attempt if available --------------------
   const finalConquest = actions.find((a) => a.type === 'startFinalConquest');
   if (finalConquest && Math.random() < 0.5) {

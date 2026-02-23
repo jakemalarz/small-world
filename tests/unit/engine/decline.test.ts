@@ -40,6 +40,7 @@ function makeActiveRace(overrides: Partial<ActiveRaceState> = {}): ActiveRaceSta
     tokensOnBoard: 5,
     conquestsThisTurn: 0,
     hasDeclinedThisTurn: false,
+    sorcererConversionsThisTurn: 0,
     ...overrides,
   };
 }
@@ -188,6 +189,23 @@ describe('applyAction — decline mechanics', () => {
     expect(last.playerIndex).toBe(0);
   });
 
+  it('clears hasEncampment flags from declining player regions (Bivouacking)', () => {
+    let state = buildDeclineReadyState({ raceId: 'ratmen', powerId: 'bivouacking' });
+    state = patchRegion(state, 19, { hasEncampment: true });
+    state = patchRegion(state, 20, { hasEncampment: true });
+    const next = applyAction(state, { type: 'decline' });
+    expect(next.board.regions.find((r) => r.id === 19)!.hasEncampment).toBe(false);
+    expect(next.board.regions.find((r) => r.id === 20)!.hasEncampment).toBe(false);
+  });
+
+  it('does not clear encampments on other player regions during decline', () => {
+    let state = buildDeclineReadyState();
+    // Give opponent an encampment
+    state = patchRegion(state, 5, { owner: 1, tokens: 2, isDeclined: false, hasEncampment: true });
+    const next = applyAction(state, { type: 'decline' });
+    expect(next.board.regions.find((r) => r.id === 5)!.hasEncampment).toBe(true);
+  });
+
   it('does not mutate the original state', () => {
     const state = buildDeclineReadyState({ region1Tokens: 4 });
     const snapshot = JSON.stringify(state);
@@ -201,5 +219,116 @@ describe('applyAction — decline mechanics', () => {
     const next = applyAction(state, { type: 'decline' });
     expect(next.board.regions.find((r) => r.id === 5)!.tokens).toBe(4);
     expect(next.board.regions.find((r) => r.id === 5)!.isDeclined).toBe(true);
+  });
+});
+
+// ── Feature 5: Seafaring "Keep in Decline" ────────────────────────────────────
+
+describe('applyAction — Seafaring keeps sea/lake regions in decline', () => {
+  // Region 1: terrain='sea', isEdge=true
+  // Region 9: terrain='lake', isEdge=false
+
+  function buildSeafaringDeclineState(options: {
+    seaTokens?: number;
+    lakeTokens?: number;
+    landTokens?: number;
+  } = {}): GameState {
+    const { seaTokens = 3, lakeTokens = 2, landTokens = 4 } = options;
+
+    let state = buildDeclineReadyState({
+      raceId: 'tritons',
+      powerId: 'seafaring',
+      tokensOnBoard: seaTokens + lakeTokens + landTokens,
+      availableTokens: 0,
+    });
+
+    // Seafaring player owns sea (1), lake (9), and a land region (20)
+    state = patchRegion(state, 1,  { owner: 0, tokens: seaTokens,  isDeclined: false });
+    state = patchRegion(state, 9,  { owner: 0, tokens: lakeTokens, isDeclined: false });
+    state = patchRegion(state, 20, { owner: 0, tokens: landTokens, isDeclined: false });
+    // Clear the default regions set by buildDeclineReadyState so only our regions are owned
+    state = patchRegion(state, 19, { owner: null, tokens: 0, isDeclined: false });
+
+    return state;
+  }
+
+  it('sea region owned by Seafaring player is kept in decline with 1 token', () => {
+    const state = buildSeafaringDeclineState({ seaTokens: 3 });
+    const next = applyAction(state, { type: 'decline' });
+    const r1 = next.board.regions.find((r) => r.id === 1)!;
+    expect(r1.isDeclined).toBe(true);
+    expect(r1.tokens).toBe(1);
+    expect(r1.owner).toBe(0);
+  });
+
+  it('lake region owned by Seafaring player is kept in decline with 1 token', () => {
+    const state = buildSeafaringDeclineState({ lakeTokens: 2 });
+    const next = applyAction(state, { type: 'decline' });
+    const r9 = next.board.regions.find((r) => r.id === 9)!;
+    expect(r9.isDeclined).toBe(true);
+    expect(r9.tokens).toBe(1);
+    expect(r9.owner).toBe(0);
+  });
+
+  it('land regions also go in decline normally alongside sea/lake', () => {
+    const state = buildSeafaringDeclineState({ landTokens: 4 });
+    const next = applyAction(state, { type: 'decline' });
+    const r20 = next.board.regions.find((r) => r.id === 20)!;
+    expect(r20.isDeclined).toBe(true);
+    expect(r20.tokens).toBe(1);
+  });
+
+  it('non-Seafaring player cannot keep sea regions — sea region is not owned pre-decline', () => {
+    // A normal race cannot own sea regions, so this just checks
+    // that non-Seafaring decline does not touch sea regions
+    const state = buildDeclineReadyState({ raceId: 'humans', powerId: 'bivouacking' });
+    // Ensure sea region (1) is unowned before decline
+    const seaBefore = state.board.regions.find((r) => r.id === 1)!;
+    const next = applyAction(state, { type: 'decline' });
+    const seaAfter = next.board.regions.find((r) => r.id === 1)!;
+    // Sea region should remain exactly as it was (unowned)
+    expect(seaAfter.owner).toBe(seaBefore.owner);
+    expect(seaAfter.tokens).toBe(seaBefore.tokens);
+    expect(seaAfter.isDeclined).toBe(seaBefore.isDeclined);
+  });
+
+  it('Seafaring decline still moves activeRace to declinedRaces', () => {
+    const state = buildSeafaringDeclineState();
+    const next = applyAction(state, { type: 'decline' });
+    expect(next.players[0].activeRace).toBeNull();
+    expect(next.players[0].declinedRaces).toHaveLength(1);
+    expect(next.players[0].declinedRaces[0].raceId).toBe('tritons');
+    expect(next.players[0].declinedRaces[0].powerId).toBe('seafaring');
+  });
+});
+
+// ── Feature 8: Heroic heroes cleared on decline ───────────────────────────────
+
+describe('applyAction — Heroic heroes cleared on decline', () => {
+  it('hasHero is cleared on declining player regions', () => {
+    let state = buildDeclineReadyState({ raceId: 'humans', powerId: 'heroic' });
+    // Place heroes on owned regions 19 and 20
+    state = patchRegion(state, 19, { owner: 0, tokens: 2, isDeclined: false, hasHero: true });
+    state = patchRegion(state, 20, { owner: 0, tokens: 2, isDeclined: false, hasHero: true });
+    const next = applyAction(state, { type: 'decline' });
+    expect(next.board.regions.find((r) => r.id === 19)!.hasHero).toBe(false);
+    expect(next.board.regions.find((r) => r.id === 20)!.hasHero).toBe(false);
+  });
+
+  it('heroRegions on activeRace is removed after decline (activeRace is null)', () => {
+    let state = buildDeclineReadyState({ raceId: 'humans', powerId: 'heroic' });
+    state = patchRegion(state, 19, { owner: 0, tokens: 2, isDeclined: false, hasHero: true });
+    state = patchRegion(state, 20, { owner: 0, tokens: 2, isDeclined: false, hasHero: true });
+    const next = applyAction(state, { type: 'decline' });
+    // After decline, activeRace is null so heroRegions are implicitly gone
+    expect(next.players[0].activeRace).toBeNull();
+  });
+
+  it('does not clear hasHero on opponent regions during decline', () => {
+    let state = buildDeclineReadyState({ raceId: 'humans', powerId: 'heroic' });
+    // Give opponent a region with a hero
+    state = patchRegion(state, 5, { owner: 1, tokens: 2, isDeclined: false, hasHero: true });
+    const next = applyAction(state, { type: 'decline' });
+    expect(next.board.regions.find((r) => r.id === 5)!.hasHero).toBe(true);
   });
 });

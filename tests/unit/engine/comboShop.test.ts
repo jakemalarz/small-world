@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applySelectCombo } from '@/game/engine/comboShop';
 import { createInitialState } from '@/game/engine/setup';
-import { POWERS } from '@/game/data/powers';
 import type { GameState, PowerId } from '@/game/state/types';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -19,18 +18,18 @@ describe('applySelectCombo', () => {
     const state = createInitialState({ firstPlayerIndex: 0 });
     const before = state.players[0].coins; // 5
     const slot = state.comboShop.visible[1];
-    const bonus = POWERS[slot.powerId as PowerId].modifiers.firstTurnBonus ?? 0;
+    // Wealthy firstTurnBonus is no longer applied at combo selection — it's applied at scoring.
     const result = applySelectCombo(state, 1);
-    expect(result.players[0].coins).toBe(before - 1 + slot.coinsOnSlot + bonus);
+    expect(result.players[0].coins).toBe(before - 1 + slot.coinsOnSlot);
   });
 
   it('selecting index 2 costs 2 coins', () => {
     const state = createInitialState({ firstPlayerIndex: 0 });
     const before = state.players[0].coins; // 5
     const slot = state.comboShop.visible[2];
-    const bonus = POWERS[slot.powerId as PowerId].modifiers.firstTurnBonus ?? 0;
+    // Wealthy firstTurnBonus is no longer applied at combo selection — it's applied at scoring.
     const result = applySelectCombo(state, 2);
-    expect(result.players[0].coins).toBe(before - 2 + slot.coinsOnSlot + bonus);
+    expect(result.players[0].coins).toBe(before - 2 + slot.coinsOnSlot);
   });
 
   it('adds 1 coin to each skipped slot', () => {
@@ -56,7 +55,7 @@ describe('applySelectCombo', () => {
     };
     const before = patchedState.players[0].coins;
     const result = applySelectCombo(patchedState, 0); // pick free slot that has 3 coins
-    // Player gains 3 coins from the slot; may also gain wealthyBonus if power is Wealthy
+    // Player gains exactly 3 coins from the slot (Wealthy bonus is deferred to scoring phase)
     expect(result.players[0].coins).toBeGreaterThanOrEqual(before + 3);
   });
 
@@ -150,5 +149,46 @@ describe('applySelectCombo', () => {
     const originalCoins = state.players[0].coins;
     applySelectCombo(state, 1);
     expect(state.players[0].coins).toBe(originalCoins); // immutable
+  });
+});
+
+// ── Feature 6: Wealthy bonus NOT applied at combo selection ───────────────────
+
+describe('Wealthy bonus not applied at combo selection', () => {
+  it('selecting a Wealthy-powered combo does NOT add +7 coins immediately', () => {
+    // Force the wealthy combo to be at index 0 so there is no coin cost ambiguity
+    const state = createInitialState({ firstPlayerIndex: 0 });
+    const wealthySlotIndex = state.comboShop.visible.findIndex(
+      (s) => s.powerId === 'wealthy',
+    );
+    if (wealthySlotIndex === -1) {
+      // Wealthy is not in the visible shop — inject it at index 0
+      const patchedState: GameState = {
+        ...state,
+        comboShop: {
+          ...state.comboShop,
+          visible: state.comboShop.visible.map((s, i) =>
+            i === 0 ? { ...s, powerId: 'wealthy' as PowerId } : s,
+          ),
+        },
+      };
+      const before = patchedState.players[0].coins;
+      const result = applySelectCombo(patchedState, 0);
+      // Should collect only coinsOnSlot (0), NOT the +7 firstTurnBonus
+      expect(result.players[0].coins).toBe(before + patchedState.comboShop.visible[0].coinsOnSlot);
+    } else {
+      const before = state.players[0].coins;
+      const slot = state.comboShop.visible[wealthySlotIndex];
+      const result = applySelectCombo(state, wealthySlotIndex);
+      // Pay wealthySlotIndex coins (skip cost), collect coinsOnSlot — no +7 bonus
+      expect(result.players[0].coins).toBe(before - wealthySlotIndex + slot.coinsOnSlot);
+    }
+  });
+
+  it('wealthyBonusApplied is undefined on newly created active race from combo selection', () => {
+    const state = createInitialState({ firstPlayerIndex: 0 });
+    const result = applySelectCombo(state, 0);
+    // wealthyBonusApplied should not be set at combo selection time
+    expect(result.players[0].activeRace!.wealthyBonusApplied).toBeUndefined();
   });
 });

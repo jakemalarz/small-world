@@ -36,6 +36,7 @@ function withRace(state: GameState, raceId: string, powerId: string): GameState 
       tokensOnBoard: 0,
       conquestsThisTurn: 0,
       hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
     },
   });
 }

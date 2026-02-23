@@ -32,6 +32,7 @@ function redeployState(availableTokens = 4, tokensOnBoard = 3): GameState {
       tokensOnBoard,
       conquestsThisTurn: 0,
       hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
     },
     availableTokens,
   });

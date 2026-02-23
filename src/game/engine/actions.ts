@@ -37,7 +37,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'selectCombo':    return applySelectComboAction(state, action.comboIndex, logEntry);
     case 'pickUpTokens':   return applyPickUpTokens(state, action.regionId, action.count, logEntry);
-    case 'conquer':        return applyConquer(state, action.regionId, logEntry);
+    case 'conquer':        return applyConquer(state, action.regionId, action.dieResult, logEntry);
     case 'ghoulConquer':   return applyGhoulConquer(state, action.regionId, logEntry);
     case 'placeDragon':    return applyPlaceDragon(state, action.regionId, logEntry);
     case 'sorcererConvert':return applySorcererConvert(state, action.regionId, logEntry);
@@ -142,7 +142,7 @@ function applyReadyTroopsDeploy(
 // ── conquer ───────────────────────────────────────────────────────────────────
 
 function applyConquer(
-  state: GameState, regionId: number, logEntry: GameLogEntry,
+  state: GameState, regionId: number, dieResult: 0 | 1 | 2 | 3 | undefined, logEntry: GameLogEntry,
 ): GameState {
   const region = getRegion(state, regionId);
   const attacker = state.players[state.activePlayerIndex];
@@ -159,11 +159,16 @@ function applyConquer(
   }
 
   // ── Update conquered region ───────────────────────────────────────────────
+  // Berserk: die supplements tokens, so place min(available, cost).
+  const tokensPlaced = dieResult !== undefined
+    ? Math.min(attacker.availableTokens, cost)
+    : cost;
+
   s = {
     ...s,
     board: patchRegions(s, regionId, {
       owner: s.activePlayerIndex,
-      tokens: cost,
+      tokens: tokensPlaced,
       isDeclined: false,
       hasLostTribe: false,
       // Hero and Dragon protection ends when region changes hands
@@ -177,10 +182,10 @@ function applyConquer(
   s = {
     ...s,
     players: patchPlayer(s, s.activePlayerIndex, {
-      availableTokens: attacker.availableTokens - cost,
+      availableTokens: attacker.availableTokens - tokensPlaced,
       activeRace: {
         ...attackerRace,
-        tokensOnBoard: attackerRace.tokensOnBoard + cost,
+        tokensOnBoard: attackerRace.tokensOnBoard + tokensPlaced,
         conquestsThisTurn: newConquests,
       },
     }),
@@ -373,6 +378,7 @@ function applySorcererConvert(
       activeRace: {
         ...attacker.activeRace,
         tokensOnBoard: attacker.activeRace.tokensOnBoard + 1,
+        sorcererConversionsThisTurn: (attacker.activeRace.sorcererConversionsThisTurn ?? 0) + 1,
       },
     }),
   };
@@ -456,7 +462,7 @@ function applyRedeploy(
   const totalTokens = race.tokensOnBoard + player.availableTokens;
   const remaining = totalTokens - totalDeployed;
 
-  const s: GameState = {
+  let s: GameState = {
     ...state,
     board: { regions: newRegions },
     players: patchPlayer(state, state.activePlayerIndex, {
@@ -464,6 +470,45 @@ function applyRedeploy(
       activeRace: { ...race, tokensOnBoard: totalDeployed },
     }),
   };
+
+  // Amazons: remove conquestOnlyTokens from the board after redeployment.
+  // The tokens are removed from regions (largest stacks first, leaving min 1).
+  const redeployedPlayer = s.players[s.activePlayerIndex];
+  const redeployedRace = redeployedPlayer.activeRace!;
+  const redeployMods = getActiveModifiers(redeployedPlayer);
+  if (redeployMods.conquestOnlyTokens > 0) {
+    let tokensToRemove = redeployMods.conquestOnlyTokens;
+    // Build list of active owned regions sorted by descending token count
+    const ownedActive = s.board.regions
+      .filter((r) => r.owner === s.activePlayerIndex && !r.isDeclined)
+      .sort((a, b) => b.tokens - a.tokens);
+    const removals = new Map<number, number>(); // regionId → tokens to remove
+    for (const region of ownedActive) {
+      if (tokensToRemove <= 0) break;
+      const removable = region.tokens - 1; // must leave at least 1
+      if (removable <= 0) continue;
+      const take = Math.min(removable, tokensToRemove);
+      removals.set(region.id, take);
+      tokensToRemove -= take;
+    }
+    // Apply removals to board
+    const afterRemoval = s.board.regions.map((r) => {
+      const rem = removals.get(r.id);
+      return rem ? { ...r, tokens: r.tokens - rem } : r;
+    });
+    const totalRemoved = redeployMods.conquestOnlyTokens - tokensToRemove;
+    s = {
+      ...s,
+      board: { regions: afterRemoval },
+      players: patchPlayer(s, s.activePlayerIndex, {
+        activeRace: {
+          ...redeployedRace,
+          tokensOnBoard: redeployedRace.tokensOnBoard - totalRemoved,
+          totalTokens: redeployedRace.totalTokens - totalRemoved,
+        },
+      }),
+    };
+  }
 
   const nextPhase = getNextPhase(s, logEntry.action);
   return appendLog({ ...s, phase: nextPhase }, logEntry);
@@ -480,6 +525,15 @@ function applyPlaceHeroes(
   if (!player.activeRace) return appendLog(state, logEntry);
 
   let s = state;
+
+  // Clear any existing hero markers first
+  if (player.activeRace.heroRegions) {
+    for (const id of player.activeRace.heroRegions) {
+      s = { ...s, board: patchRegions(s, id, { hasHero: false }) };
+    }
+  }
+
+  // Place new heroes
   for (const id of regionIds) {
     s = { ...s, board: patchRegions(s, id, { hasHero: true }) };
   }
@@ -490,7 +544,9 @@ function applyPlaceHeroes(
     }),
   };
 
-  return appendLog(s, logEntry);
+  // Transition to score phase
+  const nextPhase = getNextPhase(s, logEntry.action);
+  return appendLog({ ...s, phase: nextPhase }, logEntry);
 }
 
 // ── placeEncampments ──────────────────────────────────────────────────────────
@@ -566,12 +622,17 @@ function applyDecline(state: GameState, logEntry: GameLogEntry): GameState {
   const race = player.activeRace;
   const mods = getActiveModifiers(player);
 
-  // Reduce each active region to 1 token and mark as declined
+  // Reduce each active region to 1 token and mark as declined.
+  // Bivouacking encampments disappear when going In Decline.
+  // Heroic heroes disappear when going In Decline.
+  // Seafaring: sea/lake regions are kept In Decline (per rulebook).
+  //   Non-Seafaring races can never own sea/lake regions, so no special
+  //   exclusion needed — just leave them as declined normally.
   const newRegions = state.board.regions.map((r) => {
     if (r.owner !== state.activePlayerIndex || r.isDeclined) return r;
     // Ghouls keep all tokens in decline
     const declineTokens = mods.keepAllTokensInDecline ? r.tokens : 1;
-    return { ...r, tokens: declineTokens, isDeclined: true };
+    return { ...r, tokens: declineTokens, isDeclined: true, hasEncampment: false, hasHero: false };
   });
 
   // The new declined race entry
@@ -607,7 +668,27 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
   const nextPhase = getNextPhase(state, logEntry.action);
 
   // Score phase is applied here (coins transferred to player)
-  const scored = state.phase === 'score' ? applyScoring(state) : state;
+  let scored = state.phase === 'score' ? applyScoring(state) : state;
+
+  // Amazons: add conquestOnlyTokens to hand when entering conquest from readyTroops
+  if (state.phase === 'readyTroops' && nextPhase === 'conquest') {
+    const player = scored.players[scored.activePlayerIndex];
+    if (player.activeRace) {
+      const mods = getActiveModifiers(player);
+      if (mods.conquestOnlyTokens > 0) {
+        scored = {
+          ...scored,
+          players: patchPlayer(scored, scored.activePlayerIndex, {
+            availableTokens: player.availableTokens + mods.conquestOnlyTokens,
+            activeRace: {
+              ...player.activeRace,
+              totalTokens: player.activeRace.totalTokens + mods.conquestOnlyTokens,
+            },
+          }),
+        };
+      }
+    }
+  }
 
   // Determine if we switch to the next player
   if (!needsPlayerSwitch(state, logEntry.action)) {
@@ -622,6 +703,25 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
   const activePlayer = scored.players[scored.activePlayerIndex];
   let resetState = scored;
   if (activePlayer.activeRace) {
+    // Clear hero markers from the board (heroes are re-placed each turn)
+    if (activePlayer.activeRace.heroRegions) {
+      const heroIds = new Set(activePlayer.activeRace.heroRegions);
+      resetState = {
+        ...resetState,
+        board: {
+          regions: resetState.board.regions.map((r) =>
+            heroIds.has(r.id) ? { ...r, hasHero: false } : r,
+          ),
+        },
+      };
+    }
+    // Clear dragon marker from the board
+    if (activePlayer.activeRace.dragonRegion != null) {
+      resetState = {
+        ...resetState,
+        board: patchRegions(resetState, activePlayer.activeRace.dragonRegion, { hasDragon: false }),
+      };
+    }
     resetState = {
       ...resetState,
       players: patchPlayer(resetState, resetState.activePlayerIndex, {
@@ -629,7 +729,9 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
           ...activePlayer.activeRace,
           conquestsThisTurn: 0,
           hasDeclinedThisTurn: false,
+          sorcererConversionsThisTurn: 0,
           dragonRegion: undefined,
+          heroRegions: undefined,
         },
       }),
     };
@@ -707,7 +809,9 @@ function actionsMatch(a: GameAction, b: GameAction): boolean {
   switch (a.type) {
     case 'selectCombo':   return (b as typeof a).comboIndex === a.comboIndex;
     case 'pickUpTokens':  return (b as typeof a).regionId === a.regionId;
-    case 'conquer':       return (b as typeof a).regionId === a.regionId;
+    case 'conquer':       return (b as typeof a).regionId === a.regionId &&
+                            ((b as typeof a).dieResult === undefined || a.dieResult === undefined ||
+                             (b as typeof a).dieResult === a.dieResult);
     case 'ghoulConquer':  return (b as typeof a).regionId === a.regionId;
     case 'placeDragon':   return (b as typeof a).regionId === a.regionId;
     case 'sorcererConvert': return (b as typeof a).regionId === a.regionId;

@@ -14,8 +14,8 @@ import { POWERS } from '@/game/data/powers';
 //     retain their positions, and a new combo is dealt to the bottom.
 //   • When decks are exhausted no new combo is added (shop shrinks).
 //
-// Wealthy power: the +7 first-turn-bonus is applied immediately in applyAction
-// when selectCombo resolves, not in the scoring phase.
+// Wealthy power: the +7 first-turn-bonus is applied during the scoring phase
+// on the player's first scoring turn with the Wealthy power (see scoring.ts).
 
 /**
  * Apply a combo selection to the game state.
@@ -78,12 +78,14 @@ export function applySelectCombo(state: GameState, comboIndex: number): GameStat
     tokensOnBoard: 0,
     conquestsThisTurn: 0,
     hasDeclinedThisTurn: false,
+    sorcererConversionsThisTurn: 0,
   };
 
   // ── Compute player coin delta ────────────────────────────────────────────
-  // Pay cost, receive coins from slot, plus Wealthy first-turn bonus if applicable
-  const wealthyBonus = power.modifiers.firstTurnBonus ?? 0;
-  const newCoins = player.coins - cost + coinsCollected + wealthyBonus;
+  // Pay cost, receive coins from slot.
+  // Wealthy's firstTurnBonus (+7) is now applied during the scoring phase,
+  // not here (see scoring.ts).
+  const newCoins = player.coins - cost + coinsCollected;
 
   const newPlayers = state.players.map((p, i) =>
     i === state.activePlayerIndex

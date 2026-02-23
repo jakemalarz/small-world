@@ -7,20 +7,36 @@ A web-based implementation of the Small World board game (by Days of Wonder) for
 ### Phase 1 — Core Game Engine (COMPLETE)
 All 35 tasks done. Full game loop working: game state types, map data, race/power definitions, ability modifier system, combo shop, conquest, decline, scoring, reinforcement die, redeployment, legal action generation, phase state machine, Board + HUD scenes, token/region rendering, animation choreographer, audio manager (stub), GameController, HumanPlayer, Easy AI, Medium AI, end game screen, tooltips, main menu with mode selection (HvH, HvAI, AivAI). Unit tests (Vitest, 266 tests) and E2E tests (Playwright) passing.
 
-### Phase 2 — UX Enhancements & Bug Fixes (IN PROGRESS — stabilization)
-All 18 implementation tasks (36–53) done. E2E tests written and passing (288 unit / 79 E2E per browser). Fixes: map viewport clipping, camera zoom, HUD interaction passthrough, tooltip zoom scaling, conquest cost calculation, first conquest entry rule, decline flow, reinforcement die sequencing, region polygon redraw, final conquest token placement, die result HUD persistence. Features: race/power text labels, ability tooltips, player box tooltips, first-conquest highlighting, browse combo mode, left/right-click redeployment, pan/interact mode toggle, interactive token gathering during readyTroops with abandon confirmation.
-
-**Current workflow**: Manual playtesting to surface UI/logic bugs, then fixing them one by one with E2E test coverage for each fix. No new regressions allowed — all unit and E2E tests must pass before committing. This stabilization pass must be complete before moving to Phase 3.
+### Phase 2 — UX Enhancements & Bug Fixes (COMPLETE)
+All 18 implementation tasks (36–53) done. E2E tests written and passing (296 unit / 79 E2E per browser). Fixes: map viewport clipping, camera zoom, HUD interaction passthrough, tooltip zoom scaling, conquest cost calculation, first conquest entry rule, decline flow, reinforcement die sequencing, region polygon redraw, final conquest token placement, die result HUD persistence. Features: race/power text labels, ability tooltips, player box tooltips, first-conquest highlighting, browse combo mode, left/right-click redeployment, pan/interact mode toggle, interactive token gathering during readyTroops with abandon confirmation.
 
 ### Missing Features Audit (2026-02-22)
-A comprehensive audit of implemented features vs PRD/rulebook identified 18 gaps documented in `design/missing-features.md`. Key findings:
-- **2 scoring bugs**: Troll Lair incorrectly awards coins (should be defense-only); Wealthy bonus applied at wrong time
-- **7 power ability gaps**: Berserk, Bivouacking, Diplomat, Dragon Master, Fortified, Heroic, Seafaring — ranging from minor fixes to entirely missing mechanics
-- **2 race ability gaps**: Amazons conquest-only token removal not implemented; Sorcerer once-per-opponent limit not enforced
+A comprehensive audit of implemented features vs PRD/rulebook identified 18 gaps documented in `design/missing-features.md`. 4 of 18 resolved (2026-02-23); 14 remaining.
+
+**Resolved (2026-02-23, batch 1)**:
+- **Troll Lair scoring bug** (rank 1): Removed incorrect +1 coin per lair. Lairs are defense-only.
+- **Amazons conquest-only token removal** (rank 2): +4 tokens added at readyTroops→conquest, removed from board after redeployment (largest stacks first, min 1 per region).
+- **Bivouacking encampments on decline** (rank 3): `hasEncampment` flags cleared from declining player's regions in `applyDecline`.
+- **Sorcerer once-per-opponent limit** (rank 4): Added `sorcererConversionsThisTurn` counter to `ActiveRaceState`. Incremented in `applySorcererConvert`, checked in `modifyLegalActions`, reset at turn end.
+
+**Resolved (2026-02-23, batch 2)**:
+- **Seafaring "keep in decline"** (rank 5): Already working — sea/lake regions retained as declined. Added explicit comments and `hasHero: false` cleanup to decline.
+- **Wealthy bonus timing** (rank 6): Moved +7 bonus from `applySelectCombo` to `calculateScore`. Added `wealthyBonusApplied` flag to `ActiveRaceState`.
+- **Berserk die on every conquest** (rank 7): Die rolls on every conquest attempt. `conquer` action extended with optional `dieResult`. Legal actions account for +3 potential die bonus. Failed rolls waste attempt but stay in conquest phase.
+- **Heroic hero placement** (rank 8): Added `placeHeroes` phase after `redeploy`. Legal actions enumerate all pairs of owned active regions. Heroes cleared at player switch and on decline. Human selects 2 regions sequentially; AI picks first pair.
+
+**Remaining (10 gaps)**:
+- **3 power ability gaps**: Diplomat, Dragon Master, Fortified
 - **Game mechanics**: Defender deferred redeployment (FR-18b) not implemented
 - **Polish/AI**: Hard AI, audio system, animation polish, minimap still pending
 
-Next development session will begin working through these in priority order (bugs first, then high-value/low-effort ability fixes).
+**Next session — implement features 9, 10, 11, 12** (in priority order):
+- **9. Fortified fortress placement**: 1 fortress per turn, max 6 total. Needs sub-phase after redeploy (like `placeHeroes`). `fortressesPlaced` counter and `hasFortress` region flag exist; defense (+1) and scoring (+1/fortress) already work. Missing: placement mechanic. Key files: `powerAbilities.ts`, `legalActions.ts`, `actions.ts`, `phaseTransition.ts`.
+- **10. Dragon Master conquest mechanic**: Rework from "place dragon marker" to proper conquest with 1 token ignoring all defense. Dragon placed in conquered region for immunity. Key files: `powerAbilities.ts`, `actions.ts`.
+- **11. Diplomat alliance**: Fully non-functional. Add post-score phase for ally selection, enforce no-attack constraint, validate Diplomat didn't attack chosen ally. Key files: `legalActions.ts`, `actions.ts`, `phaseTransition.ts`, `types.ts`.
+- **12. Defender deferred redeployment (FR-18b)**: Defeated active tokens should redeploy to defender's other regions at end of attacker's turn, not immediately to hand. `defenderRedeploy` action type exists but is no-op. Key files: `actions.ts`, `phaseTransition.ts`, `legalActions.ts`.
+
+**Current workflow**: Working through missing features in priority order. Each fix includes unit tests. All 335 unit + 79 E2E tests must pass before committing.
 
 ---
 
@@ -156,12 +172,24 @@ npx playwright show-report       # View last test report
 
 ## Testing
 
-- **Vitest** — 288 unit tests covering engine logic (scoring, setup, conquest cost, redeployment, ready troops, reinforcement die, legal actions), data tables (races, powers), state types, and audio manager stub. Run: `npx vitest run`
+- **Vitest** — 335 unit tests covering engine logic (scoring, setup, conquest cost, redeployment, ready troops, reinforcement die, legal actions, decline, Amazons token removal, Sorcerer limits), data tables (races, powers), state types, and audio manager stub. Run: `npx vitest run`
 - **Playwright** (`@playwright/test`) — 79 E2E tests per browser across Chromium/Firefox/WebKit. Covers main menu, HvH game flow, HvAI game flow, and Phase 2 features (decline, first conquest, pan mode, browse mode, redeployment, tooltips, final conquest token placement, readyTroops token gathering with abandon). Config: `playwright.config.ts`. Run: `npx playwright test --project=chromium`
-- **Stabilization rule**: Every bug fix must include an E2E test that reproduces the issue. All 288 unit + 79 E2E tests must pass before committing.
+- **Stabilization rule**: Every bug fix must include an E2E test that reproduces the issue. All 335 unit + 79 E2E tests must pass before committing.
 - **E2E execution**: Always run Playwright with `--project=chromium` only (not all browsers) to save context and tokens. Full cross-browser testing is done separately outside of Claude sessions.
 
 ### Recent Changes
+
+**Missing features #5–8 fixed (2026-02-23)**: Fixed 4 more gaps (8 of 18 total resolved):
+- Seafaring "keep in decline": Sea/lake regions already retained by existing decline logic. Added `hasHero: false` cleanup and explicit documentation.
+- Wealthy bonus timing: Moved +7 bonus from `comboShop.ts` (immediate) to `scoring.ts` (first scoring turn). Added `wealthyBonusApplied` flag to `ActiveRaceState`.
+- Berserk die on every conquest: Die rolls on every Berserk conquest. `conquer` action extended with optional `dieResult`. Legal actions include regions affordable with +3 die max. Failed die rolls waste attempt but stay in conquest phase. Both human (via `GameController`) and AI supported.
+- Heroic hero placement: New `placeHeroes` phase after `redeploy`. Legal actions enumerate region pairs. Heroes cleared at player switch and decline. Human 2-click selection UX. AI picks first valid pair. HUD labels added.
+
+**Missing features #1–4 fixed (2026-02-23)**: Fixed 4 of 18 gaps from the missing features audit:
+- Troll Lair scoring bug: removed incorrect +1 coin per lair from `scoring.ts` (defense-only per rules).
+- Amazons conquest-only token removal: +4 tokens added at readyTroops→conquest transition, removed from board after redeployment in `actions.ts` (largest stacks first, min 1 per region).
+- Bivouacking encampments on decline: `hasEncampment` cleared from declining player's active regions in `applyDecline`.
+- Sorcerer once-per-opponent limit: added `sorcererConversionsThisTurn` to `ActiveRaceState` (`types.ts`), incremented in `applySorcererConvert`, checked in `raceAbilities.ts` `modifyLegalActions`, reset at turn end.
 
 **Interactive token gathering in readyTroops (2026-02-22)**: Added interactive left/right-click UX for gathering tokens during readyTroops phase (FR-13a/b/d/e). Right-click removes a token from a region to hand; left-click adds one back. Picking up the last token shows an abandon confirmation dialog. New `readyTroopsDeploy` batch action type (like `redeploy`). `pickUpTokens` now allows full abandonment (no longer clamps to leave 1). Key files: `types.ts`, `legalActions.ts`, `actions.ts`, `GameController.ts`, `AIPlayer.ts`, `MediumAIPlayer.ts`.
 

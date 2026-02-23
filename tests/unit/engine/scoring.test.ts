@@ -39,6 +39,7 @@ function withActiveRace(
       tokensOnBoard: 0,
       conquestsThisTurn: 0,
       hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
       ...extra,
     },
   });
@@ -173,6 +174,17 @@ describe('calculateScore', () => {
     expect(calculateScore(state, 0)).toBe(2);
   });
 
+  it('Trolls do NOT get +1 per Troll Lair (lairs are defense-only)', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActiveRace(state, 0, 'trolls', 'bivouacking');
+    state = ownRegions(state, 0, [19, 20]);
+    // Place Troll Lairs on both regions
+    state = patchRegion(state, 19, { hasTrollLair: true });
+    state = patchRegion(state, 20, { hasTrollLair: true });
+    // Base: 2 regions = 2 coins. No lair scoring bonus.
+    expect(calculateScore(state, 0)).toBe(2);
+  });
+
   it('scores do not bleed to opponent', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'humans', 'alchemist');
@@ -212,5 +224,64 @@ describe('applyScoring', () => {
     const state = withActiveRace(createInitialState({ firstPlayerIndex: 0 }), 0, 'ratmen', 'bivouacking');
     const result = applyScoring(state);
     expect(result.log[result.log.length - 1].action.type).toBe('endPhase');
+  });
+});
+
+// ── Feature 6: Wealthy bonus timing ──────────────────────────────────────────
+
+describe('Wealthy bonus timing', () => {
+  it('calculateScore includes +7 when firstTurnBonus > 0 and wealthyBonusApplied is not set', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActiveRace(state, 0, 'ratmen', 'wealthy');
+    state = ownRegions(state, 0, [20]); // 1 region = base 1
+    // Wealthy: +7 firstTurnBonus, wealthyBonusApplied is undefined (not yet applied)
+    const score = calculateScore(state, 0);
+    // Base: 1, Wealthy firstTurnBonus: +7 = 8
+    expect(score).toBe(8);
+  });
+
+  it('calculateScore does NOT include +7 when wealthyBonusApplied is true', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActiveRace(state, 0, 'ratmen', 'wealthy', { wealthyBonusApplied: true });
+    state = ownRegions(state, 0, [20]); // 1 region = base 1
+    const score = calculateScore(state, 0);
+    // Base: 1, no Wealthy bonus (already applied)
+    expect(score).toBe(1);
+  });
+
+  it('applyScoring sets wealthyBonusApplied=true on activeRace after first scoring', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActiveRace(state, 0, 'ratmen', 'wealthy');
+    state = ownRegions(state, 0, [20]);
+    const result = applyScoring(state);
+    expect(result.players[0].activeRace!.wealthyBonusApplied).toBe(true);
+  });
+
+  it('applyScoring does not set wealthyBonusApplied on non-Wealthy power', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActiveRace(state, 0, 'ratmen', 'alchemist');
+    state = ownRegions(state, 0, [20]);
+    const result = applyScoring(state);
+    expect(result.players[0].activeRace!.wealthyBonusApplied).toBeUndefined();
+  });
+
+  it('applyScoring does not re-apply wealthy bonus when wealthyBonusApplied is already true', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActiveRace(state, 0, 'ratmen', 'wealthy', { wealthyBonusApplied: true });
+    state = ownRegions(state, 0, [20]);
+    const beforeCoins = state.players[0].coins;
+    const result = applyScoring(state);
+    // Only base 1 coin scored (no +7 bonus)
+    expect(result.players[0].coins).toBe(beforeCoins + 1);
+  });
+
+  it('applyScoring includes +7 on first scoring (wealthyBonusApplied not set) and coins are correct', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActiveRace(state, 0, 'ratmen', 'wealthy');
+    state = ownRegions(state, 0, [20]);
+    const beforeCoins = state.players[0].coins;
+    const result = applyScoring(state);
+    // Base 1 + Wealthy +7 = 8
+    expect(result.players[0].coins).toBe(beforeCoins + 8);
   });
 });

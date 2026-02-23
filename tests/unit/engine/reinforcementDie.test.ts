@@ -41,6 +41,7 @@ function withActivePlayer(
       tokensOnBoard,
       conquestsThisTurn: 0,
       hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
     },
     availableTokens,
   });

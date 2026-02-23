@@ -34,6 +34,7 @@ function readyTroopsState(): GameState {
       tokensOnBoard: 5,
       conquestsThisTurn: 0,
       hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
     },
     availableTokens: 5,
   });

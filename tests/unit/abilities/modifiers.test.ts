@@ -15,6 +15,7 @@ function makePlayer(raceId: string, powerId: string): PlayerState {
       tokensOnBoard: 0,
       conquestsThisTurn: 0,
       hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
     },
     declinedRaces: [],
     availableTokens: 10,

@@ -56,6 +56,10 @@ export const RACE_HANDLERS: Partial<Record<string, CustomAbilityHandler>> = {
       const player = state.players[state.activePlayerIndex];
       if (!player.activeRace) return actions;
 
+      // Once per turn per opponent (in 2-player, max 1 conversion per turn)
+      const conversionsUsed = player.activeRace.sorcererConversionsThisTurn ?? 0;
+      if (conversionsUsed >= 1) return actions;
+
       const opponentIndex: 0 | 1 = state.activePlayerIndex === 0 ? 1 : 0;
       const ownRegionIds = new Set(
         state.board.regions

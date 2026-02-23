@@ -15,7 +15,7 @@ import { getActiveModifiers } from '@/game/abilities/modifiers';
 //     fortressesPlaced        Fortified: +1 per placed fortress (active only)
 //
 // Notes:
-//   - Wealthy's firstTurnBonus (+7) is applied in applySelectCombo, not here.
+//   - Wealthy's firstTurnBonus (+7) is applied here on the first scoring turn.
 //   - conquestsThisTurn in ActiveRaceState tracks non-empty conquests only.
 
 /** Look up a boolean feature field on a region. */
@@ -80,14 +80,16 @@ export function calculateScore(state: GameState, playerIndex: 0 | 1): number {
   coins += mods.flatBonusPerTurn;
 
   // ── Fortified: +1 per fortress placed (active only) ───────────────────────
-  if (mods.placesLair) {
-    // Trolls place lairs; the board tracks hasTrollLair per region.
-    coins += activeRegions.filter((r) => r.hasTrollLair).length;
-  }
+  // Note: Troll Lairs (placesLair) provide +1 defense only, NOT scoring bonus.
   if (player.activeRace.fortressesPlaced && player.activeRace.fortressesPlaced > 0) {
     // Fortified power: fortresses on active regions each give +1.
     // fortressesPlaced is the total placed; we award all of them.
     coins += player.activeRace.fortressesPlaced;
+  }
+
+  // ── Wealthy: +7 one-time bonus on first scoring turn ──────────────────────
+  if (mods.firstTurnBonus > 0 && !player.activeRace.wealthyBonusApplied) {
+    coins += mods.firstTurnBonus;
   }
 
   return Math.max(0, coins);
@@ -99,10 +101,21 @@ export function calculateScore(state: GameState, playerIndex: 0 | 1): number {
  */
 export function applyScoring(state: GameState): GameState {
   const score = calculateScore(state, state.activePlayerIndex);
+  const player = state.players[state.activePlayerIndex];
 
-  const newPlayers = state.players.map((p, i) =>
-    i === state.activePlayerIndex ? { ...p, coins: p.coins + score } : p,
-  ) as unknown as typeof state.players;
+  // Mark Wealthy bonus as applied after first scoring turn
+  const mods = getActiveModifiers(player);
+  const needsWealthyFlag = mods.firstTurnBonus > 0 &&
+    player.activeRace && !player.activeRace.wealthyBonusApplied;
+
+  const newPlayers = state.players.map((p, i) => {
+    if (i !== state.activePlayerIndex) return p;
+    const updated = { ...p, coins: p.coins + score };
+    if (needsWealthyFlag && updated.activeRace) {
+      return { ...updated, activeRace: { ...updated.activeRace, wealthyBonusApplied: true } };
+    }
+    return updated;
+  }) as unknown as typeof state.players;
 
   return {
     ...state,

@@ -76,6 +76,10 @@ function _pickAction(state: GameState, actions: readonly GameAction[]): GameActi
     }
   }
 
+  // --- placeHeroes: pick the first valid pair --------------------------------
+  const heroAction = actions.find((a) => a.type === 'placeHeroes');
+  if (heroAction) return heroAction;
+
   // --- Final conquest: always attempt if available ----------------------------
   const finalConquest = actions.find((a) => a.type === 'startFinalConquest');
   if (finalConquest) {
