@@ -7,10 +7,10 @@ A web-based implementation of the Small World board game (by Days of Wonder) for
 ### Phase 1 — Core Game Engine (COMPLETE)
 All 35 tasks done. Full game loop working: game state types, map data, race/power definitions, ability modifier system, combo shop, conquest, decline, scoring, reinforcement die, redeployment, legal action generation, phase state machine, Board + HUD scenes, token/region rendering, animation choreographer, audio manager (stub), GameController, HumanPlayer, Easy AI, Medium AI, end game screen, tooltips, main menu with mode selection (HvH, HvAI, AivAI). Unit tests (Vitest, 266 tests) and E2E tests (Playwright) passing.
 
-### Phase 2 — UX Enhancements & Bug Fixes (IN PROGRESS)
-All 18 implementation tasks (36–53) done. E2E tests written and passing (213 tests across Chromium/Firefox/WebKit). Fixes: map viewport clipping, camera zoom, HUD interaction passthrough, tooltip zoom scaling, conquest cost calculation, first conquest entry rule, decline flow, reinforcement die sequencing, region polygon redraw. Features: race/power text labels, ability tooltips, player box tooltips, first-conquest highlighting, browse combo mode, left/right-click redeployment, pan/interact mode toggle.
+### Phase 2 — UX Enhancements & Bug Fixes (IN PROGRESS — stabilization)
+All 18 implementation tasks (36–53) done. E2E tests written and passing (277 unit / 72 E2E per browser). Fixes: map viewport clipping, camera zoom, HUD interaction passthrough, tooltip zoom scaling, conquest cost calculation, first conquest entry rule, decline flow, reinforcement die sequencing, region polygon redraw, final conquest token placement, die result HUD persistence. Features: race/power text labels, ability tooltips, player box tooltips, first-conquest highlighting, browse combo mode, left/right-click redeployment, pan/interact mode toggle.
 
-**Next steps**: Manual playtesting to find remaining issues, then 1-on-1 bug fixing.
+**Current workflow**: Manual playtesting to surface UI/logic bugs, then fixing them one by one with E2E test coverage for each fix. No new regressions allowed — all unit and E2E tests must pass before committing. This stabilization pass must be complete before moving to Phase 3.
 
 ---
 
@@ -147,12 +147,11 @@ npx playwright show-report       # View last test report
 ## Testing
 
 - **Vitest** — 277 unit tests covering engine logic (scoring, setup, conquest cost, redeployment, ready troops, reinforcement die, legal actions), data tables (races, powers), state types, and audio manager stub. Run: `npx vitest run`
-- **Playwright** (`@playwright/test`) — E2E tests across Chromium/Firefox/WebKit. Covers main menu, HvH game flow, HvAI game flow, and Phase 2 features (decline, first conquest, pan mode, browse mode, redeployment, tooltips, final conquest). Config: `playwright.config.ts`. Run: `npx playwright test`
+- **Playwright** (`@playwright/test`) — 72 E2E tests per browser across Chromium/Firefox/WebKit. Covers main menu, HvH game flow, HvAI game flow, and Phase 2 features (decline, first conquest, pan mode, browse mode, redeployment, tooltips, final conquest token placement). Config: `playwright.config.ts`. Run: `npx playwright test`
+- **Stabilization rule**: Every bug fix must include an E2E test that reproduces the issue. All 277 unit + 72 E2E tests must pass before committing.
 
-### Recent Changes: Reinforcement Die → Final Conquest (2026-02-22)
+### Recent Changes
 
-The reinforcement die phase was reworked from auto-roll to a two-step flow:
-1. **Step 1** (`state.reinforcementDie === null`): Player sees "Final Conquest" label, valid targets glow (regions conquerable with max die 3), player clicks a region or skips.
-2. **Step 2**: Controller rolls die, animates, resolves success/failure, then advances.
+**Final Conquest fix (2026-02-22)**: Successful final conquest was silently failing — `useReinforcement` action was rejected as illegal because the controller set `state.reinforcementDie` for HUD display before emitting the action, causing `getLegalActions` step-2 to exclude it. Fixed in `legalActions.ts` (allow `useReinforcement` in step 2), `actions.ts` (persist die result until player switch), `HUD.ts` (show die result during redeploy phase). E2E test added.
 
-Key files changed: `GameController.ts` (removed auto-roll, added `_resolveFinalConquest`), `reinforcementDie.ts` (added `getFinalConquestTargets`), `legalActions.ts` (two-step handler), `HUD.ts` (labels/button text). Unit tests added for `getFinalConquestTargets` and two-step legal actions. Phase2 E2E tests updated to match new flow.
+**Reinforcement Die rework (2026-02-22)**: Changed from auto-roll to a two-step flow — player selects target region first, then die is rolled. Key files: `GameController.ts`, `reinforcementDie.ts`, `legalActions.ts`, `HUD.ts`.
