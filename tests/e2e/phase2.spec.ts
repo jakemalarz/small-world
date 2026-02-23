@@ -20,6 +20,10 @@ import {
   getTokensOnBoard,
   getLegalActionTypes,
   isBoardInputEnabled,
+  getGatherMap,
+  getGatherTokensInHand,
+  isAbandonDialogActive,
+  getAvailableTokens,
 } from './helpers';
 
 // ── Phase 2 E2E tests ─────────────────────────────────────────────────────────
@@ -567,6 +571,230 @@ test.describe('Phase 2 — Error-Free Operation', () => {
       hudScene?.events.emit('browseComboClose');
     });
     await page.waitForTimeout(200);
+
+    expect(errors).toHaveLength(0);
+  });
+});
+
+// ── Token Gathering during readyTroops (FR-13a/b) ───────────────────────────
+
+test.describe('Phase 2 — Token Gathering', () => {
+  /**
+   * Helper: complete turn 1 for both players WITH an actual conquest,
+   * so that on turn 2 the player has an owned region to gather from.
+   * Conquers an edge region (id=1) for player 0 via direct event emit.
+   */
+  async function setupTurn2WithOwnedRegion(page: import('@playwright/test').Page): Promise<void> {
+    await startHvHGame(page);
+
+    // Player 0: select combo slot 0
+    await waitForPhase(page, 'selectCombo');
+    await page.evaluate(() => {
+      const game = (window as any).__phaserGame;
+      const gs = game?.scene.getScene('Game');
+      const c = (gs as any)?.controller;
+      c.eventBus.emit('playerAction', { type: 'selectCombo', comboIndex: 0 });
+    });
+
+    // After combo: conquest phase (turn 1 skips readyTroops)
+    await waitForPhase(page, 'conquest');
+
+    // Conquer the first legal edge region via direct event
+    await page.evaluate(() => {
+      const game = (window as any).__phaserGame;
+      const gs = game?.scene.getScene('Game');
+      const c = (gs as any)?.controller;
+      const action = c.legalActions.find((a: any) => a.type === 'conquer');
+      if (action) c.eventBus.emit('playerAction', action);
+    });
+    await page.waitForTimeout(300);
+
+    // End conquest → redeploy → score → end turn
+    await waitForPhase(page, 'conquest');
+    await clickActionButton(page);
+    await waitForPhase(page, 'redeploy');
+    await clickActionButton(page);
+    await waitForPhase(page, 'score');
+    await clickActionButton(page);
+
+    // Handle optional decline if any
+    await page.waitForFunction(() => {
+      const game = (window as any).__phaserGame;
+      const gs = game?.scene.getScene('Game');
+      const c = (gs as any)?.controller;
+      const phase = c?.state?.phase;
+      return c?.readyForInput === true &&
+        (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'optionalDecline');
+    }, { timeout: 10_000 });
+    const phase = await getPhase(page);
+    if (phase === 'optionalDecline') {
+      await clickActionButton(page);
+    }
+
+    // Player 1: complete turn quickly (no conquests)
+    await completeHumanTurn(page);
+
+    // Now player 0 is at readyTroops for turn 2 with owned region(s)
+    await waitForPhase(page, 'readyTroops');
+  }
+
+  test('readyTroopsDeploy is a legal action during readyTroops', async ({ page }) => {
+    await startHvHGame(page);
+    await completeHumanTurn(page); // player 0 turn 1
+    await completeHumanTurn(page); // player 1 turn 1
+    // Player 0 turn 2 starts at readyTroops (has active race)
+    await waitForPhase(page, 'readyTroops');
+    const actionTypes = await getLegalActionTypes(page);
+    expect(actionTypes).toContain('readyTroopsDeploy');
+  });
+
+  test('gather map initializes during readyTroops for human player', async ({ page }) => {
+    await setupTurn2WithOwnedRegion(page);
+    // Player 0 should own at least one active region from turn 1 conquest
+    const ownedRegions = await page.evaluate(() => {
+      const game = (window as any).__phaserGame;
+      const gs = game?.scene.getScene('Game');
+      const state = (gs as any)?.controller?.state;
+      return state?.board.regions
+        .filter((r: any) => r.owner === 0 && !r.isDeclined)
+        .map((r: any) => ({ id: r.id, tokens: r.tokens })) ?? [];
+    });
+    expect(ownedRegions.length).toBeGreaterThan(0);
+    // Gather map should be populated with those owned regions
+    const gatherMap = await getGatherMap(page);
+    expect(Object.keys(gatherMap).length).toBe(ownedRegions.length);
+  });
+
+  test('right-click during readyTroops gathers token from region', async ({ page }) => {
+    await setupTurn2WithOwnedRegion(page);
+
+    const beforeMap = await getGatherMap(page);
+    const beforeHand = await getGatherTokensInHand(page);
+    const regionId = Number(Object.keys(beforeMap).find((k) => beforeMap[k] > 1));
+
+    if (regionId) {
+      // Right-click via Board event to gather a token
+      await page.evaluate((rid) => {
+        const game = (window as any).__phaserGame;
+        const board = game?.scene.getScene('Board');
+        board?.events.emit('regionRightClick', { regionId: rid });
+      }, regionId);
+      await page.waitForTimeout(150);
+
+      const afterMap = await getGatherMap(page);
+      const afterHand = await getGatherTokensInHand(page);
+      expect(afterMap[String(regionId)]).toBe(beforeMap[String(regionId)] - 1);
+      expect(afterHand).toBe(beforeHand + 1);
+    }
+  });
+
+  test('left-click during readyTroops deploys token back to region', async ({ page }) => {
+    await setupTurn2WithOwnedRegion(page);
+
+    // First gather a token so we have something in hand
+    const gatherMap = await getGatherMap(page);
+    const regionId = Number(Object.keys(gatherMap).find((k) => gatherMap[k] > 1));
+
+    if (regionId) {
+      // Right-click to gather
+      await page.evaluate((rid) => {
+        const game = (window as any).__phaserGame;
+        const board = game?.scene.getScene('Board');
+        board?.events.emit('regionRightClick', { regionId: rid });
+      }, regionId);
+      await page.waitForTimeout(150);
+
+      const afterGather = await getGatherMap(page);
+      const handAfterGather = await getGatherTokensInHand(page);
+
+      // Left-click to put it back
+      await page.evaluate((rid) => {
+        const game = (window as any).__phaserGame;
+        const board = game?.scene.getScene('Board');
+        board?.events.emit('regionClick', { regionId: rid });
+      }, regionId);
+      await page.waitForTimeout(150);
+
+      const afterDeploy = await getGatherMap(page);
+      const handAfterDeploy = await getGatherTokensInHand(page);
+      expect(afterDeploy[String(regionId)]).toBe(afterGather[String(regionId)] + 1);
+      expect(handAfterDeploy).toBe(handAfterGather - 1);
+    }
+  });
+
+  test('right-clicking last token shows abandon confirmation dialog', async ({ page }) => {
+    await setupTurn2WithOwnedRegion(page);
+
+    // Find a region with exactly 1 token, or reduce one to 1 first
+    const gatherMap = await getGatherMap(page);
+    let regionId = Number(Object.keys(gatherMap).find((k) => gatherMap[k] === 1));
+
+    if (!regionId) {
+      // Reduce a region to 1 by gathering tokens
+      const multiTokenRegion = Number(Object.keys(gatherMap).find((k) => gatherMap[k] > 1));
+      if (multiTokenRegion) {
+        const count = gatherMap[String(multiTokenRegion)];
+        for (let i = 0; i < count - 1; i++) {
+          await page.evaluate((rid) => {
+            const game = (window as any).__phaserGame;
+            const board = game?.scene.getScene('Board');
+            board?.events.emit('regionRightClick', { regionId: rid });
+          }, multiTokenRegion);
+          await page.waitForTimeout(100);
+        }
+        regionId = multiTokenRegion;
+      }
+    }
+
+    if (regionId) {
+      // Now right-click the last token — should show abandon dialog
+      await page.evaluate((rid) => {
+        const game = (window as any).__phaserGame;
+        const board = game?.scene.getScene('Board');
+        board?.events.emit('regionRightClick', { regionId: rid });
+      }, regionId);
+      await page.waitForTimeout(150);
+
+      const dialogActive = await isAbandonDialogActive(page);
+      expect(dialogActive).toBe(true);
+    }
+  });
+
+  test('Begin Conquest button submits gather and transitions to conquest', async ({ page }) => {
+    await setupTurn2WithOwnedRegion(page);
+    // Click "Begin Conquest" action button
+    await clickActionButton(page);
+    await waitForPhase(page, 'conquest');
+    expect(await getPhase(page)).toBe('conquest');
+  });
+
+  test('no JS errors during readyTroops gathering flow', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    await setupTurn2WithOwnedRegion(page);
+
+    // Gather and deploy some tokens
+    const gatherMap = await getGatherMap(page);
+    const regionId = Number(Object.keys(gatherMap).find((k) => gatherMap[k] > 1));
+    if (regionId) {
+      await page.evaluate((rid) => {
+        const game = (window as any).__phaserGame;
+        const board = game?.scene.getScene('Board');
+        board?.events.emit('regionRightClick', { regionId: rid });
+      }, regionId);
+      await page.waitForTimeout(100);
+      await page.evaluate((rid) => {
+        const game = (window as any).__phaserGame;
+        const board = game?.scene.getScene('Board');
+        board?.events.emit('regionClick', { regionId: rid });
+      }, regionId);
+      await page.waitForTimeout(100);
+    }
+
+    // Submit and advance
+    await clickActionButton(page);
+    await waitForPhase(page, 'conquest');
 
     expect(errors).toHaveLength(0);
   });

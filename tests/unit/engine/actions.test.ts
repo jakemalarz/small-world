@@ -119,7 +119,7 @@ describe('applyAction — pickUpTokens', () => {
     expect(next.players[0].availableTokens).toBe(9); // picked up 2
   });
 
-  it('does not pick up more than tokens - 1', () => {
+  it('allows picking up all tokens to abandon region (FR-13b)', () => {
     let state = withRace(createInitialState({ firstPlayerIndex: 0 }), 0, 'ratmen', 'bivouacking');
     state = patchState(state, { phase: 'readyTroops' });
     state = patchRegion(state, 20, { owner: 0, tokens: 2, isDeclined: false });
@@ -129,9 +129,10 @@ describe('applyAction — pickUpTokens', () => {
     });
 
     const next = applyAction(state, { type: 'pickUpTokens', regionId: 20, count: 2 });
-    // Can only pick up 1 (leave 1 behind)
-    expect(next.board.regions.find((r) => r.id === 20)!.tokens).toBe(1);
-    expect(next.players[0].availableTokens).toBe(9);
+    // Picks up all 2 tokens — region abandoned
+    expect(next.board.regions.find((r) => r.id === 20)!.tokens).toBe(0);
+    expect(next.board.regions.find((r) => r.id === 20)!.owner).toBeNull();
+    expect(next.players[0].availableTokens).toBe(10);
   });
 });
 

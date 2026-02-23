@@ -55,12 +55,13 @@ describe('readyTroops — pickUpTokens', () => {
     expect(next.players[0].availableTokens).toBe(7); // 5+2
   });
 
-  it('always leaves at least 1 token in the region', () => {
+  it('picking up all tokens abandons the region (FR-13b)', () => {
     const state = readyTroopsState();
-    // Try to pick up all 3 from region 19
+    // Pick up all 3 from region 19 — region abandoned
     const next = applyAction(state, { type: 'pickUpTokens', regionId: 19, count: 3 });
-    expect(next.board.regions.find((r) => r.id === 19)!.tokens).toBe(1);
-    expect(next.players[0].availableTokens).toBe(7); // 5+2 (clamped to leave 1)
+    expect(next.board.regions.find((r) => r.id === 19)!.tokens).toBe(0);
+    expect(next.board.regions.find((r) => r.id === 19)!.owner).toBeNull();
+    expect(next.players[0].availableTokens).toBe(8); // 5+3
   });
 
   it('picking 0 tokens is a no-op', () => {
@@ -93,14 +94,14 @@ describe('readyTroops — pickUpTokens', () => {
     expect(pickUps.some((a) => (a as { regionId: number }).regionId === 20)).toBe(true);
   });
 
-  it('region with exactly 1 token does NOT appear in pickUpTokens legal actions', () => {
+  it('region with exactly 1 token appears in pickUpTokens (allows abandon FR-13b)', () => {
     let state = readyTroopsState();
     state = patchRegion(state, 20, { tokens: 1 });
     const legal = getLegalActions(state);
     const pickUp20 = legal.filter(
       (a) => a.type === 'pickUpTokens' && (a as { regionId: number }).regionId === 20,
     );
-    expect(pickUp20).toHaveLength(0);
+    expect(pickUp20).toHaveLength(1);
   });
 
   it('endPhase is always legal during readyTroops', () => {
@@ -113,6 +114,70 @@ describe('readyTroops — pickUpTokens', () => {
     const state = readyTroopsState();
     const snapshot = JSON.stringify(state);
     applyAction(state, { type: 'pickUpTokens', regionId: 19, count: 2 });
+    expect(JSON.stringify(state)).toBe(snapshot);
+  });
+});
+
+// ── readyTroopsDeploy ──────────────────────────────────────────────────────
+
+describe('readyTroops — readyTroopsDeploy', () => {
+  it('reduces region tokens and adds to availableTokens', () => {
+    const state = readyTroopsState();
+    // Gather 2 from region 19 (3→1) and 1 from region 20 (2→1)
+    const deployment = new Map([[19, 1], [20, 1]]);
+    const next = applyAction(state, { type: 'readyTroopsDeploy', deployment });
+    expect(next.board.regions.find((r) => r.id === 19)!.tokens).toBe(1);
+    expect(next.board.regions.find((r) => r.id === 20)!.tokens).toBe(1);
+    expect(next.players[0].availableTokens).toBe(8); // 5+2+1
+  });
+
+  it('abandons region when set to 0 tokens (FR-13b)', () => {
+    const state = readyTroopsState();
+    const deployment = new Map([[19, 0], [20, 2]]);
+    const next = applyAction(state, { type: 'readyTroopsDeploy', deployment });
+    expect(next.board.regions.find((r) => r.id === 19)!.tokens).toBe(0);
+    expect(next.board.regions.find((r) => r.id === 19)!.owner).toBeNull();
+    expect(next.board.regions.find((r) => r.id === 20)!.tokens).toBe(2);
+    expect(next.players[0].availableTokens).toBe(8); // 5+3
+  });
+
+  it('is a no-op when deployment matches current state', () => {
+    const state = readyTroopsState();
+    const deployment = new Map([[19, 3], [20, 2]]);
+    const next = applyAction(state, { type: 'readyTroopsDeploy', deployment });
+    expect(next.board.regions.find((r) => r.id === 19)!.tokens).toBe(3);
+    expect(next.board.regions.find((r) => r.id === 20)!.tokens).toBe(2);
+    expect(next.players[0].availableTokens).toBe(5); // unchanged
+  });
+
+  it('updates tokensOnBoard on active race', () => {
+    const state = readyTroopsState();
+    const deployment = new Map([[19, 1], [20, 1]]);
+    const next = applyAction(state, { type: 'readyTroopsDeploy', deployment });
+    // Originally 5 on board, picked up 3 → 2 on board
+    expect(next.players[0].activeRace!.tokensOnBoard).toBe(2);
+  });
+
+  it('appears in legal actions during readyTroops', () => {
+    const state = readyTroopsState();
+    const legal = getLegalActions(state);
+    expect(legal.some((a) => a.type === 'readyTroopsDeploy')).toBe(true);
+  });
+
+  it('does not affect declined regions', () => {
+    let state = readyTroopsState();
+    state = patchRegion(state, 19, { isDeclined: true });
+    const deployment = new Map([[19, 0]]);
+    const next = applyAction(state, { type: 'readyTroopsDeploy', deployment });
+    // Region 19 is declined — should not be affected
+    expect(next.board.regions.find((r) => r.id === 19)!.tokens).toBe(3);
+    expect(next.board.regions.find((r) => r.id === 19)!.owner).toBe(0);
+  });
+
+  it('original state is not mutated', () => {
+    const state = readyTroopsState();
+    const snapshot = JSON.stringify(state);
+    applyAction(state, { type: 'readyTroopsDeploy', deployment: new Map([[19, 1]]) });
     expect(JSON.stringify(state)).toBe(snapshot);
   });
 });

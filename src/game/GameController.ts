@@ -74,6 +74,14 @@ export class GameController {
   private _redeployTokensInHand = 0;
   /** True after redeploy submission — next tick should auto-advance with endPhase. */
   private _redeploySubmitted = false;
+  /** Mutable map for interactive token gathering during readyTroops (FR-13a/b). */
+  private _gatherMap: Map<number, number> = new Map();
+  /** Tokens in hand during gathering. */
+  private _gatherTokensInHand = 0;
+  /** True after gather submission — next tick should auto-advance with endPhase. */
+  private _gatherSubmitted = false;
+  /** True while the abandon confirmation dialog is showing. */
+  private _abandonDialogActive = false;
 
   constructor(
     boardScene: Board,
@@ -113,6 +121,14 @@ export class GameController {
         this.eventBus.emit('playerAction', { type: 'redeploy', deployment: new Map(this._redeployMap) });
         this._redeployMap.clear();
         this._redeployTokensInHand = 0;
+        return;
+      }
+      // FR-13a/b: intercept endPhase during readyTroops to submit gather map
+      if (action.type === 'endPhase' && this.state.phase === 'readyTroops' && this._gatherMap.size > 0) {
+        this._gatherSubmitted = true;
+        this.eventBus.emit('playerAction', { type: 'readyTroopsDeploy', deployment: new Map(this._gatherMap) });
+        this._gatherMap.clear();
+        this._gatherTokensInHand = 0;
         return;
       }
       this.eventBus.emit('playerAction', action);
@@ -190,9 +206,23 @@ export class GameController {
       return;
     }
 
+    // After gather submission, auto-advance with endPhase (FR-13a/b)
+    if (this.state.phase === 'readyTroops' && this._gatherSubmitted) {
+      this._gatherSubmitted = false;
+      this.state = applyAction(this.state, { type: 'endPhase' });
+      return;
+    }
+
     // Initialize redeployment map when entering redeploy phase (FR-57)
     if (this.state.phase === 'redeploy' && this._redeployMap.size === 0) {
       this._initRedeployMap();
+    }
+
+    // Initialize gather map when entering readyTroops phase (FR-13a/b)
+    // Only for human players — AI uses pickUpTokens actions directly
+    if (this.state.phase === 'readyTroops' && this._gatherMap.size === 0
+      && this.players[this.state.activePlayerIndex].type === 'human') {
+      this._initGatherMap();
     }
 
     this.legalActions = getLegalActions(this.state);
@@ -214,6 +244,14 @@ export class GameController {
       this._redeployTokensInHand = 0;
       this._redeploySubmitted = false;
     }
+
+    // Clear gather state if phase changed away from readyTroops
+    if (this.state.phase !== 'readyTroops') {
+      this._gatherMap.clear();
+      this._gatherTokensInHand = 0;
+      this._gatherSubmitted = false;
+      this._abandonDialogActive = false;
+    }
   }
 
   private _renderState(): void {
@@ -225,11 +263,18 @@ export class GameController {
     this.boardScene.input.enabled = !shopOpen;
     if (shopOpen) this.tooltip.showRegionTooltip(null, 0, 0);
 
-    // Collect valid conquest/reinforcement target IDs for the glow overlay
+    // Collect valid target IDs for the glow overlay
     const validTargetIds = new Set<number>();
-    for (const a of this.legalActions) {
-      if ((a.type === 'conquer' || a.type === 'useReinforcement') && 'regionId' in a) {
-        validTargetIds.add((a as { regionId: number }).regionId);
+    if (this.state.phase === 'readyTroops' && this._gatherMap.size > 0) {
+      // Highlight owned active regions during gathering (FR-13a/b)
+      for (const [id, count] of this._gatherMap) {
+        if (count > 0) validTargetIds.add(id);
+      }
+    } else {
+      for (const a of this.legalActions) {
+        if ((a.type === 'conquer' || a.type === 'useReinforcement') && 'regionId' in a) {
+          validTargetIds.add((a as { regionId: number }).regionId);
+        }
       }
     }
 
@@ -247,6 +292,12 @@ export class GameController {
   private _onRegionClick(regionId: number): void {
     // FR-60: pan mode suppresses all region interactions
     if (this._panMode) return;
+
+    // FR-13a/b: left-click during readyTroops adds a token back to region
+    if (this.state.phase === 'readyTroops' && this._gatherMap.size > 0) {
+      this._gatherAddToken(regionId);
+      return;
+    }
 
     // FR-57: left-click during redeploy adds a token
     if (this.state.phase === 'redeploy') {
@@ -301,9 +352,14 @@ export class GameController {
     }
   }
 
-  /** FR-57: right-click during redeploy removes a token. */
+  /** FR-57: right-click during redeploy removes a token.
+   *  FR-13a/b: right-click during readyTroops gathers a token to hand. */
   private _onRegionRightClick(regionId: number): void {
     if (this._panMode) return;
+    if (this.state.phase === 'readyTroops' && this._gatherMap.size > 0) {
+      this._gatherRemoveToken(regionId);
+      return;
+    }
     if (this.state.phase !== 'redeploy') return;
     this._redeployRemoveToken(regionId);
   }
@@ -360,6 +416,125 @@ export class GameController {
     this.hudScene.refresh(previewState);
     this.tokenRenderer.render(previewState);
     this.regionRenderer.render(previewState, new Set(), null);
+  }
+
+  // ── Gather (readyTroops) ─────────────────────────────────────────────────
+
+  /** Initialize the gather map from current board state (FR-13a/b). */
+  private _initGatherMap(): void {
+    this._gatherMap.clear();
+    const player = this.state.players[this.state.activePlayerIndex];
+    this._gatherTokensInHand = player.availableTokens;
+
+    for (const region of this.state.board.regions) {
+      if (region.owner === this.state.activePlayerIndex && !region.isDeclined) {
+        this._gatherMap.set(region.id, region.tokens);
+      }
+    }
+  }
+
+  /** Right-click: remove one token from a region to hand. Shows abandon confirm for last token. */
+  private _gatherRemoveToken(regionId: number): void {
+    if (this._abandonDialogActive) return;
+    const current = this._gatherMap.get(regionId);
+    if (current === undefined || current <= 0) return;
+
+    if (current === 1) {
+      // Last token — show confirmation dialog before abandoning
+      this._showAbandonConfirm(regionId);
+      return;
+    }
+
+    this._gatherMap.set(regionId, current - 1);
+    this._gatherTokensInHand++;
+    this._renderGatherPreview();
+  }
+
+  /** Left-click: add one token from hand back to a region. */
+  private _gatherAddToken(regionId: number): void {
+    if (this._abandonDialogActive) return;
+    if (this._gatherTokensInHand <= 0) return;
+    const current = this._gatherMap.get(regionId);
+    if (current === undefined) return; // not an originally-owned region
+    this._gatherMap.set(regionId, current + 1);
+    this._gatherTokensInHand--;
+    this._renderGatherPreview();
+  }
+
+  /** Update token display with gather preview. */
+  private _renderGatherPreview(): void {
+    const newRegions = this.state.board.regions.map((r) => {
+      const count = this._gatherMap.get(r.id);
+      if (count !== undefined) {
+        if (count === 0) return { ...r, tokens: 0, owner: null };
+        return { ...r, tokens: count };
+      }
+      return r;
+    });
+    const previewState = {
+      ...this.state,
+      board: { regions: newRegions },
+      players: this.state.players.map((p, i) =>
+        i === this.state.activePlayerIndex
+          ? { ...p, availableTokens: this._gatherTokensInHand }
+          : p,
+      ) as [typeof this.state.players[0], typeof this.state.players[1]],
+    };
+    this.hudScene.refresh(previewState);
+    this.tokenRenderer.render(previewState);
+    // Highlight owned active regions with tokens as valid targets
+    const validTargetIds = new Set<number>();
+    for (const [id, count] of this._gatherMap) {
+      if (count > 0) validTargetIds.add(id);
+    }
+    this.regionRenderer.render(previewState, validTargetIds, null);
+  }
+
+  /** Show abandon confirmation dialog (FR-13b). */
+  private _showAbandonConfirm(regionId: number): void {
+    this._abandonDialogActive = true;
+    const W = 1280, H = 720;
+
+    const overlay = this.hudScene.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.5)
+      .setDepth(50).setInteractive(); // blocks clicks below
+
+    const panel = this.hudScene.add.rectangle(W / 2, H / 2, 320, 130, 0x1e1e2e, 0.95)
+      .setStrokeStyle(2, 0xef4444, 0.8).setDepth(51);
+
+    const text = this.hudScene.add.text(W / 2, H / 2 - 25,
+      'Abandon this region?\nAll tokens will be removed.', {
+        fontSize: '14px', fontFamily: 'Arial', color: '#e8d5b7', align: 'center',
+      }).setOrigin(0.5, 0.5).setDepth(52);
+
+    const confirmBg = this.hudScene.add.rectangle(W / 2 - 60, H / 2 + 30, 90, 28, 0xef4444)
+      .setDepth(52).setInteractive({ useHandCursor: true });
+    const confirmLabel = this.hudScene.add.text(W / 2 - 60, H / 2 + 30, 'Abandon', {
+      fontSize: '12px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5, 0.5).setDepth(53);
+
+    const cancelBg = this.hudScene.add.rectangle(W / 2 + 60, H / 2 + 30, 90, 28, 0x4a4a6a)
+      .setDepth(52).setInteractive({ useHandCursor: true });
+    const cancelLabel = this.hudScene.add.text(W / 2 + 60, H / 2 + 30, 'Cancel', {
+      fontSize: '12px', fontFamily: 'Arial', color: '#ffffff',
+    }).setOrigin(0.5, 0.5).setDepth(53);
+
+    const cleanup = (): void => {
+      overlay.destroy(); panel.destroy(); text.destroy();
+      confirmBg.destroy(); confirmLabel.destroy();
+      cancelBg.destroy(); cancelLabel.destroy();
+      this._abandonDialogActive = false;
+    };
+
+    confirmBg.on('pointerdown', () => {
+      cleanup();
+      this._gatherMap.set(regionId, 0);
+      this._gatherTokensInHand++;
+      this._renderGatherPreview();
+    });
+
+    cancelBg.on('pointerdown', () => {
+      cleanup();
+    });
   }
 
   private _onGameOver(): void {

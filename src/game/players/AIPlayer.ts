@@ -92,7 +92,9 @@ function _pickAction(actions: readonly GameAction[]): GameAction {
   }
 
   // --- Fallback: random from remaining actions (includes endPhase) ----------
-  return _randomFrom(actions);
+  // Filter out readyTroopsDeploy placeholder (human-only interactive action)
+  const fallback = actions.filter((a) => a.type !== 'readyTroopsDeploy');
+  return _randomFrom(fallback);
 }
 
 function _randomFrom<T>(arr: readonly T[]): T {

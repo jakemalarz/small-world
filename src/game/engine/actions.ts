@@ -42,6 +42,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'placeDragon':    return applyPlaceDragon(state, action.regionId, logEntry);
     case 'sorcererConvert':return applySorcererConvert(state, action.regionId, logEntry);
     case 'useReinforcement': return applyUseReinforcement(state, action.regionId, action.dieResult, logEntry);
+    case 'readyTroopsDeploy': return applyReadyTroopsDeploy(state, action.deployment, logEntry);
     case 'redeploy':       return applyRedeploy(state, action.deployment, logEntry);
     case 'defenderRedeploy': return appendLog(state, logEntry); // handled implicitly
     case 'placeHeroes':    return applyPlaceHeroes(state, action.regionIds, logEntry);
@@ -77,21 +78,65 @@ function applyPickUpTokens(
   state: GameState, regionId: number, count: number, logEntry: GameLogEntry,
 ): GameState {
   const region = getRegion(state, regionId);
-  // Clamp: leave at least 1 token
-  const actualCount = Math.min(count, region.tokens - 1);
+  // Clamp to available tokens (allow picking up all — FR-13b abandon)
+  const actualCount = Math.min(count, region.tokens);
   if (actualCount <= 0) return appendLog(state, logEntry);
 
   const player = state.players[state.activePlayerIndex];
   const race = player.activeRace!;
+  const remaining = region.tokens - actualCount;
+
+  // If all tokens removed, abandon the region (FR-13b)
+  const regionPatch: Partial<RegionState> = remaining === 0
+    ? { tokens: 0, owner: null }
+    : { tokens: remaining };
 
   return {
     ...appendLog(state, logEntry),
-    board: patchRegions(state, regionId, { tokens: region.tokens - actualCount }),
+    board: patchRegions(state, regionId, regionPatch),
     players: patchPlayer(state, state.activePlayerIndex, {
       availableTokens: player.availableTokens + actualCount,
       activeRace: { ...race, tokensOnBoard: race.tokensOnBoard - actualCount },
     }),
   };
+}
+
+// ── readyTroopsDeploy ─────────────────────────────────────────────────────
+// Batch token gathering during readyTroops (FR-13a/b). The deployment map
+// specifies the desired token count for each owned active region. Regions
+// set to 0 are abandoned. Tokens removed are added to the player's hand.
+
+function applyReadyTroopsDeploy(
+  state: GameState,
+  deployment: ReadonlyMap<number, number>,
+  logEntry: GameLogEntry,
+): GameState {
+  const player = state.players[state.activePlayerIndex];
+  if (!player.activeRace) return appendLog(state, logEntry);
+
+  const race = player.activeRace;
+  let tokensPickedUp = 0;
+
+  const newRegions = state.board.regions.map((region) => {
+    if (region.owner !== state.activePlayerIndex || region.isDeclined) return region;
+    const newCount = deployment.get(region.id);
+    if (newCount === undefined) return region; // not in map = no change
+    const diff = region.tokens - newCount;
+    tokensPickedUp += diff;
+    if (newCount === 0) {
+      return { ...region, tokens: 0, owner: null };
+    }
+    return { ...region, tokens: Math.max(0, newCount) };
+  });
+
+  return appendLog({
+    ...state,
+    board: { regions: newRegions },
+    players: patchPlayer(state, state.activePlayerIndex, {
+      availableTokens: player.availableTokens + tokensPickedUp,
+      activeRace: { ...race, tokensOnBoard: race.tokensOnBoard - tokensPickedUp },
+    }),
+  }, logEntry);
 }
 
 // ── conquer ───────────────────────────────────────────────────────────────────
@@ -673,6 +718,7 @@ function actionsMatch(a: GameAction, b: GameAction): boolean {
     }
     case 'placeEncampments': return true; // validated by phase
     case 'selectDiplomatAlly': return (b as typeof a).playerIndex === a.playerIndex;
+    case 'readyTroopsDeploy': return true; // validated by phase
     case 'redeploy':      return true; // validated by phase
     case 'defenderRedeploy': return true;
     case 'startFinalConquest': return true;

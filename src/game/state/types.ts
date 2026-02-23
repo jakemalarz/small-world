@@ -73,6 +73,7 @@ export type GameAction =
   | { readonly type: 'conquer'; readonly regionId: number }
   | { readonly type: 'ghoulConquer'; readonly regionId: number }
   | { readonly type: 'useReinforcement'; readonly regionId: number; readonly dieResult: 0 | 1 | 2 | 3 }
+  | { readonly type: 'readyTroopsDeploy'; readonly deployment: ReadonlyMap<number, number> }
   | { readonly type: 'redeploy'; readonly deployment: ReadonlyMap<number, number> }
   | { readonly type: 'defenderRedeploy'; readonly deployment: ReadonlyMap<number, number> }
   | { readonly type: 'placeDragon'; readonly regionId: number }

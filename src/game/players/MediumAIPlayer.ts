@@ -83,7 +83,9 @@ function _pickAction(state: GameState, actions: readonly GameAction[]): GameActi
   }
 
   // --- Fallback: random from remaining (includes endPhase) -------------------
-  return _randomFrom(actions);
+  // Filter out readyTroopsDeploy placeholder (human-only interactive action)
+  const fallback = actions.filter((a) => a.type !== 'readyTroopsDeploy');
+  return _randomFrom(fallback);
 }
 
 // ── Combo scoring ─────────────────────────────────────────────────────────────

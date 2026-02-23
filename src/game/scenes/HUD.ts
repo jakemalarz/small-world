@@ -180,11 +180,11 @@ export class HUD extends Phaser.Scene {
 
   /** Centered action button at bottom-center. */
   private _drawActionButton(): void {
-    this.actionBtnBg = this.add.rectangle(0, 0, 200, 36, PLAYER_COLORS[0])
+    this.actionBtnBg = this.add.rectangle(0, 0, 150, 32, PLAYER_COLORS[0])
       .setStrokeStyle(1, 0xffffff, 0.3);
 
     this.actionBtnLabel = this.add.text(0, 0, 'End Conquest', {
-      fontSize: '14px',
+      fontSize: '13px',
       fontFamily: 'Arial',
       color: '#ffffff',
       fontStyle: 'bold',
@@ -212,17 +212,17 @@ export class HUD extends Phaser.Scene {
 
   /** Decline button (left of action button). */
   private _drawDeclineButton(): void {
-    this.declineBtnBg = this.add.rectangle(0, 0, 160, 36, 0x6b21a8)
+    this.declineBtnBg = this.add.rectangle(0, 0, 140, 32, 0x6b21a8)
       .setStrokeStyle(1, 0xffffff, 0.3);
 
     const declineBtnLabel = this.add.text(0, 0, 'Go In Decline', {
-      fontSize: '13px',
+      fontSize: '12px',
       fontFamily: 'Arial',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
-    this.declineButton = this.add.container(W / 2 - 130, H - 24, [
+    this.declineButton = this.add.container(W / 2 - 160, H - 24, [
       this.declineBtnBg,
       declineBtnLabel,
     ]).setDepth(12);
@@ -244,17 +244,17 @@ export class HUD extends Phaser.Scene {
 
   /** Final Conquest button (right of action button). */
   private _drawFinalConquestButton(): void {
-    this.finalConquestBtnBg = this.add.rectangle(0, 0, 170, 36, 0x15803d)
+    this.finalConquestBtnBg = this.add.rectangle(0, 0, 150, 32, 0x15803d)
       .setStrokeStyle(1, 0xffffff, 0.3);
 
     const finalConquestLabel = this.add.text(0, 0, 'Final Conquest', {
-      fontSize: '13px',
+      fontSize: '12px',
       fontFamily: 'Arial',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
-    this.finalConquestButton = this.add.container(W / 2 + 130, H - 24, [
+    this.finalConquestButton = this.add.container(W / 2 + 160, H - 24, [
       this.finalConquestBtnBg,
       finalConquestLabel,
     ]).setDepth(12);

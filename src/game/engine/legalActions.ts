@@ -74,14 +74,16 @@ function readyTroopsActions(state: GameState): GameAction[] {
   if (state.players[state.activePlayerIndex].activeRace) {
     actions.push({ type: 'decline' });
   }
+  // Batch deploy placeholder for interactive human gathering (FR-13a/b)
+  actions.push({ type: 'readyTroopsDeploy', deployment: new Map() });
   for (const region of state.board.regions) {
     if (region.owner !== state.activePlayerIndex) continue;
     if (region.isDeclined) continue;
-    if (region.tokens > 1) {
+    if (region.tokens > 0) {
       actions.push({
         type: 'pickUpTokens',
         regionId: region.id,
-        count: region.tokens - 1, // max pickup (leave 1 behind)
+        count: region.tokens, // allow full pickup including abandon (FR-13b)
       });
     }
   }

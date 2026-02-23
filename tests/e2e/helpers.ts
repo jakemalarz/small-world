@@ -156,9 +156,9 @@ export const HUD = {
   /** Combo shop slot center (slot 0 = FREE, slot 1 costs 1 coin, etc.) */
   comboSlot: (index: number) => ({ x: 640, y: 130 + index * 84 }),
   /** Decline button — left of the action button (FR-22). */
-  declineButton: { x: 510, y: 696 },
+  declineButton: { x: 480, y: 696 },
   /** Final Conquest button — right of the action button. */
-  finalConquestButton: { x: 770, y: 696 },
+  finalConquestButton: { x: 800, y: 696 },
   /** Pan/Interact mode toggle — top-right corner (FR-60). */
   panToggle: { x: 1080, y: 32 },
   /** Browse Combos button — top-right area (FR-54). */
@@ -511,6 +511,37 @@ export async function getLegalActionTypes(page: Page): Promise<string[]> {
     const gs = game?.scene.getScene('Game');
     const actions = (gs as any)?.controller?.legalActions ?? [];
     return actions.map((a: { type: string }) => a.type);
+  });
+}
+
+/** Read the gather map from the controller (readyTroops phase). */
+export async function getGatherMap(page: Page): Promise<Record<string, number>> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const gs = game?.scene.getScene('Game');
+    const map = (gs as any)?.controller?._gatherMap;
+    if (!map) return {};
+    const result: Record<string, number> = {};
+    map.forEach((v: number, k: number) => { result[String(k)] = v; });
+    return result;
+  });
+}
+
+/** Read the gather tokens in hand from the controller (readyTroops phase). */
+export async function getGatherTokensInHand(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const gs = game?.scene.getScene('Game');
+    return (gs as any)?.controller?._gatherTokensInHand ?? 0;
+  });
+}
+
+/** Check whether the abandon dialog is currently active. */
+export async function isAbandonDialogActive(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const game = (window as any).__phaserGame;
+    const gs = game?.scene.getScene('Game');
+    return (gs as any)?.controller?._abandonDialogActive ?? false;
   });
 }
 

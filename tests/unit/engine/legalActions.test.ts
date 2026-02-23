@@ -139,7 +139,7 @@ describe('readyTroops phase', () => {
     expect(pickupRegion20).toBeDefined();
   });
 
-  it('does not include pickUpTokens for region with exactly 1 token', () => {
+  it('includes pickUpTokens for region with exactly 1 token (allows abandon FR-13b)', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist');
     state = patchState(state, { phase: 'readyTroops' });
@@ -148,7 +148,7 @@ describe('readyTroops phase', () => {
     const has20 = pickup.some(
       (a) => (a as { type: 'pickUpTokens'; regionId: number }).regionId === 20,
     );
-    expect(has20).toBe(false);
+    expect(has20).toBe(true);
   });
 
   it('does not include pickUpTokens for declined regions', () => {

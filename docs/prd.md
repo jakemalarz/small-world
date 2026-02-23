@@ -143,6 +143,8 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 - FR-13a: Before conquering, the player may pick up Active tokens from regions they occupy to use for new conquests, but must leave at least 1 token in each region they wish to keep controlling
 - FR-13b: The player may voluntarily abandon a region entirely by picking up all tokens from it, losing control of that region
 - FR-13c: Tokens picked up are added to the player's available hand for conquests this turn
+- FR-13d: During readyTroops, right-click on an owned active region removes one token to hand; left-click adds one token from hand back to region (mirrors redeployment UX)
+- FR-13e: When removing the last token from a region (abandonment), a confirmation dialog is shown before proceeding
 
 #### Conquest
 

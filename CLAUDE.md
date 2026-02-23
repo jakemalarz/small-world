@@ -8,7 +8,7 @@ A web-based implementation of the Small World board game (by Days of Wonder) for
 All 35 tasks done. Full game loop working: game state types, map data, race/power definitions, ability modifier system, combo shop, conquest, decline, scoring, reinforcement die, redeployment, legal action generation, phase state machine, Board + HUD scenes, token/region rendering, animation choreographer, audio manager (stub), GameController, HumanPlayer, Easy AI, Medium AI, end game screen, tooltips, main menu with mode selection (HvH, HvAI, AivAI). Unit tests (Vitest, 266 tests) and E2E tests (Playwright) passing.
 
 ### Phase 2 — UX Enhancements & Bug Fixes (IN PROGRESS — stabilization)
-All 18 implementation tasks (36–53) done. E2E tests written and passing (277 unit / 72 E2E per browser). Fixes: map viewport clipping, camera zoom, HUD interaction passthrough, tooltip zoom scaling, conquest cost calculation, first conquest entry rule, decline flow, reinforcement die sequencing, region polygon redraw, final conquest token placement, die result HUD persistence. Features: race/power text labels, ability tooltips, player box tooltips, first-conquest highlighting, browse combo mode, left/right-click redeployment, pan/interact mode toggle.
+All 18 implementation tasks (36–53) done. E2E tests written and passing (288 unit / 79 E2E per browser). Fixes: map viewport clipping, camera zoom, HUD interaction passthrough, tooltip zoom scaling, conquest cost calculation, first conquest entry rule, decline flow, reinforcement die sequencing, region polygon redraw, final conquest token placement, die result HUD persistence. Features: race/power text labels, ability tooltips, player box tooltips, first-conquest highlighting, browse combo mode, left/right-click redeployment, pan/interact mode toggle, interactive token gathering during readyTroops with abandon confirmation.
 
 **Current workflow**: Manual playtesting to surface UI/logic bugs, then fixing them one by one with E2E test coverage for each fix. No new regressions allowed — all unit and E2E tests must pass before committing. This stabilization pass must be complete before moving to Phase 3.
 
@@ -146,12 +146,14 @@ npx playwright show-report       # View last test report
 
 ## Testing
 
-- **Vitest** — 281 unit tests covering engine logic (scoring, setup, conquest cost, redeployment, ready troops, reinforcement die, legal actions), data tables (races, powers), state types, and audio manager stub. Run: `npx vitest run`
-- **Playwright** (`@playwright/test`) — 72 E2E tests per browser across Chromium/Firefox/WebKit. Covers main menu, HvH game flow, HvAI game flow, and Phase 2 features (decline, first conquest, pan mode, browse mode, redeployment, tooltips, final conquest token placement). Config: `playwright.config.ts`. Run: `npx playwright test --project=chromium`
-- **Stabilization rule**: Every bug fix must include an E2E test that reproduces the issue. All 281 unit + 72 E2E tests must pass before committing.
+- **Vitest** — 288 unit tests covering engine logic (scoring, setup, conquest cost, redeployment, ready troops, reinforcement die, legal actions), data tables (races, powers), state types, and audio manager stub. Run: `npx vitest run`
+- **Playwright** (`@playwright/test`) — 79 E2E tests per browser across Chromium/Firefox/WebKit. Covers main menu, HvH game flow, HvAI game flow, and Phase 2 features (decline, first conquest, pan mode, browse mode, redeployment, tooltips, final conquest token placement, readyTroops token gathering with abandon). Config: `playwright.config.ts`. Run: `npx playwright test --project=chromium`
+- **Stabilization rule**: Every bug fix must include an E2E test that reproduces the issue. All 288 unit + 79 E2E tests must pass before committing.
 - **E2E execution**: Always run Playwright with `--project=chromium` only (not all browsers) to save context and tokens. Full cross-browser testing is done separately outside of Claude sessions.
 
 ### Recent Changes
+
+**Interactive token gathering in readyTroops (2026-02-22)**: Added interactive left/right-click UX for gathering tokens during readyTroops phase (FR-13a/b/d/e). Right-click removes a token from a region to hand; left-click adds one back. Picking up the last token shows an abandon confirmation dialog. New `readyTroopsDeploy` batch action type (like `redeploy`). `pickUpTokens` now allows full abandonment (no longer clamps to leave 1). Key files: `types.ts`, `legalActions.ts`, `actions.ts`, `GameController.ts`, `AIPlayer.ts`, `MediumAIPlayer.ts`.
 
 **Explicit Final Conquest entry (2026-02-22)**: Reworked reinforcement die UX — during conquest, player now sees two buttons: "End Conquest" (skips to redeploy) and "Final Conquest" (enters die sub-flow). Added `startFinalConquest` action type. `endPhase` from conquest always goes to `redeploy`. Player can back out of final conquest target selection by clicking "End Conquest". Key files: `types.ts`, `phaseTransition.ts`, `legalActions.ts`, `actions.ts`, `HUD.ts`, `AIPlayer.ts`, `MediumAIPlayer.ts`.
 

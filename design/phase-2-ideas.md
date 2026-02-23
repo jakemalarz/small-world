@@ -87,12 +87,22 @@ provided it could still be conquered with a lucky die roll.
 
 
 
-### There is another bug related to the reinforcement die.  Add this to the e2e test suite if it is not there, run the test, and then debug it.  The scenario is where the players uses the die on the final conquest, and gets the required number (or more) on the die,      
+### There is another bug related to the reinforcement die.  Add this to the e2e test suite if it is not there, run the test, and then debug it.  The scenario is where the players uses the die on the final conquest, and gets the required number (or more) on the die.  FIXED  
   plus the tokens in hand, to conquer the selected region.  Currently the game does not place the player's token (or tokens) that were in hand onto that region, and that token (or tokens) stay in hand.  Instead, the token (or tokens) should be placed in the           
   conquered region.   
+
+
+### I want to change the how the playerser experiences the reinforcement die, to make it more explicit on when the die will be used. During Conquest, give the player two options, to End Conquest, or to do Final Conquest. If the player selects Final Conquest, then the player needs to select a region, after which the die rolls, and the region is either conqured or not, and the Conquest phase ends.  The player needs to have at least one token in hand to select Final Conquest.  Also, once in Final Conquest, the player should have the option to forgoe the last conquest, and instead of selecting a region, select End Conquest.
+
+
+### the Go In Decline, End Conquest and Final Conquest buttons currently overlap.  Style them differently so that they do not do that   FIXED
+
+
+### In the Ready Toops phase the player should have the ability to gather all tokens in his/her hand, either leaving on behind in occupied regions if he wants to retain them, or abandoning those regions.  Currently this is not possible. I would like to use the same right mouse click convention to gather tokens back in hand, and right-click to deploy them.  Also show a 'chicken message' to the player before a region is abandoned
+
 --------------------
 
+### Don't have the ability to conquer regions with a declined token
 
-### In the Ready Toops phase the player should have the ability to gather all tokens in his/her hand, either leaving on behind in occupied regions if he wants to retain them, or abandoning those regions.  Currently this is not possible. I would like to use the same right mouse click convention to gather tokens back in hand, and right-click to deploy them.  Also show a 'chicken message" to the player before a region is abandoned
 
 
