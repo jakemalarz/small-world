@@ -10,6 +10,7 @@ import {
   completeHumanTurn,
   advanceToConquest,
   clickDeclineButton,
+  clickFinalConquestButton,
   clickPanToggle,
   clickBrowseButton,
   getPanMode,
@@ -184,14 +185,26 @@ test.describe('Phase 2 — Conquest Cost', () => {
 });
 
 // ── Reinforcement Die / Final Conquest (FR-19, FR-20, FR-21) ────────────────
-// New two-step flow: player selects region first, THEN die is rolled.
+// Explicit entry: player clicks "Final Conquest" during conquest to enter
+// reinforcementDie phase, then selects a region, die rolls, and conquest resolves.
 
 test.describe('Phase 2 — Final Conquest', () => {
-  test('reinforcementDie phase starts with die result null (step 1)', async ({ page }) => {
+  test('End Conquest during conquest skips directly to redeploy', async ({ page }) => {
     await startHvHGame(page);
-
     await advanceToConquest(page);
-    await clickActionButton(page); // End Conquest → reinforcementDie
+
+    // Click "End Conquest" — should skip to redeploy, NOT reinforcementDie
+    await clickActionButton(page);
+    await waitForPhase(page, 'redeploy');
+    expect(await getPhase(page)).toBe('redeploy');
+  });
+
+  test('Final Conquest button enters reinforcementDie with die null (step 1)', async ({ page }) => {
+    await startHvHGame(page);
+    await advanceToConquest(page);
+
+    // Click "Final Conquest" button to enter reinforcementDie
+    await clickFinalConquestButton(page);
     await waitForPhase(page, 'reinforcementDie');
 
     // Step 1: die has NOT been rolled yet
@@ -203,8 +216,8 @@ test.describe('Phase 2 — Final Conquest', () => {
     await startHvHGame(page);
     await advanceToConquest(page);
 
-    // End conquest immediately (no conquests) to enter reinforcementDie with all tokens
-    await clickActionButton(page);
+    // Click "Final Conquest" to enter reinforcementDie phase
+    await clickFinalConquestButton(page);
     await waitForPhase(page, 'reinforcementDie');
 
     // Record tokens in hand before final conquest
@@ -274,17 +287,17 @@ test.describe('Phase 2 — Final Conquest', () => {
     expect(regionAfter.availableTokens).toBeLessThan(tokensBefore);
   });
 
-  test('skip final conquest advances to redeploy', async ({ page }) => {
+  test('End Conquest during reinforcementDie backs out to redeploy', async ({ page }) => {
     await startHvHGame(page);
-
     await advanceToConquest(page);
-    await clickActionButton(page); // End Conquest → reinforcementDie
+
+    // Enter final conquest
+    await clickFinalConquestButton(page);
     await waitForPhase(page, 'reinforcementDie');
 
-    // Click "Skip Final Conquest" button
+    // Click "End Conquest" to back out
     await clickActionButton(page);
     await waitForPhase(page, 'redeploy');
-
     expect(await getPhase(page)).toBe('redeploy');
   });
 });
@@ -297,9 +310,7 @@ test.describe('Phase 2 — Redeployment', () => {
 
     // Complete a turn where player conquers something, then check redeploy
     await advanceToConquest(page);
-    await clickActionButton(page); // End Conquest → reinforcementDie
-    await waitForPhase(page, 'reinforcementDie');
-    await clickActionButton(page); // → redeploy
+    await clickActionButton(page); // End Conquest → redeploy
     await waitForPhase(page, 'redeploy');
 
     // _redeployTokensInHand should reflect available tokens
@@ -311,9 +322,7 @@ test.describe('Phase 2 — Redeployment', () => {
     await startHvHGame(page);
 
     await advanceToConquest(page);
-    await clickActionButton(page); // → reinforcementDie
-    await waitForPhase(page, 'reinforcementDie');
-    await clickActionButton(page); // → redeploy
+    await clickActionButton(page); // End Conquest → redeploy
     await waitForPhase(page, 'redeploy');
     await clickActionButton(page); // Confirm Redeploy → score
 

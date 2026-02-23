@@ -121,12 +121,20 @@ describe('getNextPhase', () => {
       expect(getNextPhase(state, { type: 'endPhase' })).toBe('redeploy');
     });
 
-    it('transitions to reinforcementDie via endPhase when tokens available', () => {
+    it('transitions to redeploy via endPhase even when tokens available', () => {
       const state = makeState({
         phase: 'conquest',
         players: [makePlayer({ availableTokens: 1 }), makePlayer()],
       });
-      expect(getNextPhase(state, { type: 'endPhase' })).toBe('reinforcementDie');
+      expect(getNextPhase(state, { type: 'endPhase' })).toBe('redeploy');
+    });
+
+    it('transitions to reinforcementDie via startFinalConquest', () => {
+      const state = makeState({
+        phase: 'conquest',
+        players: [makePlayer({ availableTokens: 1 }), makePlayer()],
+      });
+      expect(getNextPhase(state, { type: 'startFinalConquest' })).toBe('reinforcementDie');
     });
 
     it('transitions to decline on decline action', () => {

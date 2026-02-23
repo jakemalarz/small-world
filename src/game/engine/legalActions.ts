@@ -171,6 +171,15 @@ function conquestActions(state: GameState): GameAction[] {
   // Assemble base actions
   let actions: GameAction[] = [...standardConquests, { type: 'endPhase' }];
 
+  // Offer final conquest when the player has tokens and valid die targets exist
+  if (player.availableTokens > 0) {
+    const finalTargets = getFinalConquestTargets(state);
+    const hasTargets = finalTargets.some((a) => a.type === 'useReinforcement');
+    if (hasTargets) {
+      actions.push({ type: 'startFinalConquest' });
+    }
+  }
+
   // Apply custom race handler (e.g. Sorcerer convert)
   const raceHandler = RACE_HANDLERS[player.activeRace.raceId];
   if (raceHandler?.modifyLegalActions) {

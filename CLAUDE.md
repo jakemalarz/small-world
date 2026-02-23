@@ -146,11 +146,14 @@ npx playwright show-report       # View last test report
 
 ## Testing
 
-- **Vitest** — 277 unit tests covering engine logic (scoring, setup, conquest cost, redeployment, ready troops, reinforcement die, legal actions), data tables (races, powers), state types, and audio manager stub. Run: `npx vitest run`
-- **Playwright** (`@playwright/test`) — 72 E2E tests per browser across Chromium/Firefox/WebKit. Covers main menu, HvH game flow, HvAI game flow, and Phase 2 features (decline, first conquest, pan mode, browse mode, redeployment, tooltips, final conquest token placement). Config: `playwright.config.ts`. Run: `npx playwright test`
-- **Stabilization rule**: Every bug fix must include an E2E test that reproduces the issue. All 277 unit + 72 E2E tests must pass before committing.
+- **Vitest** — 281 unit tests covering engine logic (scoring, setup, conquest cost, redeployment, ready troops, reinforcement die, legal actions), data tables (races, powers), state types, and audio manager stub. Run: `npx vitest run`
+- **Playwright** (`@playwright/test`) — 72 E2E tests per browser across Chromium/Firefox/WebKit. Covers main menu, HvH game flow, HvAI game flow, and Phase 2 features (decline, first conquest, pan mode, browse mode, redeployment, tooltips, final conquest token placement). Config: `playwright.config.ts`. Run: `npx playwright test --project=chromium`
+- **Stabilization rule**: Every bug fix must include an E2E test that reproduces the issue. All 281 unit + 72 E2E tests must pass before committing.
+- **E2E execution**: Always run Playwright with `--project=chromium` only (not all browsers) to save context and tokens. Full cross-browser testing is done separately outside of Claude sessions.
 
 ### Recent Changes
+
+**Explicit Final Conquest entry (2026-02-22)**: Reworked reinforcement die UX — during conquest, player now sees two buttons: "End Conquest" (skips to redeploy) and "Final Conquest" (enters die sub-flow). Added `startFinalConquest` action type. `endPhase` from conquest always goes to `redeploy`. Player can back out of final conquest target selection by clicking "End Conquest". Key files: `types.ts`, `phaseTransition.ts`, `legalActions.ts`, `actions.ts`, `HUD.ts`, `AIPlayer.ts`, `MediumAIPlayer.ts`.
 
 **Final Conquest fix (2026-02-22)**: Successful final conquest was silently failing — `useReinforcement` action was rejected as illegal because the controller set `state.reinforcementDie` for HUD display before emitting the action, causing `getLegalActions` step-2 to exclude it. Fixed in `legalActions.ts` (allow `useReinforcement` in step 2), `actions.ts` (persist die result until player switch), `HUD.ts` (show die result during redeploy phase). E2E test added.
 

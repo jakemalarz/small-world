@@ -257,11 +257,16 @@ describe('applyAction — endPhase transitions', () => {
     expect(next.phase).toBe('conquest');
   });
 
-  it('conquest → reinforcementDie (when tokens in hand > 0)', () => {
+  it('conquest → redeploy via endPhase (always, even with tokens in hand)', () => {
     let state = conquestState();
-    // Player has tokens in hand > 0 → should get reinforcement die phase
     const next = applyAction(state, { type: 'endPhase' });
-    expect(['reinforcementDie', 'redeploy']).toContain(next.phase);
+    expect(next.phase).toBe('redeploy');
+  });
+
+  it('conquest → reinforcementDie via startFinalConquest', () => {
+    let state = conquestState();
+    const next = applyAction(state, { type: 'startFinalConquest' });
+    expect(next.phase).toBe('reinforcementDie');
   });
 
   it('score → switches to next player (selectCombo or readyTroops)', () => {

@@ -159,7 +159,7 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 
 #### Reinforcement Die
 
-- FR-19: The reinforcement die (sides: 0, 0, 0, 1, 2, 3) shall be available when a player has at least 1 token but not enough for a standard conquest. When this condition is met, the die roll option shall be presented to the player before the End Conquest option is offered — rolling the die is the final action of the conquest phase, not a post-conquest confirmation
+- FR-19: The reinforcement die (sides: 0, 0, 0, 1, 2, 3) shall be available as an explicit player choice during the conquest phase. When a player has at least 1 token and valid final conquest targets exist, a "Final Conquest" button shall appear alongside the "End Conquest" button. Clicking "Final Conquest" enters a target selection sub-flow where the player selects a region, the die rolls automatically, and the conquest resolves. Clicking "End Conquest" skips the die entirely and proceeds to redeployment. Once in the final conquest target selection, the player may still back out by clicking "End Conquest" to proceed to redeployment without rolling
 - FR-20: The die roll shall have a satisfying 3D tumble animation with a wooden tabletop sound
 - FR-21: The result shall be clearly displayed and the conquest resolved automatically. On failure, tokens remain in the player's previously occupied regions (not held in hand)
 - FR-21a: The reinforcement die ends the conquest phase regardless of success or failure — no further conquests may be attempted

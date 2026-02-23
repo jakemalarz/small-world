@@ -145,25 +145,12 @@ test.describe('Human vs Human — phase progression', () => {
     expect(await getPhase(page)).toBe('conquest');
   });
 
-  test('action button advances from conquest to reinforcementDie', async ({ page }) => {
+  test('action button advances from conquest to redeploy (End Conquest)', async ({ page }) => {
     await startHvHGame(page);
 
     await clickComboSlot(page, 0);
     await waitForPhase(page, 'conquest', 10_000);
-    await clickActionButton(page); // conquest → reinforcementDie (tokens still in hand)
-
-    await waitForPhase(page, 'reinforcementDie', 10_000);
-    expect(await getPhase(page)).toBe('reinforcementDie');
-  });
-
-  test('action button advances from reinforcementDie to redeploy', async ({ page }) => {
-    await startHvHGame(page);
-
-    await clickComboSlot(page, 0);
-    await waitForPhase(page, 'conquest', 10_000);
-    await clickActionButton(page);
-    await waitForPhase(page, 'reinforcementDie', 10_000);
-    await clickActionButton(page); // Skip Final Conquest → redeploy
+    await clickActionButton(page); // conquest → redeploy (End Conquest skips die)
 
     await waitForPhase(page, 'redeploy', 10_000);
     expect(await getPhase(page)).toBe('redeploy');
@@ -174,8 +161,6 @@ test.describe('Human vs Human — phase progression', () => {
 
     await clickComboSlot(page, 0);
     await waitForPhase(page, 'conquest', 10_000);
-    await clickActionButton(page);
-    await waitForPhase(page, 'reinforcementDie', 10_000);
     await clickActionButton(page);
     await waitForPhase(page, 'redeploy', 10_000);
     await clickActionButton(page);
@@ -196,8 +181,6 @@ test.describe('Human vs Human — phase progression', () => {
     // Advance to score phase (first combo skips readyTroops)
     await clickComboSlot(page, 0);
     await waitForPhase(page, 'conquest', 10_000);
-    await clickActionButton(page);
-    await waitForPhase(page, 'reinforcementDie', 10_000);
     await clickActionButton(page);
     await waitForPhase(page, 'redeploy', 10_000);
     await clickActionButton(page);

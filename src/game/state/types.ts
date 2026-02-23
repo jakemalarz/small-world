@@ -80,6 +80,7 @@ export type GameAction =
   | { readonly type: 'selectDiplomatAlly'; readonly playerIndex: 0 | 1 }
   | { readonly type: 'placeHeroes'; readonly regionIds: readonly [number, number] }
   | { readonly type: 'placeEncampments'; readonly regionIds: readonly number[] }
+  | { readonly type: 'startFinalConquest' }
   | { readonly type: 'decline' }
   | { readonly type: 'endPhase' };
 

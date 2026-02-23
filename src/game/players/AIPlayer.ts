@@ -85,6 +85,12 @@ function _pickAction(actions: readonly GameAction[]): GameAction {
     return declineAction;
   }
 
+  // --- Final conquest: 50% chance to attempt if available --------------------
+  const finalConquest = actions.find((a) => a.type === 'startFinalConquest');
+  if (finalConquest && Math.random() < 0.5) {
+    return finalConquest;
+  }
+
   // --- Fallback: random from remaining actions (includes endPhase) ----------
   return _randomFrom(actions);
 }

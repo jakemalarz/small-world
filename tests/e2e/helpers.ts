@@ -157,6 +157,8 @@ export const HUD = {
   comboSlot: (index: number) => ({ x: 640, y: 130 + index * 84 }),
   /** Decline button — left of the action button (FR-22). */
   declineButton: { x: 510, y: 696 },
+  /** Final Conquest button — right of the action button. */
+  finalConquestButton: { x: 770, y: 696 },
   /** Pan/Interact mode toggle — top-right corner (FR-60). */
   panToggle: { x: 1080, y: 32 },
   /** Browse Combos button — top-right area (FR-54). */
@@ -287,15 +289,11 @@ export async function completeHumanTurn(
     await clickActionButton(page);
   }
 
-  // 4. conquest → End Conquest (no conquests)
+  // 4. conquest → End Conquest (no conquests — skips straight to redeploy)
   await waitForPhase(page, 'conquest');
   await clickActionButton(page);
 
-  // 5. reinforcementDie is always entered when player still has tokens in hand
-  await waitForPhase(page, 'reinforcementDie');
-  await clickActionButton(page); // Roll Die / end die phase
-
-  // 6. redeploy → Confirm
+  // 5. redeploy → Confirm
   await waitForPhase(page, 'redeploy');
   await clickActionButton(page);
 
@@ -347,6 +345,11 @@ export async function completeHumanTurn(
 /** Click the Decline button in the HUD (FR-22). */
 export async function clickDeclineButton(page: Page): Promise<void> {
   await clickGame(page, HUD.declineButton.x, HUD.declineButton.y);
+}
+
+/** Click the Final Conquest button in the HUD. */
+export async function clickFinalConquestButton(page: Page): Promise<void> {
+  await clickGame(page, HUD.finalConquestButton.x, HUD.finalConquestButton.y);
 }
 
 /** Click the Pan/Interact toggle button (FR-60). */

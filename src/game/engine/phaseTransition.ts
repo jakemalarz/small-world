@@ -34,9 +34,8 @@ export function getNextPhase(state: GameState, completedAction: GameAction): Tur
 
     case 'conquest':
       if (completedAction.type === 'decline') return 'decline';
-      if (completedAction.type === 'endPhase') {
-        return canUseReinforcementDie(state) ? 'reinforcementDie' : 'redeploy';
-      }
+      if (completedAction.type === 'startFinalConquest') return 'reinforcementDie';
+      if (completedAction.type === 'endPhase') return 'redeploy';
       return 'conquest';
 
     case 'reinforcementDie':
@@ -116,13 +115,6 @@ function nextAfterCombo(state: GameState): TurnPhase {
 
 function hasGhoulsInDecline(player: PlayerState): boolean {
   return player.declinedRaces.some((r) => r.raceId === 'ghouls');
-}
-
-function canUseReinforcementDie(state: GameState): boolean {
-  // Die is available when the player has at least 1 token in hand but
-  // couldn't afford another conquest (checked by legalActions.ts).
-  // Here we just confirm there are tokens available.
-  return state.players[state.activePlayerIndex].availableTokens > 0;
 }
 
 function canDeclineWithStout(state: GameState): boolean {

@@ -76,6 +76,12 @@ function _pickAction(state: GameState, actions: readonly GameAction[]): GameActi
     }
   }
 
+  // --- Final conquest: always attempt if available ----------------------------
+  const finalConquest = actions.find((a) => a.type === 'startFinalConquest');
+  if (finalConquest) {
+    return finalConquest;
+  }
+
   // --- Fallback: random from remaining (includes endPhase) -------------------
   return _randomFrom(actions);
 }

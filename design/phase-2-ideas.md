@@ -72,9 +72,7 @@ This document contains ideas of what I would like to implement after Phase 1 was
 
 ### Conquest cost are not correctly calculated for regions with lost tribe FIXED
 
-
-
-### Reinforcement Die - On the final conquest, if the player still has one token and the ability to roll the die, update the phase name to "Final Conquest".  Also, only show the Roll Die button on this last conqueset.  Also change the sequence so that the player needs to select the region first before rolling the die.  Here is the full game rule:
+### Reinforcement Die - On the final conquest, if the player still has one token and the ability to roll the die, update the phase name to "Final Conquest".  Also, only show the Roll Die button on this last conqueset.  Also change the sequence so that the player needs to select the region first before rolling the die.  Here is the full game rule:    FIXED
 
 During the final conquest attempt of his turn, a player may find himself with not enough Race tokens left to conquer
 another Region outright. Provided he still has at least one
@@ -89,6 +87,12 @@ provided it could still be conquered with a lucky die roll.
 
 
 
+### There is another bug related to the reinforcement die.  Add this to the e2e test suite if it is not there, run the test, and then debug it.  The scenario is where the players uses the die on the final conquest, and gets the required number (or more) on the die,      
+  plus the tokens in hand, to conquer the selected region.  Currently the game does not place the player's token (or tokens) that were in hand onto that region, and that token (or tokens) stay in hand.  Instead, the token (or tokens) should be placed in the           
+  conquered region.   
+--------------------
 
+
+### In the Ready Toops phase the player should have the ability to gather all tokens in his/her hand, either leaving on behind in occupied regions if he wants to retain them, or abandoning those regions.  Currently this is not possible. I would like to use the same right mouse click convention to gather tokens back in hand, and right-click to deploy them.  Also show a 'chicken message" to the player before a region is abandoned
 
 

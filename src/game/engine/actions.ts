@@ -47,6 +47,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'placeHeroes':    return applyPlaceHeroes(state, action.regionIds, logEntry);
     case 'placeEncampments': return applyPlaceEncampments(state, action.regionIds, logEntry);
     case 'selectDiplomatAlly': return applyDiplomatAlly(state, action.playerIndex, logEntry);
+    case 'startFinalConquest': return applyStartFinalConquest(state, logEntry);
     case 'decline':        return applyDecline(state, logEntry);
     case 'endPhase':       return applyEndPhase(state, logEntry);
     default: {
@@ -499,6 +500,14 @@ function applyDiplomatAlly(
   }, logEntry);
 }
 
+// ── startFinalConquest ────────────────────────────────────────────────────────
+// Simple phase transition: conquest → reinforcementDie.
+
+function applyStartFinalConquest(state: GameState, logEntry: GameLogEntry): GameState {
+  const nextPhase = getNextPhase(state, logEntry.action);
+  return appendLog({ ...state, phase: nextPhase }, logEntry);
+}
+
 // ── decline ───────────────────────────────────────────────────────────────────
 // The player's active race goes Into Decline:
 //   • Each owned active region → isDeclined = true, tokens = 1
@@ -666,6 +675,7 @@ function actionsMatch(a: GameAction, b: GameAction): boolean {
     case 'selectDiplomatAlly': return (b as typeof a).playerIndex === a.playerIndex;
     case 'redeploy':      return true; // validated by phase
     case 'defenderRedeploy': return true;
+    case 'startFinalConquest': return true;
     case 'decline':       return true;
     case 'endPhase':      return true;
     default: return false;

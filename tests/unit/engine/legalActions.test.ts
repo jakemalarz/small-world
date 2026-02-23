@@ -390,6 +390,31 @@ describe('conquest — Halflings (first conquest anywhere)', () => {
   });
 });
 
+// ── conquest — startFinalConquest ─────────────────────────────────────────────
+
+describe('conquest — startFinalConquest availability', () => {
+  it('includes startFinalConquest when player has tokens and valid die targets', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 3 });
+    state = patchPlayer(state, 0, { availableTokens: 2 });
+    state = patchRegion(state, 20, { owner: 0, tokens: 3, isDeclined: false });
+    state = patchState(state, { phase: 'conquest' });
+    const types = actionTypes(state);
+    expect(types).toContain('startFinalConquest');
+    expect(types).toContain('endPhase');
+  });
+
+  it('excludes startFinalConquest when player has no tokens', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 10 });
+    state = patchPlayer(state, 0, { availableTokens: 0 });
+    state = patchState(state, { phase: 'conquest' });
+    const types = actionTypes(state);
+    expect(types).not.toContain('startFinalConquest');
+    expect(types).toContain('endPhase');
+  });
+});
+
 // ── reinforcementDie — two-step flow ────────────────────────────────────────
 
 describe('reinforcementDie phase — two-step flow', () => {

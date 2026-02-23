@@ -32,7 +32,7 @@ const PHASE_LABELS: Record<TurnPhase, string> = {
 const ACTION_BUTTONS: Partial<Record<TurnPhase, string>> = {
   readyTroops:      'Begin Conquest →',
   conquest:         'End Conquest',
-  reinforcementDie: 'Skip Final Conquest',
+  reinforcementDie: 'End Conquest',
   redeploy:         'Confirm Redeploy',
   score:            'End Turn',
   optionalDecline:  'Skip Decline',
@@ -61,6 +61,8 @@ export class HUD extends Phaser.Scene {
   private actionBtnLabel!: Phaser.GameObjects.Text;
   private declineButton!: Phaser.GameObjects.Container;
   private declineBtnBg!: Phaser.GameObjects.Rectangle;
+  private finalConquestButton!: Phaser.GameObjects.Container;
+  private finalConquestBtnBg!: Phaser.GameObjects.Rectangle;
   private browseButton!: Phaser.GameObjects.Container;
   private browseBtnBg!: Phaser.GameObjects.Rectangle;
   private comboShop!: ComboShopRenderer;
@@ -83,6 +85,7 @@ export class HUD extends Phaser.Scene {
     this._drawPlayerDashboards();
     this._drawActionButton();
     this._drawDeclineButton();
+    this._drawFinalConquestButton();
     this._drawBrowseButton();
     this._drawDieResult();
     this._drawModeToggle();
@@ -115,6 +118,11 @@ export class HUD extends Phaser.Scene {
       (state.phase === 'readyTroops' || state.phase === 'conquest') &&
       state.players[state.activePlayerIndex].activeRace !== null;
     this.declineButton.setVisible(canDecline);
+
+    // Show Final Conquest button during conquest phase when player has tokens
+    const canFinalConquest = state.phase === 'conquest' &&
+      state.players[state.activePlayerIndex].availableTokens > 0;
+    this.finalConquestButton.setVisible(canFinalConquest);
 
     // Show browse button when not in selectCombo (FR-54)
     this.browseButton.setVisible(
@@ -232,6 +240,38 @@ export class HUD extends Phaser.Scene {
     });
 
     this.declineButton.setVisible(false);
+  }
+
+  /** Final Conquest button (right of action button). */
+  private _drawFinalConquestButton(): void {
+    this.finalConquestBtnBg = this.add.rectangle(0, 0, 170, 36, 0x15803d)
+      .setStrokeStyle(1, 0xffffff, 0.3);
+
+    const finalConquestLabel = this.add.text(0, 0, 'Final Conquest', {
+      fontSize: '13px',
+      fontFamily: 'Arial',
+      color: '#ffffff',
+      fontStyle: 'bold',
+    }).setOrigin(0.5, 0.5);
+
+    this.finalConquestButton = this.add.container(W / 2 + 130, H - 24, [
+      this.finalConquestBtnBg,
+      finalConquestLabel,
+    ]).setDepth(12);
+
+    this.finalConquestBtnBg.setInteractive({ useHandCursor: true });
+
+    this.finalConquestBtnBg.on('pointerover', () => {
+      this.finalConquestBtnBg.setFillStyle(0x16a34a);
+    });
+    this.finalConquestBtnBg.on('pointerout', () => {
+      this.finalConquestBtnBg.setFillStyle(0x15803d);
+    });
+    this.finalConquestBtnBg.on('pointerdown', () => {
+      this.events.emit('playerAction', { type: 'startFinalConquest' });
+    });
+
+    this.finalConquestButton.setVisible(false);
   }
 
   /** Whether pan-only mode is active (FR-60). */
