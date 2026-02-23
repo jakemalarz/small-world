@@ -12,6 +12,16 @@ All 18 implementation tasks (36–53) done. E2E tests written and passing (288 u
 
 **Current workflow**: Manual playtesting to surface UI/logic bugs, then fixing them one by one with E2E test coverage for each fix. No new regressions allowed — all unit and E2E tests must pass before committing. This stabilization pass must be complete before moving to Phase 3.
 
+### Missing Features Audit (2026-02-22)
+A comprehensive audit of implemented features vs PRD/rulebook identified 18 gaps documented in `design/missing-features.md`. Key findings:
+- **2 scoring bugs**: Troll Lair incorrectly awards coins (should be defense-only); Wealthy bonus applied at wrong time
+- **7 power ability gaps**: Berserk, Bivouacking, Diplomat, Dragon Master, Fortified, Heroic, Seafaring — ranging from minor fixes to entirely missing mechanics
+- **2 race ability gaps**: Amazons conquest-only token removal not implemented; Sorcerer once-per-opponent limit not enforced
+- **Game mechanics**: Defender deferred redeployment (FR-18b) not implemented
+- **Polish/AI**: Hard AI, audio system, animation polish, minimap still pending
+
+Next development session will begin working through these in priority order (bugs first, then high-value/low-effort ability fixes).
+
 ---
 
 ## Architecture
