@@ -300,7 +300,7 @@ test.describe('Human vs AI — AI auto-turn', () => {
 
     const finalPhase = await getPhase(page);
     // Game progressed without human interaction
-    expect(['selectCombo', 'readyTroops', 'ghoulConquest', 'gameOver']).toContain(finalPhase);
+    expect(['selectCombo', 'readyTroops', 'ghoulReadyTroops', 'gameOver']).toContain(finalPhase);
   });
 });
 

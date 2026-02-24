@@ -118,6 +118,31 @@ describe('calculateScore', () => {
     expect(calculateScore(state, 0)).toBe(2);
   });
 
+  it('Dwarves mine bonus applies when Dwarves are a declined race (not active)', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    // No active race — Dwarves are in declinedRaces
+    state = patchPlayer(state, 0, {
+      activeRace: null,
+      declinedRaces: [{ raceId: 'dwarves', powerId: 'bivouacking', isSpirit: false }],
+    });
+    state = ownRegions(state, 0, [2], true); // region 2 hasMine:true, declined
+    // Base: 1, mine bonus in decline: +1
+    expect(calculateScore(state, 0)).toBe(2);
+  });
+
+  it('Dwarves mine bonus applies to declined regions when player has a different active race', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withActiveRace(state, 0, 'ratmen', 'bivouacking');
+    state = patchPlayer(state, 0, {
+      ...state.players[0],
+      declinedRaces: [{ raceId: 'dwarves', powerId: 'alchemist', isSpirit: false }],
+    });
+    state = ownRegions(state, 0, [19]); // active region (forest, no mine)
+    state = ownRegions(state, 0, [2], true); // declined region (hasMine:true)
+    // Base: 2 (1 active + 1 declined), Dwarf mine bonus: +1 for declined mine region
+    expect(calculateScore(state, 0)).toBe(3);
+  });
+
   it('Merchant +1 per active region', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'merchant');

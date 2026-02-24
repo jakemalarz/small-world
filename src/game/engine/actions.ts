@@ -5,6 +5,7 @@ import { getLegalActions } from '@/game/engine/legalActions';
 import { applySelectCombo } from '@/game/engine/comboShop';
 import { applyScoring } from '@/game/engine/scoring';
 import { calculateConquestCost } from '@/game/engine/conquestCost';
+import { ghoulConquestCost } from '@/game/engine/reinforcementDie';
 import { getNextPhase, getStartingPhaseForNextPlayer } from '@/game/engine/phaseTransition';
 import { getActiveModifiers } from '@/game/abilities/modifiers';
 import { RACE_HANDLERS } from '@/game/abilities/raceAbilities';
@@ -39,6 +40,11 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'pickUpTokens':   return applyPickUpTokens(state, action.regionId, action.count, logEntry);
     case 'conquer':        return applyConquer(state, action.regionId, action.dieResult, logEntry);
     case 'ghoulConquer':   return applyGhoulConquer(state, action.regionId, logEntry);
+    case 'ghoulPickUpTokens': return applyGhoulPickUpTokens(state, action.regionId, action.count, logEntry);
+    case 'ghoulReadyTroopsDeploy': return applyGhoulReadyTroopsDeploy(state, action.deployment, logEntry);
+    case 'ghoulRedeploy':  return applyGhoulRedeploy(state, action.deployment, logEntry);
+    case 'ghoulUseReinforcement': return applyGhoulUseReinforcement(state, action.regionId, action.dieResult, logEntry);
+    case 'startGhoulFinalConquest': return applyStartGhoulFinalConquest(state, logEntry);
     case 'placeDragon':    return applyPlaceDragon(state, action.regionId, logEntry);
     case 'sorcererConvert':return applySorcererConvert(state, action.regionId, logEntry);
     case 'useReinforcement': return applyUseReinforcement(state, action.regionId, action.dieResult, logEntry);
@@ -65,11 +71,43 @@ function applySelectComboAction(
 ): GameState {
   // Delegate to comboShop which handles coin math, shop refresh, and token setup
   const next = applySelectCombo(state, comboIndex);
-  // Transition phase (ghoulConquest if ghouls in decline, else readyTroops)
+  // Transition phase (ghoulReadyTroops if ghouls in decline, else readyTroops)
   const nextPhase = getNextPhase(next, logEntry.action);
   // Replace log tail added by applySelectCombo to avoid double-entry
   const log = [...state.log, logEntry];
-  return { ...next, phase: nextPhase, log };
+  let result = { ...next, phase: nextPhase, log };
+  // Stash active race tokens during Ghoul phases
+  if (nextPhase === 'ghoulReadyTroops') {
+    result = stashTokensForGhouls(result);
+  }
+  return result;
+}
+
+// ── Ghoul token stash/restore ─────────────────────────────────────────────────
+
+/** Stash active race's availableTokens so Ghouls can use availableTokens. */
+function stashTokensForGhouls(state: GameState): GameState {
+  const player = state.players[state.activePlayerIndex];
+  return {
+    ...state,
+    players: patchPlayer(state, state.activePlayerIndex, {
+      ghoulSavedTokens: player.availableTokens,
+      availableTokens: 0, // Ghouls start by gathering from declined regions
+    }),
+  };
+}
+
+/** Restore active race's availableTokens after Ghoul phases end. */
+function restoreTokensFromGhouls(state: GameState): GameState {
+  const player = state.players[state.activePlayerIndex];
+  const savedTokens = player.ghoulSavedTokens ?? 0;
+  return {
+    ...state,
+    players: patchPlayer(state, state.activePlayerIndex, {
+      availableTokens: savedTokens,
+      ghoulSavedTokens: undefined,
+    }),
+  };
 }
 
 // ── pickUpTokens ──────────────────────────────────────────────────────────────
@@ -280,13 +318,8 @@ function resolveDefender(state: GameState, region: RegionState): GameState {
 function applyGhoulConquer(
   state: GameState, regionId: number, logEntry: GameLogEntry,
 ): GameState {
-  // For now, treat like a regular conquer but attribute to declined Ghouls.
-  // Full implementation deferred to Task 11 (Decline Mechanics).
   const region = getRegion(state, regionId);
-  const cost = Math.max(2, region.tokens + (region.hasLostTribe ? 1 : 0) +
-    (region.hasMountain ? 1 : 0) + (region.hasTrollLair ? 1 : 0) +
-    (region.hasFortress ? 1 : 0) + (region.hasEncampment ? 1 : 0) + 1);
-
+  const cost = ghoulConquestCost(region);
   const player = state.players[state.activePlayerIndex];
 
   let s = state;
@@ -308,6 +341,95 @@ function applyGhoulConquer(
   };
 
   return appendLog(s, logEntry);
+}
+
+// ── ghoulPickUpTokens ────────────────────────────────────────────────────────
+// Like pickUpTokens but for declined (Ghoul) regions.
+
+function applyGhoulPickUpTokens(
+  state: GameState, regionId: number, count: number, logEntry: GameLogEntry,
+): GameState {
+  const region = getRegion(state, regionId);
+  const actualCount = Math.min(count, region.tokens);
+  if (actualCount <= 0) return appendLog(state, logEntry);
+
+  const player = state.players[state.activePlayerIndex];
+  const remaining = region.tokens - actualCount;
+
+  const regionPatch: Partial<RegionState> = remaining === 0
+    ? { tokens: 0, owner: null, isDeclined: false }
+    : { tokens: remaining };
+
+  return appendLog({
+    ...state,
+    board: patchRegions(state, regionId, regionPatch),
+    players: patchPlayer(state, state.activePlayerIndex, {
+      availableTokens: player.availableTokens + actualCount,
+    }),
+  }, logEntry);
+}
+
+// ── ghoulReadyTroopsDeploy ───────────────────────────────────────────────────
+// Like readyTroopsDeploy but for declined (Ghoul) regions.
+
+function applyGhoulReadyTroopsDeploy(
+  state: GameState,
+  deployment: ReadonlyMap<number, number>,
+  logEntry: GameLogEntry,
+): GameState {
+  const player = state.players[state.activePlayerIndex];
+  let tokensPickedUp = 0;
+
+  const newRegions = state.board.regions.map((region) => {
+    if (region.owner !== state.activePlayerIndex || !region.isDeclined) return region;
+    const newCount = deployment.get(region.id);
+    if (newCount === undefined) return region;
+    const diff = region.tokens - newCount;
+    tokensPickedUp += diff;
+    if (newCount === 0) {
+      return { ...region, tokens: 0, owner: null, isDeclined: false };
+    }
+    return { ...region, tokens: Math.max(0, newCount) };
+  });
+
+  return appendLog({
+    ...state,
+    board: { regions: newRegions },
+    players: patchPlayer(state, state.activePlayerIndex, {
+      availableTokens: player.availableTokens + tokensPickedUp,
+    }),
+  }, logEntry);
+}
+
+// ── ghoulRedeploy ────────────────────────────────────────────────────────────
+// Like redeploy but for declined (Ghoul) regions. After completion, restores
+// the active race's stashed tokens.
+
+function applyGhoulRedeploy(
+  state: GameState,
+  deployment: ReadonlyMap<number, number>,
+  logEntry: GameLogEntry,
+): GameState {
+  // Apply the deployment map to owned declined regions
+  let newRegions = [...state.board.regions];
+  let totalDeployed = 0;
+
+  for (const region of newRegions) {
+    if (region.owner !== state.activePlayerIndex || !region.isDeclined) continue;
+    const count = deployment.get(region.id) ?? 1; // default 1 if not specified
+    const idx = newRegions.indexOf(region);
+    newRegions[idx] = { ...region, tokens: Math.max(1, count) };
+    totalDeployed += Math.max(1, count);
+  }
+
+  // Remaining Ghoul tokens go back to box (no longer usable)
+  return appendLog({
+    ...state,
+    board: { regions: newRegions },
+    players: patchPlayer(state, state.activePlayerIndex, {
+      availableTokens: 0, // Ghoul tokens not deployed are lost
+    }),
+  }, logEntry);
 }
 
 // ── placeDragon ───────────────────────────────────────────────────────────────
@@ -609,6 +731,51 @@ function applyStartFinalConquest(state: GameState, logEntry: GameLogEntry): Game
   return appendLog({ ...state, phase: nextPhase }, logEntry);
 }
 
+// ── startGhoulFinalConquest ──────────────────────────────────────────────────
+// Simple phase transition: ghoulConquest → ghoulReinforcementDie.
+
+function applyStartGhoulFinalConquest(state: GameState, logEntry: GameLogEntry): GameState {
+  const nextPhase = getNextPhase(state, logEntry.action);
+  return appendLog({ ...state, phase: nextPhase }, logEntry);
+}
+
+// ── ghoulUseReinforcement ────────────────────────────────────────────────────
+// Like applyGhoulConquer but places min(available, cost) tokens — die covers shortfall.
+
+function applyGhoulUseReinforcement(
+  state: GameState, regionId: number, _dieResult: 0 | 1 | 2 | 3, logEntry: GameLogEntry,
+): GameState {
+  const region = getRegion(state, regionId);
+  const cost = ghoulConquestCost(region);
+  const player = state.players[state.activePlayerIndex];
+
+  let s = state;
+  if (region.owner !== null) {
+    s = resolveDefender(s, region);
+  }
+
+  // Place min(available, cost) tokens — die covers any shortfall
+  const tokensPlaced = Math.min(player.availableTokens, cost);
+
+  s = {
+    ...s,
+    board: patchRegions(s, regionId, {
+      owner: s.activePlayerIndex,
+      tokens: tokensPlaced,
+      isDeclined: true, // Ghouls conquer as declined tokens
+      hasLostTribe: false,
+      hasHero: false,
+      hasDragon: false,
+    }),
+    players: patchPlayer(s, s.activePlayerIndex, {
+      availableTokens: player.availableTokens - tokensPlaced,
+    }),
+  };
+
+  const nextPhase = getNextPhase(s, logEntry.action);
+  return appendLog({ ...s, phase: nextPhase }, logEntry);
+}
+
 // ── decline ───────────────────────────────────────────────────────────────────
 // The player's active race goes Into Decline:
 //   • Each owned active region → isDeclined = true, tokens = 1
@@ -669,6 +836,11 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
 
   // Score phase is applied here (coins transferred to player)
   let scored = state.phase === 'score' ? applyScoring(state) : state;
+
+  // Restore active race tokens when leaving ghoulRedeploy
+  if (state.phase === 'ghoulRedeploy') {
+    scored = restoreTokensFromGhouls(scored);
+  }
 
   // Amazons: add conquestOnlyTokens to hand when entering conquest from readyTroops
   if (state.phase === 'readyTroops' && nextPhase === 'conquest') {
@@ -744,14 +916,21 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
     ? resetState.round + 1
     : resetState.round;
 
-  return appendLog({
+  let switchedState: GameState = {
     ...resetState,
     phase: nextPhase,
     activePlayerIndex: nextPlayerIndex,
     turn: newTurn,
     round: newRound,
     reinforcementDie: null,
-  }, logEntry);
+  };
+
+  // Stash tokens if next player starts with Ghoul phases
+  if (nextPhase === 'ghoulReadyTroops') {
+    switchedState = stashTokensForGhouls(switchedState);
+  }
+
+  return appendLog(switchedState, logEntry);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -813,6 +992,11 @@ function actionsMatch(a: GameAction, b: GameAction): boolean {
                             ((b as typeof a).dieResult === undefined || a.dieResult === undefined ||
                              (b as typeof a).dieResult === a.dieResult);
     case 'ghoulConquer':  return (b as typeof a).regionId === a.regionId;
+    case 'ghoulPickUpTokens': return (b as typeof a).regionId === a.regionId;
+    case 'ghoulReadyTroopsDeploy': return true; // validated by phase
+    case 'ghoulRedeploy': return true; // validated by phase
+    case 'ghoulUseReinforcement': return (b as typeof a).regionId === a.regionId;
+    case 'startGhoulFinalConquest': return true;
     case 'placeDragon':   return (b as typeof a).regionId === a.regionId;
     case 'sorcererConvert': return (b as typeof a).regionId === a.regionId;
     case 'useReinforcement': return (b as typeof a).regionId === a.regionId;

@@ -231,14 +231,14 @@ export const MAP_2P: MapData = {
     },
     {
       id: 15,
-      name: 'Meadow Run',
-      terrain: 'farmland',
+      name: 'Deep Mines',
+      terrain: 'mine',
       polygon: [[380,460],[530,470],[640,440],[680,500],[660,580],[600,650],[500,700],[370,690],[370,620],[400,530]],
       center: [520, 580],
       adjacentRegionIds: [8, 9, 14, 16, 19],
       isEdge: false,
       isCoastal: true, // borders Lake (9)
-      hasMountain: false, hasMine: false, hasMagicSource: false,
+      hasMountain: false, hasMine: true, hasMagicSource: false,
       hasCavern: false, hasLostTribe: false,
     },
     {

@@ -207,7 +207,7 @@ All 14 races shall be implemented with the following token counts and abilities.
 | Skeletons | 6 | 20 | Gain 1 new Skeleton token from storage for every 2 non-empty regions conquered this turn |
 | Sorcerers | 5 | 18 | Once per turn per opponent: substitute an opponent's single Active token with a Sorcerer from storage if the region is adjacent. The opponent's token is discarded |
 | Tritons | 6 | 11 | Conquest cost -1 for Coastal regions (bordering Sea/Lake) |
-| Trolls | 5 | 10 | Place a Troll's Lair in every occupied region (+1 defense). Lairs remain even In Decline |
+| Trolls | 5 | 10 | Place a Troll's Lair in every occupied region (+1 defense). Lairs remain even In Decline, but are removed when the region is abandoned or conquered by another race |
 | Wizards | 5 | 10 | +1 Victory Coin per Magic region |
 
 - FR-33: Each race's ability shall be described in a tooltip accessible from the race banner

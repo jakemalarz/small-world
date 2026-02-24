@@ -1,7 +1,7 @@
 import type { GameState, GameAction } from '@/game/state/types';
 import { getActiveModifiers } from '@/game/abilities/modifiers';
 import { calculateConquestCost } from '@/game/engine/conquestCost';
-import { getFinalConquestTargets } from '@/game/engine/reinforcementDie';
+import { getFinalConquestTargets, getGhoulFinalConquestTargets, ghoulConquestCost } from '@/game/engine/reinforcementDie';
 import { RACE_HANDLERS } from '@/game/abilities/raceAbilities';
 import { POWER_HANDLERS } from '@/game/abilities/powerAbilities';
 
@@ -29,8 +29,11 @@ import { POWER_HANDLERS } from '@/game/abilities/powerAbilities';
 export function getLegalActions(state: GameState): readonly GameAction[] {
   switch (state.phase) {
     case 'selectCombo':      return selectComboActions(state);
-    case 'readyTroops':      return readyTroopsActions(state);
+    case 'ghoulReadyTroops': return ghoulReadyTroopsActions(state);
     case 'ghoulConquest':    return ghoulConquestActions(state);
+    case 'ghoulRedeploy':          return ghoulRedeployActions(state);
+    case 'ghoulReinforcementDie':  return ghoulReinforcementDieActions(state);
+    case 'readyTroops':            return readyTroopsActions(state);
     case 'conquest':         return conquestActions(state);
     case 'reinforcementDie': return reinforcementDieActions(state);
     case 'redeploy':         return redeployActions(state);
@@ -91,11 +94,33 @@ function readyTroopsActions(state: GameState): GameAction[] {
   return actions;
 }
 
+// ── ghoulReadyTroops ──────────────────────────────────────────────────────────
+// Ghouls in decline gather tokens from their declined regions before conquest.
+// Works like readyTroops but for declined regions (not active).
+
+function ghoulReadyTroopsActions(state: GameState): GameAction[] {
+  const actions: GameAction[] = [{ type: 'endPhase' }];
+  // Batch deploy placeholder for interactive human gathering
+  actions.push({ type: 'ghoulReadyTroopsDeploy', deployment: new Map() });
+  for (const region of state.board.regions) {
+    if (region.owner !== state.activePlayerIndex) continue;
+    if (!region.isDeclined) continue; // Only declined (Ghoul) regions
+    if (region.tokens > 0) {
+      actions.push({
+        type: 'ghoulPickUpTokens',
+        regionId: region.id,
+        count: region.tokens, // allow full pickup including abandon
+      });
+    }
+  }
+  return actions;
+}
+
 // ── ghoulConquest ─────────────────────────────────────────────────────────────
 // In-Decline Ghouls conquer using the same adjacency rules as normal conquest,
-// but only using declined tokens (tracked in declinedRaces).
-// Simplified: Ghouls can conquer any region adjacent to their current declined
-// regions (or any edge/coastal if none yet), provided they have enough tokens.
+// but only using declined tokens gathered during ghoulReadyTroops.
+// Ghouls can conquer any region adjacent to their current declined regions
+// (or any edge/coastal if none yet), provided they have enough tokens.
 
 function ghoulConquestActions(state: GameState): GameAction[] {
   const player = state.players[state.activePlayerIndex];
@@ -121,15 +146,52 @@ function ghoulConquestActions(state: GameState): GameAction[] {
     if (region.owner === state.activePlayerIndex && region.isDeclined) continue;
     if (region.terrain === 'sea' || region.terrain === 'lake') continue;
     if (region.hasHoleInTheGround || region.hasHero || region.hasDragon) continue;
-    // Cost for Ghouls uses availableTokens from the player hand
-    const cost = Math.max(2, region.tokens + (region.hasLostTribe ? 1 : 0) +
-      (region.hasMountain ? 1 : 0) + (region.hasTrollLair ? 1 : 0) +
-      (region.hasFortress ? 1 : 0) + (region.hasEncampment ? 1 : 0) + 1);
+    const cost = ghoulConquestCost(region);
     if (player.availableTokens >= cost) {
       actions.push({ type: 'ghoulConquer', regionId: region.id });
     }
   }
+
+  // Offer ghoul final conquest when tokens available and valid die targets exist
+  if (player.availableTokens > 0) {
+    const ghoulDieTargets = getGhoulFinalConquestTargets(state);
+    if (ghoulDieTargets.some((a) => a.type === 'ghoulUseReinforcement')) {
+      actions.push({ type: 'startGhoulFinalConquest' });
+    }
+  }
+
   return actions;
+}
+
+// ── ghoulReinforcementDie ────────────────────────────────────────────────────
+// Two-step phase (mirrors reinforcementDie):
+//   Step 1 (die not rolled): Player selects target. Show regions conquerable with max die (3).
+//   Step 2 (die rolled): Controller resolved — only endPhase remains.
+
+function ghoulReinforcementDieActions(state: GameState): readonly GameAction[] {
+  if (!state.reinforcementDie) {
+    // Step 1: region selection before rolling
+    return getGhoulFinalConquestTargets(state);
+  }
+  // Step 2: die already rolled, controller resolved.
+  const { result, targetRegionId } = state.reinforcementDie;
+  if (targetRegionId === null) return [{ type: 'endPhase' }];
+  const region = state.board.regions.find((r) => r.id === targetRegionId);
+  if (!region) return [{ type: 'endPhase' }];
+  const player = state.players[state.activePlayerIndex];
+  const cost = ghoulConquestCost(region);
+  const actions: GameAction[] = [{ type: 'endPhase' }];
+  if (player.availableTokens + result >= cost) {
+    actions.unshift({ type: 'ghoulUseReinforcement', regionId: targetRegionId, dieResult: result });
+  }
+  return actions;
+}
+
+// ── ghoulRedeploy ────────────────────────────────────────────────────────────
+// Redistribute declined Ghoul tokens across owned declined regions.
+
+function ghoulRedeployActions(_state: GameState): GameAction[] {
+  return [{ type: 'ghoulRedeploy', deployment: new Map() }, { type: 'endPhase' }];
 }
 
 // ── conquest ──────────────────────────────────────────────────────────────────

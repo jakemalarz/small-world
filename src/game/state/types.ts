@@ -2,7 +2,10 @@
 
 export type TurnPhase =
   | 'selectCombo'
+  | 'ghoulReadyTroops'  // Ghouls in decline: gather tokens before conquest
   | 'ghoulConquest'     // Ghouls in decline act before active race
+  | 'ghoulRedeploy'        // Ghouls in decline: redistribute after conquest
+  | 'ghoulReinforcementDie' // Ghouls in decline: final conquest with die
   | 'readyTroops'
   | 'conquest'
   | 'reinforcementDie'
@@ -21,6 +24,7 @@ export type Terrain =
   | 'farmland'
   | 'hill'
   | 'swamp'
+  | 'mine'
   | 'sea'
   | 'lake';
 
@@ -73,6 +77,11 @@ export type GameAction =
   | { readonly type: 'pickUpTokens'; readonly regionId: number; readonly count: number }
   | { readonly type: 'conquer'; readonly regionId: number; readonly dieResult?: 0 | 1 | 2 | 3 }
   | { readonly type: 'ghoulConquer'; readonly regionId: number }
+  | { readonly type: 'ghoulPickUpTokens'; readonly regionId: number; readonly count: number }
+  | { readonly type: 'ghoulReadyTroopsDeploy'; readonly deployment: ReadonlyMap<number, number> }
+  | { readonly type: 'ghoulRedeploy'; readonly deployment: ReadonlyMap<number, number> }
+  | { readonly type: 'ghoulUseReinforcement'; readonly regionId: number; readonly dieResult: 0 | 1 | 2 | 3 }
+  | { readonly type: 'startGhoulFinalConquest' }
   | { readonly type: 'useReinforcement'; readonly regionId: number; readonly dieResult: 0 | 1 | 2 | 3 }
   | { readonly type: 'readyTroopsDeploy'; readonly deployment: ReadonlyMap<number, number> }
   | { readonly type: 'redeploy'; readonly deployment: ReadonlyMap<number, number> }
@@ -165,6 +174,8 @@ export interface PlayerState {
   // Normally 0–1 declined races; up to 2 when Spirit is in play
   readonly declinedRaces: readonly DeclinedRaceState[];
   readonly availableTokens: number;  // Tokens in hand (not yet placed on board)
+  // Stashed active-race tokens during Ghoul phases (restored after ghoulRedeploy)
+  readonly ghoulSavedTokens?: number;
 }
 
 // ─── Combo Shop ───────────────────────────────────────────────────────────────

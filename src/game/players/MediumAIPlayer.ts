@@ -47,7 +47,7 @@ function _pickAction(state: GameState, actions: readonly GameAction[]): GameActi
 
   // --- Conquest / reinforcement: prefer lowest-cost target -------------------
   const conquestActions = actions.filter(
-    (a) => a.type === 'conquer' || a.type === 'useReinforcement',
+    (a) => a.type === 'conquer' || a.type === 'useReinforcement' || a.type === 'ghoulUseReinforcement',
   );
   if (conquestActions.length > 0) {
     // 80% chance to conquer rather than endPhase (keeps AI aggressive)
@@ -63,7 +63,7 @@ function _pickAction(state: GameState, actions: readonly GameAction[]): GameActi
   }
 
   // --- pickUpTokens: 40% chance (same as easy AI) ----------------------------
-  const pickUpActions = actions.filter((a) => a.type === 'pickUpTokens');
+  const pickUpActions = actions.filter((a) => a.type === 'pickUpTokens' || a.type === 'ghoulPickUpTokens');
   if (pickUpActions.length > 0 && Math.random() < 0.4) {
     return _randomFrom(pickUpActions);
   }
@@ -81,14 +81,19 @@ function _pickAction(state: GameState, actions: readonly GameAction[]): GameActi
   if (heroAction) return heroAction;
 
   // --- Final conquest: always attempt if available ----------------------------
-  const finalConquest = actions.find((a) => a.type === 'startFinalConquest');
+  const finalConquest = actions.find((a) => a.type === 'startFinalConquest' || a.type === 'startGhoulFinalConquest');
   if (finalConquest) {
     return finalConquest;
   }
 
   // --- Fallback: random from remaining (includes endPhase) -------------------
-  // Filter out readyTroopsDeploy placeholder (human-only interactive action)
-  const fallback = actions.filter((a) => a.type !== 'readyTroopsDeploy');
+  // Filter out human-only interactive placeholders
+  const fallback = actions.filter((a) =>
+    a.type !== 'readyTroopsDeploy' &&
+    a.type !== 'ghoulReadyTroopsDeploy' &&
+    a.type !== 'ghoulRedeploy' &&
+    a.type !== 'redeploy',
+  );
   return _randomFrom(fallback);
 }
 
@@ -144,6 +149,7 @@ function _cheapestConquest(state: GameState, actions: readonly GameAction[]): Ga
     if (action.type === 'conquer') regionId = action.regionId;
     else if (action.type === 'useReinforcement') regionId = action.regionId;
     else if (action.type === 'ghoulConquer') regionId = action.regionId;
+    else if (action.type === 'ghoulUseReinforcement') regionId = action.regionId;
     else continue;
 
     let cost: number;

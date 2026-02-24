@@ -227,7 +227,7 @@ export async function completeHumanTurn(
   comboSlotIndex = 0,
 ): Promise<void> {
   // 1. Wait for start of turn — either selectCombo (no active race) or
-  //    readyTroops/ghoulConquest (player already has a race from a previous turn).
+  //    readyTroops/ghoulReadyTroops (player already has a race from a previous turn).
   await page.waitForFunction(
     () => {
       const game = (window as any).__phaserGame;
@@ -236,7 +236,7 @@ export async function completeHumanTurn(
       const phase = c?.state?.phase;
       return (
         c?.readyForInput === true &&
-        (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulConquest')
+        (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulReadyTroops')
       );
     },
     { timeout: 15_000 },
@@ -248,7 +248,7 @@ export async function completeHumanTurn(
     // 2a. Select a combo
     await clickComboSlot(page, comboSlotIndex);
 
-    // 2b. After combo: ghoulConquest, readyTroops (turn 2+), or conquest (turn 1)
+    // 2b. After combo: ghoulReadyTroops, readyTroops (turn 2+), or conquest (turn 1)
     await page.waitForFunction(
       () => {
         const game = (window as any).__phaserGame;
@@ -256,14 +256,18 @@ export async function completeHumanTurn(
         const c = (gs as any)?.controller;
         const phase = c?.state?.phase;
         return c?.readyForInput === true &&
-          (phase === 'readyTroops' || phase === 'ghoulConquest' || phase === 'conquest');
+          (phase === 'readyTroops' || phase === 'ghoulReadyTroops' || phase === 'conquest');
       },
       { timeout: 10_000 },
     );
     const afterCombo = await getPhase(page);
-    if (afterCombo === 'ghoulConquest') {
-      await clickActionButton(page); // end ghoul conquest
-      // After ghoul conquest: readyTroops or conquest
+    if (afterCombo === 'ghoulReadyTroops') {
+      // Click through all 3 ghoul phases: ghoulReadyTroops → ghoulConquest → ghoulRedeploy
+      await clickActionButton(page); // end ghoul ready troops → ghoulConquest
+      await waitForPhase(page, 'ghoulConquest');
+      await clickActionButton(page); // end ghoul conquest → ghoulRedeploy
+      await waitForPhase(page, 'ghoulRedeploy');
+      await clickActionButton(page); // end ghoul redeploy → readyTroops or conquest
       await page.waitForFunction(
         () => {
           const game = (window as any).__phaserGame;
@@ -276,9 +280,14 @@ export async function completeHumanTurn(
         { timeout: 10_000 },
       );
     }
-  } else if (turnStartPhase === 'ghoulConquest') {
-    // 2c. Ghoul conquest already triggered (had declining ghouls)
-    await clickActionButton(page);
+  } else if (turnStartPhase === 'ghoulReadyTroops') {
+    // 2c. Ghoul phases already triggered (had declining ghouls, turn start)
+    // Click through all 3 ghoul phases: ghoulReadyTroops → ghoulConquest → ghoulRedeploy
+    await clickActionButton(page); // end ghoul ready troops → ghoulConquest
+    await waitForPhase(page, 'ghoulConquest');
+    await clickActionButton(page); // end ghoul conquest → ghoulRedeploy
+    await waitForPhase(page, 'ghoulRedeploy');
+    await clickActionButton(page); // end ghoul redeploy → readyTroops or conquest
   }
   // else turnStartPhase === 'readyTroops': player has active race, skip combo step
 
@@ -314,7 +323,7 @@ export async function completeHumanTurn(
         phase === 'optionalDecline' ||
         phase === 'gameOver' ||
         (c?.readyForInput === true &&
-          (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulConquest'))
+          (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulReadyTroops'))
       );
     },
     { timeout: 10_000 },
@@ -332,7 +341,7 @@ export async function completeHumanTurn(
         return (
           phase === 'gameOver' ||
           (c?.readyForInput === true &&
-            (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulConquest'))
+            (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulReadyTroops'))
         );
       },
       { timeout: 10_000 },
@@ -456,7 +465,7 @@ export async function advanceToConquest(page: Page, comboSlotIndex = 0): Promise
       const phase = c?.state?.phase;
       return (
         c?.readyForInput === true &&
-        (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulConquest')
+        (phase === 'selectCombo' || phase === 'readyTroops' || phase === 'ghoulReadyTroops')
       );
     },
     { timeout: 15_000 },
@@ -473,13 +482,17 @@ export async function advanceToConquest(page: Page, comboSlotIndex = 0): Promise
         const c = (gs as any)?.controller;
         const phase = c?.state?.phase;
         return c?.readyForInput === true &&
-          (phase === 'readyTroops' || phase === 'ghoulConquest' || phase === 'conquest');
+          (phase === 'readyTroops' || phase === 'ghoulReadyTroops' || phase === 'conquest');
       },
       { timeout: 10_000 },
     );
     const afterCombo = await getPhase(page);
-    if (afterCombo === 'ghoulConquest') {
-      await clickActionButton(page);
+    if (afterCombo === 'ghoulReadyTroops') {
+      await clickActionButton(page); // end ghoul ready troops → ghoulConquest
+      await waitForPhase(page, 'ghoulConquest');
+      await clickActionButton(page); // end ghoul conquest → ghoulRedeploy
+      await waitForPhase(page, 'ghoulRedeploy');
+      await clickActionButton(page); // end ghoul redeploy → readyTroops or conquest
       await page.waitForFunction(
         () => {
           const game = (window as any).__phaserGame;
@@ -492,8 +505,12 @@ export async function advanceToConquest(page: Page, comboSlotIndex = 0): Promise
         { timeout: 10_000 },
       );
     }
-  } else if (turnStartPhase === 'ghoulConquest') {
-    await clickActionButton(page);
+  } else if (turnStartPhase === 'ghoulReadyTroops') {
+    await clickActionButton(page); // end ghoul ready troops → ghoulConquest
+    await waitForPhase(page, 'ghoulConquest');
+    await clickActionButton(page); // end ghoul conquest → ghoulRedeploy
+    await waitForPhase(page, 'ghoulRedeploy');
+    await clickActionButton(page); // end ghoul redeploy → readyTroops or conquest
   }
 
   // readyTroops → conquest (skip if already at conquest, e.g. turn 1)

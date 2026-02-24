@@ -519,7 +519,7 @@ test.describe('Phase 2 — Phase Progression', () => {
     const phase = await getPhase(page);
     // Both players now have active races — turn 2 starts at readyTroops
     // (unless one player declined, then selectCombo)
-    expect(['selectCombo', 'readyTroops', 'ghoulConquest']).toContain(phase);
+    expect(['selectCombo', 'readyTroops', 'ghoulReadyTroops']).toContain(phase);
   });
 });
 

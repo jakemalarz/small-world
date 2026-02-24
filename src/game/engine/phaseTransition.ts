@@ -10,21 +10,33 @@ import type { GameState, TurnPhase, GameAction, PlayerState } from '@/game/state
 export function getNextPhase(state: GameState, completedAction: GameAction): TurnPhase {
   switch (state.phase) {
     case 'selectCombo':
-      // Shop exhausted — skip to readyTroops (or ghoulConquest)
+      // Shop exhausted — skip to readyTroops (or ghoul phases)
       if (completedAction.type === 'endPhase') {
         return hasGhoulsInDecline(state.players[state.activePlayerIndex])
-          ? 'ghoulConquest'
+          ? 'ghoulReadyTroops'
           : nextAfterCombo(state);
       }
       // After picking a combo, Ghoul In-Decline tokens act before the active race
       return hasGhoulsInDecline(state.players[state.activePlayerIndex])
-        ? 'ghoulConquest'
+        ? 'ghoulReadyTroops'
         : nextAfterCombo(state);
 
+    case 'ghoulReadyTroops':
+      if (completedAction.type === 'endPhase') return 'ghoulConquest';
+      return 'ghoulReadyTroops';
+
     case 'ghoulConquest':
-      // Player explicitly ends the ghoul conquest phase
-      if (completedAction.type === 'endPhase') return nextAfterCombo(state);
+      if (completedAction.type === 'startGhoulFinalConquest') return 'ghoulReinforcementDie';
+      if (completedAction.type === 'endPhase') return 'ghoulRedeploy';
       return 'ghoulConquest';
+
+    case 'ghoulReinforcementDie':
+      // Die always ends ghoul conquest — success or failure → ghoulRedeploy
+      return 'ghoulRedeploy';
+
+    case 'ghoulRedeploy':
+      if (completedAction.type === 'endPhase') return nextAfterCombo(state);
+      return 'ghoulRedeploy';
 
     case 'readyTroops':
       // Decline from readyTroops applies immediately → skip to scoring
@@ -104,7 +116,7 @@ export function getStartingPhaseForNextPlayer(state: GameState): TurnPhase {
     return 'selectCombo';
   }
 
-  return hasGhoulsInDecline(nextPlayer) ? 'ghoulConquest' : 'readyTroops';
+  return hasGhoulsInDecline(nextPlayer) ? 'ghoulReadyTroops' : 'readyTroops';
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

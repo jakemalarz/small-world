@@ -6,7 +6,7 @@ import type { HUD } from '@/game/scenes/HUD';
 import { createInitialState } from '@/game/engine/setup';
 import { getLegalActions } from '@/game/engine/legalActions';
 import { applyAction } from '@/game/engine/actions';
-import { rollReinforcementDie } from '@/game/engine/reinforcementDie';
+import { rollReinforcementDie, ghoulConquestCost } from '@/game/engine/reinforcementDie';
 import { calculateConquestCost } from '@/game/engine/conquestCost';
 import { getActiveModifiers } from '@/game/abilities/modifiers';
 import { AnimationChoreographer } from '@/game/presentation/AnimationChoreographer';
@@ -85,6 +85,18 @@ export class GameController {
   private _abandonDialogActive = false;
   /** First selected hero region during placeHeroes phase. */
   private _heroFirstRegion: number | null = null;
+  /** Mutable map for Ghoul token gathering during ghoulReadyTroops. */
+  private _ghoulGatherMap: Map<number, number> = new Map();
+  /** Ghoul tokens in hand during gathering. */
+  private _ghoulGatherTokensInHand = 0;
+  /** True after Ghoul gather submission. */
+  private _ghoulGatherSubmitted = false;
+  /** Mutable deployment map for Ghoul redeployment. */
+  private _ghoulRedeployMap: Map<number, number> = new Map();
+  /** Ghoul tokens remaining in hand during redeployment. */
+  private _ghoulRedeployTokensInHand = 0;
+  /** True after Ghoul redeploy submission. */
+  private _ghoulRedeploySubmitted = false;
 
   constructor(
     boardScene: Board,
@@ -132,6 +144,27 @@ export class GameController {
         this.eventBus.emit('playerAction', { type: 'readyTroopsDeploy', deployment: new Map(this._gatherMap) });
         this._gatherMap.clear();
         this._gatherTokensInHand = 0;
+        return;
+      }
+      // Ghoul gather: intercept endPhase during ghoulReadyTroops
+      if (action.type === 'endPhase' && this.state.phase === 'ghoulReadyTroops' && this._ghoulGatherMap.size > 0) {
+        this._ghoulGatherSubmitted = true;
+        this.eventBus.emit('playerAction', { type: 'ghoulReadyTroopsDeploy', deployment: new Map(this._ghoulGatherMap) });
+        this._ghoulGatherMap.clear();
+        this._ghoulGatherTokensInHand = 0;
+        return;
+      }
+      // Ghoul redeploy: intercept endPhase during ghoulRedeploy
+      if (action.type === 'endPhase' && this.state.phase === 'ghoulRedeploy' && this._ghoulRedeployMap.size > 0) {
+        this._ghoulRedeploySubmitted = true;
+        this.eventBus.emit('playerAction', { type: 'ghoulRedeploy', deployment: new Map(this._ghoulRedeployMap) });
+        this._ghoulRedeployMap.clear();
+        this._ghoulRedeployTokensInHand = 0;
+        return;
+      }
+      // Remap Final Conquest button to ghoul version during ghoulConquest
+      if (action.type === 'startFinalConquest' && this.state.phase === 'ghoulConquest') {
+        this.eventBus.emit('playerAction', { type: 'startGhoulFinalConquest' });
         return;
       }
       this.eventBus.emit('playerAction', action);
@@ -216,6 +249,20 @@ export class GameController {
       return;
     }
 
+    // After Ghoul gather submission, auto-advance
+    if (this.state.phase === 'ghoulReadyTroops' && this._ghoulGatherSubmitted) {
+      this._ghoulGatherSubmitted = false;
+      this.state = applyAction(this.state, { type: 'endPhase' });
+      return;
+    }
+
+    // After Ghoul redeploy submission, auto-advance
+    if (this.state.phase === 'ghoulRedeploy' && this._ghoulRedeploySubmitted) {
+      this._ghoulRedeploySubmitted = false;
+      this.state = applyAction(this.state, { type: 'endPhase' });
+      return;
+    }
+
     // Initialize redeployment map when entering redeploy phase (FR-57)
     if (this.state.phase === 'redeploy' && this._redeployMap.size === 0) {
       this._initRedeployMap();
@@ -228,6 +275,17 @@ export class GameController {
       this._initGatherMap();
     }
 
+    // Initialize Ghoul gather map when entering ghoulReadyTroops
+    if (this.state.phase === 'ghoulReadyTroops' && this._ghoulGatherMap.size === 0
+      && this.players[this.state.activePlayerIndex].type === 'human') {
+      this._initGhoulGatherMap();
+    }
+
+    // Initialize Ghoul redeploy map when entering ghoulRedeploy
+    if (this.state.phase === 'ghoulRedeploy' && this._ghoulRedeployMap.size === 0) {
+      this._initGhoulRedeployMap();
+    }
+
     this.legalActions = getLegalActions(this.state);
     this._renderState();
 
@@ -236,8 +294,31 @@ export class GameController {
     const action = await player.chooseAction(this.state, this.legalActions);
     this.readyForInput = false;
 
+    // AI reinforcement die resolution: roll actual die for AI
+    let resolvedAction: GameAction = action;
+    if (action.type === 'useReinforcement' && this.state.phase === 'reinforcementDie' && !this.state.reinforcementDie) {
+      const dieResult = rollReinforcementDie();
+      const cost = calculateConquestCost(this.state, action.regionId);
+      const aiPlayer = this.state.players[this.state.activePlayerIndex];
+      if (aiPlayer.availableTokens + dieResult >= cost) {
+        resolvedAction = { ...action, dieResult };
+      } else {
+        resolvedAction = { type: 'endPhase' };
+      }
+    }
+    if (action.type === 'ghoulUseReinforcement' && this.state.phase === 'ghoulReinforcementDie' && !this.state.reinforcementDie) {
+      const dieResult = rollReinforcementDie();
+      const region = this.state.board.regions.find((r) => r.id === action.regionId);
+      const cost = region ? ghoulConquestCost(region) : Infinity;
+      const aiPlayer = this.state.players[this.state.activePlayerIndex];
+      if (aiPlayer.availableTokens + dieResult >= cost) {
+        resolvedAction = { ...action, dieResult };
+      } else {
+        resolvedAction = { type: 'endPhase' };
+      }
+    }
+
     // Berserk: AI conquer actions need die roll resolution
-    let resolvedAction = action;
     if (action.type === 'conquer' && this.state.phase === 'conquest') {
       const activePlayer = this.state.players[this.state.activePlayerIndex];
       const mods = getActiveModifiers(activePlayer);
@@ -277,6 +358,20 @@ export class GameController {
       this._gatherSubmitted = false;
       this._abandonDialogActive = false;
     }
+
+    // Clear Ghoul gather state if phase changed away from ghoulReadyTroops
+    if (this.state.phase !== 'ghoulReadyTroops') {
+      this._ghoulGatherMap.clear();
+      this._ghoulGatherTokensInHand = 0;
+      this._ghoulGatherSubmitted = false;
+    }
+
+    // Clear Ghoul redeploy state if phase changed away from ghoulRedeploy
+    if (this.state.phase !== 'ghoulRedeploy') {
+      this._ghoulRedeployMap.clear();
+      this._ghoulRedeployTokensInHand = 0;
+      this._ghoulRedeploySubmitted = false;
+    }
   }
 
   private _renderState(): void {
@@ -304,7 +399,8 @@ export class GameController {
       }
     } else {
       for (const a of this.legalActions) {
-        if ((a.type === 'conquer' || a.type === 'useReinforcement') && 'regionId' in a) {
+        if ((a.type === 'conquer' || a.type === 'useReinforcement' ||
+             a.type === 'ghoulConquer' || a.type === 'ghoulUseReinforcement') && 'regionId' in a) {
           validTargetIds.add((a as { regionId: number }).regionId);
         }
       }
@@ -331,9 +427,21 @@ export class GameController {
       return;
     }
 
+    // Ghoul readyTroops: left-click adds a token back
+    if (this.state.phase === 'ghoulReadyTroops' && this._ghoulGatherMap.size > 0) {
+      this._ghoulGatherAddToken(regionId);
+      return;
+    }
+
     // FR-57: left-click during redeploy adds a token
     if (this.state.phase === 'redeploy') {
       this._redeployAddToken(regionId);
+      return;
+    }
+
+    // Ghoul redeploy: left-click adds a token
+    if (this.state.phase === 'ghoulRedeploy') {
+      this._ghoulRedeployAddToken(regionId);
       return;
     }
 
@@ -353,9 +461,19 @@ export class GameController {
       return;
     }
 
+    // Ghoul final conquest step 1: same flow for ghouls
+    if (this.state.phase === 'ghoulReinforcementDie' && !this.state.reinforcementDie) {
+      const isValidTarget = this.legalActions.some(
+        (a) => a.type === 'ghoulUseReinforcement' && (a as { regionId: number }).regionId === regionId,
+      );
+      if (!isValidTarget) return;
+      this._resolveGhoulFinalConquest(regionId);
+      return;
+    }
+
     const action = this.legalActions.find(
       (a) =>
-        (a.type === 'conquer' || a.type === 'useReinforcement') &&
+        (a.type === 'conquer' || a.type === 'useReinforcement' || a.type === 'ghoulConquer') &&
         (a as { regionId: number }).regionId === regionId,
     );
     if (action) {
@@ -395,6 +513,33 @@ export class GameController {
       this.eventBus.emit('playerAction', { type: 'useReinforcement', regionId, dieResult: result });
     } else {
       // Failure — skip to redeploy
+      this.eventBus.emit('playerAction', { type: 'endPhase' });
+    }
+  }
+
+  /**
+   * Ghoul final conquest: roll die, animate, resolve for ghouls in decline.
+   */
+  private async _resolveGhoulFinalConquest(regionId: number): Promise<void> {
+    const result = rollReinforcementDie();
+    this.selectedRegionId = regionId;
+
+    this.state = { ...this.state, reinforcementDie: { result, targetRegionId: regionId } };
+    this._renderState();
+
+    await this.choreographer.animateDieRoll(result);
+
+    const player = this.state.players[this.state.activePlayerIndex];
+    const region = this.state.board.regions.find((r) => r.id === regionId);
+    if (!region) {
+      this.eventBus.emit('playerAction', { type: 'endPhase' });
+      return;
+    }
+    const cost = ghoulConquestCost(region);
+
+    if (player.availableTokens + result >= cost) {
+      this.eventBus.emit('playerAction', { type: 'ghoulUseReinforcement', regionId, dieResult: result });
+    } else {
       this.eventBus.emit('playerAction', { type: 'endPhase' });
     }
   }
@@ -454,6 +599,14 @@ export class GameController {
     if (this._panMode) return;
     if (this.state.phase === 'readyTroops' && this._gatherMap.size > 0) {
       this._gatherRemoveToken(regionId);
+      return;
+    }
+    if (this.state.phase === 'ghoulReadyTroops' && this._ghoulGatherMap.size > 0) {
+      this._ghoulGatherRemoveToken(regionId);
+      return;
+    }
+    if (this.state.phase === 'ghoulRedeploy') {
+      this._ghoulRedeployRemoveToken(regionId);
       return;
     }
     if (this.state.phase !== 'redeploy') return;
@@ -631,6 +784,174 @@ export class GameController {
     cancelBg.on('pointerdown', () => {
       cleanup();
     });
+  }
+
+  // ── Ghoul Gather (ghoulReadyTroops) ───────────────────────────────────────
+
+  private _initGhoulGatherMap(): void {
+    this._ghoulGatherMap.clear();
+    const player = this.state.players[this.state.activePlayerIndex];
+    this._ghoulGatherTokensInHand = player.availableTokens;
+
+    for (const region of this.state.board.regions) {
+      if (region.owner === this.state.activePlayerIndex && region.isDeclined) {
+        this._ghoulGatherMap.set(region.id, region.tokens);
+      }
+    }
+  }
+
+  private _ghoulGatherRemoveToken(regionId: number): void {
+    const current = this._ghoulGatherMap.get(regionId);
+    if (current === undefined || current <= 0) return;
+    // No abandon confirmation for Ghouls — just remove
+    this._ghoulGatherMap.set(regionId, current - 1);
+    this._ghoulGatherTokensInHand++;
+    this._renderGhoulGatherPreview();
+  }
+
+  private _ghoulGatherAddToken(regionId: number): void {
+    if (this._ghoulGatherTokensInHand <= 0) return;
+    const current = this._ghoulGatherMap.get(regionId);
+    if (current === undefined) return;
+    this._ghoulGatherMap.set(regionId, current + 1);
+    this._ghoulGatherTokensInHand--;
+    this._renderGhoulGatherPreview();
+  }
+
+  private _renderGhoulGatherPreview(): void {
+    const newRegions = this.state.board.regions.map((r) => {
+      const count = this._ghoulGatherMap.get(r.id);
+      if (count !== undefined) {
+        if (count === 0) return { ...r, tokens: 0, owner: null, isDeclined: false };
+        return { ...r, tokens: count };
+      }
+      return r;
+    });
+    const previewState = {
+      ...this.state,
+      board: { regions: newRegions },
+      players: this.state.players.map((p, i) =>
+        i === this.state.activePlayerIndex
+          ? { ...p, availableTokens: this._ghoulGatherTokensInHand }
+          : p,
+      ) as [typeof this.state.players[0], typeof this.state.players[1]],
+    };
+    this.hudScene.refresh(previewState);
+    this.tokenRenderer.render(previewState);
+    const validTargetIds = new Set<number>();
+    for (const [id, count] of this._ghoulGatherMap) {
+      if (count > 0) validTargetIds.add(id);
+    }
+    this.regionRenderer.render(previewState, validTargetIds, null);
+  }
+
+  // ── Ghoul Redeploy (ghoulRedeploy) ──────────────────────────────────────
+
+  private _initGhoulRedeployMap(): void {
+    this._ghoulRedeployMap.clear();
+    const player = this.state.players[this.state.activePlayerIndex];
+    this._ghoulRedeployTokensInHand = player.availableTokens;
+
+    for (const region of this.state.board.regions) {
+      if (region.owner === this.state.activePlayerIndex && region.isDeclined) {
+        this._ghoulRedeployMap.set(region.id, region.tokens);
+      }
+    }
+  }
+
+  private _ghoulRedeployAddToken(regionId: number): void {
+    if (this._abandonDialogActive) return;
+    if (this._ghoulRedeployTokensInHand <= 0) return;
+    const current = this._ghoulRedeployMap.get(regionId);
+    if (current === undefined) return;
+    this._ghoulRedeployMap.set(regionId, current + 1);
+    this._ghoulRedeployTokensInHand--;
+    this._renderGhoulRedeployPreview();
+  }
+
+  private _ghoulRedeployRemoveToken(regionId: number): void {
+    if (this._abandonDialogActive) return;
+    const current = this._ghoulRedeployMap.get(regionId);
+    if (current === undefined || current <= 0) return;
+
+    if (current === 1) {
+      // Last token — show confirmation dialog before abandoning
+      this._showGhoulRedeployAbandonConfirm(regionId);
+      return;
+    }
+
+    this._ghoulRedeployMap.set(regionId, current - 1);
+    this._ghoulRedeployTokensInHand++;
+    this._renderGhoulRedeployPreview();
+  }
+
+  private _showGhoulRedeployAbandonConfirm(regionId: number): void {
+    this._abandonDialogActive = true;
+    const W = 1280, _H = 720;
+
+    const overlay = this.hudScene.add.rectangle(W / 2, _H / 2, W, _H, 0x000000, 0.5)
+      .setDepth(50).setInteractive();
+
+    const panel = this.hudScene.add.rectangle(W / 2, _H / 2, 320, 130, 0x1e1e2e, 0.95)
+      .setStrokeStyle(2, 0xef4444, 0.8).setDepth(51);
+
+    const text = this.hudScene.add.text(W / 2, _H / 2 - 25,
+      'Abandon this region?\nAll tokens will be removed.', {
+        fontSize: '14px', fontFamily: 'Arial', color: '#e8d5b7', align: 'center',
+      }).setOrigin(0.5, 0.5).setDepth(52);
+
+    const confirmBg = this.hudScene.add.rectangle(W / 2 - 60, _H / 2 + 30, 90, 28, 0xef4444)
+      .setDepth(52).setInteractive({ useHandCursor: true });
+    const confirmLabel = this.hudScene.add.text(W / 2 - 60, _H / 2 + 30, 'Abandon', {
+      fontSize: '12px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5, 0.5).setDepth(53);
+
+    const cancelBg = this.hudScene.add.rectangle(W / 2 + 60, _H / 2 + 30, 90, 28, 0x4a4a6a)
+      .setDepth(52).setInteractive({ useHandCursor: true });
+    const cancelLabel = this.hudScene.add.text(W / 2 + 60, _H / 2 + 30, 'Cancel', {
+      fontSize: '12px', fontFamily: 'Arial', color: '#ffffff',
+    }).setOrigin(0.5, 0.5).setDepth(53);
+
+    const cleanup = (): void => {
+      overlay.destroy(); panel.destroy(); text.destroy();
+      confirmBg.destroy(); confirmLabel.destroy();
+      cancelBg.destroy(); cancelLabel.destroy();
+      this._abandonDialogActive = false;
+    };
+
+    confirmBg.on('pointerdown', () => {
+      cleanup();
+      this._ghoulRedeployMap.set(regionId, 0);
+      this._ghoulRedeployTokensInHand++;
+      this._renderGhoulRedeployPreview();
+    });
+
+    cancelBg.on('pointerdown', () => {
+      cleanup();
+    });
+  }
+
+  private _renderGhoulRedeployPreview(): void {
+    const newRegions = this.state.board.regions.map((r) => {
+      const count = this._ghoulRedeployMap.get(r.id);
+      if (count !== undefined) {
+        if (count === 0) return { ...r, tokens: 0, owner: null, isDeclined: false };
+        return { ...r, tokens: count };
+      }
+      return r;
+    });
+    const previewState = {
+      ...this.state,
+      board: { regions: newRegions },
+      players: this.state.players.map((p, i) =>
+        i === this.state.activePlayerIndex
+          ? { ...p, availableTokens: this._ghoulRedeployTokensInHand }
+          : p,
+      ) as [typeof this.state.players[0], typeof this.state.players[1]],
+    };
+    this.hudScene.refresh(previewState);
+    this.tokenRenderer.render(previewState);
+    this.regionRenderer.render(previewState, new Set(), null);
   }
 
   private _onGameOver(): void {

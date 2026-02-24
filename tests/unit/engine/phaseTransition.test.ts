@@ -58,12 +58,24 @@ describe('getNextPhase', () => {
       expect(getNextPhase(state, { type: 'selectCombo', comboIndex: 0 })).toBe('readyTroops');
     });
 
-    it('transitions to ghoulConquest when ghouls are in decline', () => {
+    it('transitions to ghoulReadyTroops when ghouls are in decline', () => {
       const player = makePlayer({
         declinedRaces: [{ raceId: 'ghouls', powerId: 'flying', isSpirit: false }],
       });
       const state = makeState({ phase: 'selectCombo', players: [player, makePlayer()] });
-      expect(getNextPhase(state, { type: 'selectCombo', comboIndex: 0 })).toBe('ghoulConquest');
+      expect(getNextPhase(state, { type: 'selectCombo', comboIndex: 0 })).toBe('ghoulReadyTroops');
+    });
+  });
+
+  describe('ghoulReadyTroops', () => {
+    it('transitions to ghoulConquest on endPhase', () => {
+      const state = makeState({ phase: 'ghoulReadyTroops' });
+      expect(getNextPhase(state, { type: 'endPhase' })).toBe('ghoulConquest');
+    });
+
+    it('stays in ghoulReadyTroops on ghoulPickUpTokens', () => {
+      const state = makeState({ phase: 'ghoulReadyTroops' });
+      expect(getNextPhase(state, { type: 'ghoulPickUpTokens', regionId: 1, count: 1 })).toBe('ghoulReadyTroops');
     });
   });
 
@@ -73,14 +85,38 @@ describe('getNextPhase', () => {
       expect(getNextPhase(state, { type: 'ghoulConquer', regionId: 1 })).toBe('ghoulConquest');
     });
 
-    it('transitions to conquest on endPhase when no tokens on board', () => {
+    it('transitions to ghoulRedeploy on endPhase', () => {
       const state = makeState({ phase: 'ghoulConquest' });
+      expect(getNextPhase(state, { type: 'endPhase' })).toBe('ghoulRedeploy');
+    });
+
+    it('transitions to ghoulReinforcementDie via startGhoulFinalConquest', () => {
+      const state = makeState({ phase: 'ghoulConquest' });
+      expect(getNextPhase(state, { type: 'startGhoulFinalConquest' })).toBe('ghoulReinforcementDie');
+    });
+  });
+
+  describe('ghoulReinforcementDie', () => {
+    it('transitions to ghoulRedeploy on ghoulUseReinforcement', () => {
+      const state = makeState({ phase: 'ghoulReinforcementDie' });
+      expect(getNextPhase(state, { type: 'ghoulUseReinforcement', regionId: 1, dieResult: 2 })).toBe('ghoulRedeploy');
+    });
+
+    it('transitions to ghoulRedeploy on endPhase', () => {
+      const state = makeState({ phase: 'ghoulReinforcementDie' });
+      expect(getNextPhase(state, { type: 'endPhase' })).toBe('ghoulRedeploy');
+    });
+  });
+
+  describe('ghoulRedeploy', () => {
+    it('transitions to conquest on endPhase when no tokens on board', () => {
+      const state = makeState({ phase: 'ghoulRedeploy' });
       expect(getNextPhase(state, { type: 'endPhase' })).toBe('conquest');
     });
 
     it('transitions to readyTroops on endPhase when player has tokens on board', () => {
       const state = makeState({
-        phase: 'ghoulConquest',
+        phase: 'ghoulRedeploy',
         players: [
           makePlayer({
             activeRace: {
@@ -384,7 +420,7 @@ describe('getStartingPhaseForNextPlayer', () => {
     expect(getStartingPhaseForNextPlayer(state)).toBe('selectCombo');
   });
 
-  it('returns ghoulConquest when next player has ghouls in decline', () => {
+  it('returns ghoulReadyTroops when next player has ghouls in decline', () => {
     const player1 = makePlayer({
       activeRace: {
         raceId: 'orcs',
@@ -402,6 +438,6 @@ describe('getStartingPhaseForNextPlayer', () => {
       activePlayerIndex: 0,
       players: [makePlayer(), player1],
     });
-    expect(getStartingPhaseForNextPlayer(state)).toBe('ghoulConquest');
+    expect(getStartingPhaseForNextPlayer(state)).toBe('ghoulReadyTroops');
   });
 });

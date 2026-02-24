@@ -1,4 +1,4 @@
-import type { GameState, GameAction } from '@/game/state/types';
+import type { GameState, GameAction, RegionState } from '@/game/state/types';
 import { calculateConquestCost } from '@/game/engine/conquestCost';
 import { getActiveModifiers } from '@/game/abilities/modifiers';
 import { isBorderRegion } from '@/game/engine/legalActions';
@@ -77,6 +77,69 @@ export function getLegalReinforcementTargets(
     const cost = calculateConquestCost(state, region.id);
     if (effectiveTokens >= cost) {
       targets.push({ type: 'useReinforcement', regionId: region.id, dieResult });
+    }
+  }
+
+  return targets.length > 0
+    ? [...targets, { type: 'endPhase' }]
+    : [{ type: 'endPhase' }];
+}
+
+// ── Ghoul Final Conquest ───────────────────────────────────────────────────
+
+/** Compute ghoul conquest cost for a region (same formula as ghoulConquestActions). */
+export function ghoulConquestCost(region: RegionState): number {
+  return Math.max(2, region.tokens + (region.hasLostTribe ? 1 : 0) +
+    (region.hasMountain ? 1 : 0) + (region.hasTrollLair ? 1 : 0) +
+    (region.hasFortress ? 1 : 0) + (region.hasEncampment ? 1 : 0) + 1);
+}
+
+/**
+ * Returns all regions Ghouls In Decline could potentially conquer with a
+ * final conquest attempt, assuming the maximum die roll (3).
+ */
+export function getGhoulFinalConquestTargets(state: GameState): readonly GameAction[] {
+  return getGhoulReinforcementTargets(state, 3);
+}
+
+/**
+ * Returns all valid ghoul conquest targets with tokens + dieResult.
+ * Uses ghoul reachability (from declined regions) and ghoul cost formula.
+ */
+export function getGhoulReinforcementTargets(
+  state: GameState,
+  dieResult: 0 | 1 | 2 | 3,
+): readonly GameAction[] {
+  const player = state.players[state.activePlayerIndex];
+  const effectiveTokens = player.availableTokens + dieResult;
+
+  const ghoulRegions = state.board.regions.filter(
+    (r) => r.owner === state.activePlayerIndex && r.isDeclined,
+  );
+  const ghoulRegionIds = new Set(ghoulRegions.map((r) => r.id));
+  const isFirst = ghoulRegions.length === 0;
+
+  const targets: GameAction[] = [];
+
+  for (const region of state.board.regions) {
+    // Reachability: adjacent to owned declined regions, or border if none
+    if (!isFirst) {
+      const isAdjacent = region.adjacentRegionIds.some((id) => ghoulRegionIds.has(id));
+      if (!isAdjacent) continue;
+    } else {
+      if (!isBorderRegion(state, region)) continue;
+    }
+
+    // Can't conquer own declined regions
+    if (region.owner === state.activePlayerIndex && region.isDeclined) continue;
+    // No sea/lake
+    if (region.terrain === 'sea' || region.terrain === 'lake') continue;
+    // Protected
+    if (region.hasHoleInTheGround || region.hasHero || region.hasDragon) continue;
+
+    const cost = ghoulConquestCost(region);
+    if (effectiveTokens >= cost) {
+      targets.push({ type: 'ghoulUseReinforcement', regionId: region.id, dieResult });
     }
   }
 

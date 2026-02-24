@@ -1,5 +1,7 @@
-import type { GameState, RegionState } from '@/game/state/types';
+import type { GameState, RegionState, DeclinedRaceState } from '@/game/state/types';
 import { getActiveModifiers } from '@/game/abilities/modifiers';
+import { RACES } from '@/game/data/races';
+import { POWERS } from '@/game/data/powers';
 
 // ── Scoring Engine ────────────────────────────────────────────────────────────
 //
@@ -49,7 +51,19 @@ export function calculateScore(state: GameState, playerIndex: 0 | 1): number {
   // ── Base: 1 coin per occupied region ─────────────────────────────────────
   let coins = activeRegions.length + declinedRegions.length;
 
-  if (!player.activeRace) return coins; // no race → only base scoring
+  // ── Declined race bonuses that apply in decline ─────────────────────────
+  // e.g. Dwarves: +1 per Mine region (appliesInDecline: true)
+  for (const declined of player.declinedRaces) {
+    const rMods = RACES[declined.raceId].modifiers;
+    const pMods = POWERS[declined.powerId].modifiers;
+    for (const fb of [rMods.bonusPerRegionFeature, pMods.bonusPerRegionFeature]) {
+      if (fb && fb.appliesInDecline) {
+        coins += declinedRegions.filter((r) => regionHasFeature(r, fb.feature)).length * fb.bonus;
+      }
+    }
+  }
+
+  if (!player.activeRace) return coins; // no race → only base + declined bonuses
 
   const mods = getActiveModifiers(player);
 

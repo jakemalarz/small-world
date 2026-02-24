@@ -17,28 +17,35 @@ const W = 1280;
 const H = 720;
 
 const PHASE_LABELS: Record<TurnPhase, string> = {
-  selectCombo:      'Select Race & Power',
-  ghoulConquest:    'Ghouls Advance',
-  readyTroops:      'Ready Troops',
-  conquest:         'Conquest',
-  reinforcementDie: 'Final Conquest',
-  redeploy:         'Redeploy',
-  placeHeroes:      'Place Heroes',
-  score:            'Scoring',
-  optionalDecline:  'Optional Decline',
-  decline:          'In Decline',
-  gameOver:         'Game Over',
+  selectCombo:            'Select Race & Power',
+  ghoulReadyTroops:       'Ghouls: Ready Troops',
+  ghoulConquest:          'Ghouls: Conquest',
+  ghoulRedeploy:          'Ghouls: Redeploy',
+  ghoulReinforcementDie:  'Ghouls: Final Conquest',
+  readyTroops:            'Ready Troops',
+  conquest:               'Conquest',
+  reinforcementDie:       'Final Conquest',
+  redeploy:               'Redeploy',
+  placeHeroes:            'Place Heroes',
+  score:                  'Scoring',
+  optionalDecline:        'Optional Decline',
+  decline:                'In Decline',
+  gameOver:               'Game Over',
 };
 
 const ACTION_BUTTONS: Partial<Record<TurnPhase, string>> = {
-  readyTroops:      'Begin Conquest →',
-  conquest:         'End Conquest',
-  reinforcementDie: 'End Conquest',
-  redeploy:         'Confirm Redeploy',
-  placeHeroes:      'Skip Heroes',
-  score:            'End Turn',
-  optionalDecline:  'Skip Decline',
-  decline:          'Go In Decline',
+  ghoulReadyTroops:      'Begin Ghoul Conquest →',
+  ghoulConquest:         'End Ghoul Conquest',
+  ghoulRedeploy:         'Confirm Ghoul Redeploy',
+  ghoulReinforcementDie: 'End Ghoul Conquest',
+  readyTroops:           'Begin Conquest →',
+  conquest:              'End Conquest',
+  reinforcementDie:      'End Conquest',
+  redeploy:              'Confirm Redeploy',
+  placeHeroes:           'Skip Heroes',
+  score:                 'End Turn',
+  optionalDecline:       'Skip Decline',
+  decline:               'Go In Decline',
 };
 
 // ── HUD Scene ─────────────────────────────────────────────────────────────────
@@ -58,6 +65,7 @@ export class HUD extends Phaser.Scene {
   private phaseText!: Phaser.GameObjects.Text;
   private turnText!: Phaser.GameObjects.Text;
   private playerDashboards: PlayerDashboard[] = [];
+  private declinedDashboards: DeclinedDashboard[] = [];
   private actionButton!: Phaser.GameObjects.Container;
   private actionBtnBg!: Phaser.GameObjects.Rectangle;
   private actionBtnLabel!: Phaser.GameObjects.Text;
@@ -98,12 +106,23 @@ export class HUD extends Phaser.Scene {
 
   /** Refresh all HUD elements to reflect the given game state. */
   refresh(state: GameState): void {
-    this.phaseText.setText(PHASE_LABELS[state.phase]);
+    // Dynamic phase label: prefix with race name when player has Ghouls in decline + active race
+    const activePlayer = state.players[state.activePlayerIndex];
+    const hasGhoulsInDecline = activePlayer.declinedRaces.some(d => d.raceId === 'ghouls');
+    let phaseLabel = PHASE_LABELS[state.phase];
+    if (hasGhoulsInDecline && activePlayer.activeRace &&
+        (state.phase === 'readyTroops' || state.phase === 'conquest' ||
+         state.phase === 'redeploy' || state.phase === 'reinforcementDie')) {
+      const raceName = RACES[activePlayer.activeRace.raceId as keyof typeof RACES]?.name ?? activePlayer.activeRace.raceId;
+      phaseLabel = `${raceName}: ${phaseLabel}`;
+    }
+    this.phaseText.setText(phaseLabel);
     this.turnText.setText(`Turn ${state.turn} / 10`);
 
     // Update player dashboards
     for (let i = 0; i < 2; i++) {
       this.playerDashboards[i]?.update(state, i as 0 | 1, state.activePlayerIndex);
+      this.declinedDashboards[i]?.update(state, i as 0 | 1, state.activePlayerIndex);
     }
 
     // Update action button (hide during selectCombo — combo shop handles input)
@@ -115,14 +134,14 @@ export class HUD extends Phaser.Scene {
       this.actionButton.setVisible(false);
     }
 
-    // Show decline button during readyTroops and conquest phases, turn 2+ only (FR-22)
+    // Show decline button during readyTroops phase, turn 2+ only (FR-22)
     const canDecline = state.turn >= 2 &&
-      (state.phase === 'readyTroops' || state.phase === 'conquest') &&
+      state.phase === 'readyTroops' &&
       state.players[state.activePlayerIndex].activeRace !== null;
     this.declineButton.setVisible(canDecline);
 
-    // Show Final Conquest button during conquest phase when player has tokens
-    const canFinalConquest = state.phase === 'conquest' &&
+    // Show Final Conquest button during conquest or ghoulConquest when player has tokens
+    const canFinalConquest = (state.phase === 'conquest' || state.phase === 'ghoulConquest') &&
       state.players[state.activePlayerIndex].availableTokens > 0;
     this.finalConquestButton.setVisible(canFinalConquest);
 
@@ -131,8 +150,9 @@ export class HUD extends Phaser.Scene {
       state.phase !== 'selectCombo' && state.phase !== 'gameOver' && !this.comboShop.browseMode,
     );
 
-    // Show die result during reinforcementDie and redeploy phases (FR-20, FR-21)
-    if ((state.phase === 'reinforcementDie' || state.phase === 'redeploy') && state.reinforcementDie) {
+    // Show die result during reinforcementDie/ghoulReinforcementDie and redeploy/ghoulRedeploy (FR-20, FR-21)
+    if ((state.phase === 'reinforcementDie' || state.phase === 'redeploy' ||
+         state.phase === 'ghoulReinforcementDie' || state.phase === 'ghoulRedeploy') && state.reinforcementDie) {
       const r = state.reinforcementDie.result;
       this.dieResultText.setText(`Die: ${r}`);
       this.dieResultText.setColor(r === 0 ? '#ef4444' : '#4ade80');
@@ -177,6 +197,14 @@ export class HUD extends Phaser.Scene {
     // Player 1 — bottom right
     this.playerDashboards[1] = new PlayerDashboard(
       this, 1, W - 288, H - 100, 280, 92,
+    );
+
+    // Declined race boxes (above main boxes, only visible when player has declined races)
+    this.declinedDashboards[0] = new DeclinedDashboard(
+      this, 0, 8, H - 196, 280, 88,
+    );
+    this.declinedDashboards[1] = new DeclinedDashboard(
+      this, 1, W - 288, H - 196, 280, 88,
     );
   }
 
@@ -487,7 +515,117 @@ class PlayerDashboard {
       this.raceText.setText('—');
       this.powerText.setText('—');
     }
-    this.tokensText.setText(`Tokens: ${player.availableTokens} / ${race?.totalTokens ?? '—'}`);
+
+    // Token display — during ghoul phases, show stashed active race tokens
+    const isGhoulPhase = state.phase === 'ghoulReadyTroops' || state.phase === 'ghoulConquest' ||
+      state.phase === 'ghoulRedeploy' || state.phase === 'ghoulReinforcementDie';
+    if (isGhoulPhase && isActive && race) {
+      const stashed = player.ghoulSavedTokens ?? 0;
+      this.tokensText.setText(`Tokens: ${stashed} / ${race.totalTokens} (stashed)`);
+    } else {
+      this.tokensText.setText(`Tokens: ${player.availableTokens} / ${race?.totalTokens ?? '—'}`);
+    }
     this.coinsText.setText(`Coins: ${player.coins}`);
+  }
+}
+
+// ── DeclinedDashboard helper class ──────────────────────────────────────────────
+
+class DeclinedDashboard {
+  private readonly scene: Phaser.Scene;
+  private readonly playerIndex: 0 | 1;
+  private panelBg!: Phaser.GameObjects.Rectangle;
+  private headerText!: Phaser.GameObjects.Text;
+  private raceText!: Phaser.GameObjects.Text;
+  private powerText!: Phaser.GameObjects.Text;
+  private boardTokensText!: Phaser.GameObjects.Text;
+  private inHandText!: Phaser.GameObjects.Text;
+  private allObjects: Phaser.GameObjects.GameObject[] = [];
+
+  constructor(
+    scene: Phaser.Scene,
+    playerIndex: 0 | 1,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+  ) {
+    this.scene = scene;
+    this.playerIndex = playerIndex;
+    this._build(x, y, w, h);
+  }
+
+  private _build(x: number, y: number, w: number, h: number): void {
+    const color = PLAYER_COLORS[this.playerIndex];
+
+    this.panelBg = this.scene.add.rectangle(x + w / 2, y + h / 2, w, h, PANEL_BG, 0.75)
+      .setStrokeStyle(1, color, 0.3)
+      .setDepth(10);
+
+    this.headerText = this.scene.add.text(x + 8, y + 6, 'In Decline', {
+      fontSize: '10px', fontFamily: 'Arial', color: '#6b7280', fontStyle: 'bold',
+    }).setDepth(11);
+
+    this.raceText = this.scene.add.text(x + 8, y + 22, '', {
+      fontSize: '12px', fontFamily: 'Arial', color: '#9ca3af',
+    }).setDepth(11);
+
+    this.powerText = this.scene.add.text(x + 8, y + 38, '', {
+      fontSize: '11px', fontFamily: 'Arial', color: '#777',
+    }).setDepth(11);
+
+    this.boardTokensText = this.scene.add.text(x + 8, y + 54, '', {
+      fontSize: '11px', fontFamily: 'Arial', color: TEXT_COLOR,
+    }).setDepth(11);
+
+    this.inHandText = this.scene.add.text(x + 8, y + 70, '', {
+      fontSize: '11px', fontFamily: 'Arial', color: '#fbbf24',
+    }).setDepth(11);
+
+    this.allObjects = [
+      this.panelBg, this.headerText, this.raceText,
+      this.powerText, this.boardTokensText, this.inHandText,
+    ];
+
+    this._setVisible(false);
+  }
+
+  private _setVisible(visible: boolean): void {
+    for (const obj of this.allObjects) {
+      (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(visible);
+    }
+  }
+
+  update(state: GameState, playerIndex: 0 | 1, activeIndex: 0 | 1): void {
+    const player = state.players[playerIndex];
+
+    if (player.declinedRaces.length === 0) {
+      this._setVisible(false);
+      return;
+    }
+
+    this._setVisible(true);
+
+    const declined = player.declinedRaces[0]; // Most recent declined race
+    const raceName = RACES[declined.raceId as keyof typeof RACES]?.name ?? declined.raceId;
+    const powerName = POWERS[declined.powerId as keyof typeof POWERS]?.name ?? declined.powerId;
+
+    this.raceText.setText(raceName);
+    this.powerText.setText(powerName);
+
+    const boardTokens = state.board.regions
+      .filter(r => r.owner === playerIndex && r.isDeclined)
+      .reduce((sum, r) => sum + r.tokens, 0);
+    this.boardTokensText.setText(`Tokens on Board: ${boardTokens}`);
+
+    // Show "In Hand" during ghoul phases for the active player
+    const isGhoulPhase = state.phase === 'ghoulReadyTroops' || state.phase === 'ghoulConquest' ||
+      state.phase === 'ghoulRedeploy' || state.phase === 'ghoulReinforcementDie';
+    if (isGhoulPhase && playerIndex === activeIndex) {
+      this.inHandText.setText(`In Hand: ${player.availableTokens}`);
+      this.inHandText.setVisible(true);
+    } else {
+      this.inHandText.setVisible(false);
+    }
   }
 }
