@@ -207,7 +207,7 @@ All 14 races shall be implemented with the following token counts and abilities.
 | Humans | 5 | 10 | +1 Victory Coin per Farmland region |
 | Orcs | 5 | 10 | +1 Victory Coin per non-empty region conquered this turn |
 | Ratmen | 8 | 13 | No special ability — high token count is the advantage |
-| Skeletons | 6 | 20 | Gain 1 new Skeleton token from storage for every 2 non-empty regions conquered this turn |
+| Skeletons | 6 | 20 | Gain 1 new Skeleton token from storage for every 2 non-empty regions conquered this turn. Tokens are granted at the start of the redeployment phase (after all conquests are complete), so they can be deployed but not used for additional conquests |
 | Sorcerers | 5 | 18 | Once per turn per opponent: substitute an opponent's single Active token with a Sorcerer from storage if the region is adjacent. The opponent's token is discarded |
 | Tritons | 6 | 11 | Conquest cost -1 for Coastal regions (bordering Sea/Lake) |
 | Trolls | 5 | 10 | Place a Troll's Lair in every occupied region (+1 defense). Lairs remain even In Decline, but are removed when the region is abandoned or conquered by another race |
@@ -420,3 +420,4 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 | 1.3 | 2026-02-27 | Jake + Claude | Ghoul UX fixes: added FR-23b (pre-Ghoul decline option at turn start); added FR-23c (In Decline box highlighted during Ghoul phases); clarified FR-13e (abandon dialog applies to ghoulReadyTroops too); clarified FR-24 (Ghoul regions not scored when active race declines — scoring excludes removed non-Spirit declined regions) |
 | 1.4 | 2026-02-27 | Jake + Claude | Ghoul combat bug fix: added FR-23d (Ghoul In Decline tokens follow normal combat rules — 1 discarded, N-1 to reserve); clarified FR-18a (all non-Ghoul declined tokens removed, Ghoul exception); added edge case for Ghoul In Decline region conquered by opponent |
 | 1.5 | 2026-02-27 | Jake + Claude | Amazon and Halfling rule corrections: Amazons +4 tokens now available during readyTroops AND conquest (not conquest-only); Halflings Holes-in-the-Ground removed on In Decline or region abandon; updated race table and edge cases accordingly |
+| 1.6 | 2026-02-27 | Jake + Claude | Skeleton timing fix: tokens from conquered regions are granted at the start of redeployment (not during conquest), so they can be deployed but not used for further conquests; updated race table accordingly |

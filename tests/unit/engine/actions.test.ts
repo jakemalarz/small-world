@@ -519,6 +519,79 @@ describe('applyAction — Halflings hasHoleInTheGround cleanup', () => {
   });
 });
 
+// ── Skeletons — token generation at redeployment start ───────────────────────
+
+describe('applyAction — Skeletons token generation', () => {
+  /** Conquest state with Skeletons active and conquestsThisTurn pre-set. */
+  function skeletonConquestState(conquestsThisTurn: number, totalTokens = 6): GameState {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'skeletons', 'bivouacking', {
+      totalTokens,
+      maxSupply: 20,
+      tokensOnBoard: 0,
+      conquestsThisTurn,
+    });
+    return patchState(state, { phase: 'conquest' });
+  }
+
+  it('does NOT grant skeleton tokens during conquest (after a conquer action)', () => {
+    // Set up a state where 1 non-empty conquest has happened
+    const state = skeletonConquestState(1);
+    // Before any endPhase, tokens should be unchanged
+    expect(state.players[0].availableTokens).toBe(10);
+    expect(state.players[0].activeRace!.totalTokens).toBe(6);
+  });
+
+  it('grants 1 token when 2 non-empty regions were conquered (endPhase from conquest)', () => {
+    const state = skeletonConquestState(2);
+    const before = state.players[0].availableTokens;
+    const next = applyAction(state, { type: 'endPhase' });
+    expect(next.phase).toBe('redeploy');
+    expect(next.players[0].availableTokens).toBe(before + 1);
+    expect(next.players[0].activeRace!.totalTokens).toBe(6 + 1);
+  });
+
+  it('grants 2 tokens when 4 non-empty regions were conquered', () => {
+    const state = skeletonConquestState(4);
+    const before = state.players[0].availableTokens;
+    const next = applyAction(state, { type: 'endPhase' });
+    expect(next.players[0].availableTokens).toBe(before + 2);
+    expect(next.players[0].activeRace!.totalTokens).toBe(6 + 2);
+  });
+
+  it('grants 0 tokens when only 1 non-empty region was conquered', () => {
+    const state = skeletonConquestState(1);
+    const before = state.players[0].availableTokens;
+    const next = applyAction(state, { type: 'endPhase' });
+    expect(next.players[0].availableTokens).toBe(before);
+    expect(next.players[0].activeRace!.totalTokens).toBe(6);
+  });
+
+  it('grants 0 tokens when no non-empty regions were conquered', () => {
+    const state = skeletonConquestState(0);
+    const before = state.players[0].availableTokens;
+    const next = applyAction(state, { type: 'endPhase' });
+    expect(next.players[0].availableTokens).toBe(before);
+  });
+
+  it('caps skeleton token generation at maxSupply', () => {
+    // 18 tokens already in play, maxSupply 20 → only 2 more can be granted even if 6 are earned
+    const state = skeletonConquestState(12, 18); // 12 conquests → 6 tokens, but only 2 slots left
+    const next = applyAction(state, { type: 'endPhase' });
+    expect(next.players[0].activeRace!.totalTokens).toBe(20); // capped at maxSupply
+    expect(next.players[0].availableTokens).toBe(10 + 2); // only 2 granted
+  });
+
+  it('non-Skeleton races receive no token generation on endPhase', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'ratmen', 'bivouacking', { conquestsThisTurn: 4 });
+    state = patchState(state, { phase: 'conquest' });
+    const before = state.players[0].availableTokens;
+    const next = applyAction(state, { type: 'endPhase' });
+    expect(next.players[0].availableTokens).toBe(before);
+  });
+});
+
 // ── immutability ──────────────────────────────────────────────────────────────
 
 describe('immutability', () => {

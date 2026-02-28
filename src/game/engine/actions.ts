@@ -263,31 +263,6 @@ function applyConquer(
     }),
   };
 
-  // ── Skeleton token generation ─────────────────────────────────────────────
-  const mods = getActiveModifiers(s.players[s.activePlayerIndex]);
-  for (const gen of mods.tokenGenerators) {
-    if (newConquests > 0 && newConquests % gen.nonEmptyConquestsRequired === 0) {
-      const updatedPlayer = s.players[s.activePlayerIndex];
-      const updatedRace = updatedPlayer.activeRace!;
-      const extraTokens = Math.min(
-        gen.tokensGained,
-        updatedRace.maxSupply - updatedRace.totalTokens,
-      );
-      if (extraTokens > 0) {
-        s = {
-          ...s,
-          players: patchPlayer(s, s.activePlayerIndex, {
-            availableTokens: updatedPlayer.availableTokens + extraTokens,
-            activeRace: {
-              ...updatedRace,
-              totalTokens: updatedRace.totalTokens + extraTokens,
-            },
-          }),
-        };
-      }
-    }
-  }
-
   // ── Race-specific conquest hooks ──────────────────────────────────────────
   const raceHandler = RACE_HANDLERS[attackerRace.raceId];
   if (raceHandler?.onConquest) {
@@ -585,6 +560,9 @@ function applyUseReinforcement(
       },
     }),
   };
+
+  // Skeletons: grant tokens earned from conquests at the start of redeployment
+  s = addSkeletonTokensForRedeploy(s);
 
   const nextPhase = getNextPhase(s, logEntry.action);
   return appendLog({ ...s, phase: nextPhase }, logEntry);
@@ -887,6 +865,11 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
     scored = restoreTokensFromGhouls(scored);
   }
 
+  // Skeletons: grant tokens earned from conquests at the start of redeployment
+  if (state.phase === 'conquest') {
+    scored = addSkeletonTokensForRedeploy(scored);
+  }
+
   // Determine if we switch to the next player
   if (!needsPlayerSwitch(state, logEntry.action)) {
     return appendLog({ ...scored, phase: nextPhase }, logEntry);
@@ -993,6 +976,46 @@ function patchRegions(
   return {
     regions: state.board.regions.map((r) => (r.id === id ? { ...r, ...patch } : r)),
   };
+}
+
+/**
+ * Grant Skeleton (tokenGenerator) tokens earned from conquests this turn.
+ * Called when transitioning from conquest to redeploy so tokens are available
+ * for deployment but cannot be used for additional conquests.
+ */
+function addSkeletonTokensForRedeploy(state: GameState): GameState {
+  const player = state.players[state.activePlayerIndex];
+  if (!player.activeRace) return state;
+
+  const mods = getActiveModifiers(player);
+  if (mods.tokenGenerators.length === 0) return state;
+
+  let s = state;
+  const conquests = player.activeRace.conquestsThisTurn;
+
+  for (const gen of mods.tokenGenerators) {
+    const tokensToGrant =
+      Math.floor(conquests / gen.nonEmptyConquestsRequired) * gen.tokensGained;
+    if (tokensToGrant <= 0) continue;
+
+    const p = s.players[s.activePlayerIndex];
+    const race = p.activeRace!;
+    const extraTokens = Math.min(tokensToGrant, race.maxSupply - race.totalTokens);
+    if (extraTokens <= 0) continue;
+
+    s = {
+      ...s,
+      players: patchPlayer(s, s.activePlayerIndex, {
+        availableTokens: p.availableTokens + extraTokens,
+        activeRace: {
+          ...race,
+          totalTokens: race.totalTokens + extraTokens,
+        },
+      }),
+    };
+  }
+
+  return s;
 }
 
 function patchPlayer(
