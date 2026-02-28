@@ -359,13 +359,65 @@ describe('applyAction — Amazons conquestOnlyTokens', () => {
     return patchState(state, { phase: 'readyTroops' });
   }
 
-  it('adds conquestOnlyTokens to hand when transitioning readyTroops → conquest', () => {
+  it('readyTroops → conquest does NOT add tokens (already injected at readyTroops entry)', () => {
+    // Tokens are injected when entering readyTroops, not when leaving it.
+    // This state was manually set to readyTroops without going through player switch,
+    // so the injection has not yet occurred.
     const state = amazonConquestState();
     const before = state.players[0].availableTokens; // 6
     const next = applyAction(state, { type: 'endPhase' });
     expect(next.phase).toBe('conquest');
-    expect(next.players[0].availableTokens).toBe(before + 4); // +4 conquest-only
-    expect(next.players[0].activeRace!.totalTokens).toBe(6 + 4); // totalTokens also +4
+    // No additional tokens added at this transition
+    expect(next.players[0].availableTokens).toBe(before);
+  });
+
+  it('adds conquestOnlyTokens at start of readyTroops via player switch', () => {
+    // Player 1 ends score phase → switches to player 0 (Amazon) whose turn starts at readyTroops
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'amazons', 'bivouacking', {
+      tokensOnBoard: 3, // has tokens on board → readyTroops phase
+      totalTokens: 6,
+    });
+    state = patchPlayer(state, 0, { availableTokens: 0 }); // all on board
+    // Player 1 is active, ending score phase → will switch to player 0
+    state = patchState(state, { phase: 'score', activePlayerIndex: 1 });
+
+    const next = applyAction(state, { type: 'endPhase' });
+    expect(next.phase).toBe('readyTroops');
+    expect(next.activePlayerIndex).toBe(0);
+    // Amazon player 0 should have base tokens (0 in hand) + 4 conquest-only
+    expect(next.players[0].availableTokens).toBe(4);
+    expect(next.players[0].activeRace!.totalTokens).toBe(6 + 4);
+  });
+
+  it('adds conquestOnlyTokens at conquest start (selectCombo → conquest, turn 1)', () => {
+    // On turn 1, player selects Amazon combo → goes directly to conquest
+    const state = createInitialState({ firstPlayerIndex: 0 });
+    const next = applyAction(state, { type: 'selectCombo', comboIndex: 0 });
+    if (next.players[0].activeRace?.raceId === 'amazons') {
+      expect(next.players[0].availableTokens).toBe(
+        next.players[0].activeRace!.totalTokens,
+      );
+    }
+    // Generic test: if we manually set up Amazons and selectCombo, tokens include +4
+    let s = createInitialState({ firstPlayerIndex: 0 });
+    // Patch the shop to have amazons+bivouacking at slot 0
+    s = {
+      ...s,
+      comboShop: {
+        ...s.comboShop,
+        visible: [
+          { raceId: 'amazons', powerId: 'bivouacking', coinsOnSlot: 0 },
+          ...s.comboShop.visible.slice(1),
+        ],
+      },
+    };
+    const afterSelect = applyAction(s, { type: 'selectCombo', comboIndex: 0 });
+    expect(afterSelect.phase).toBe('conquest');
+    const p = afterSelect.players[0];
+    // Amazons base 6 + bivouacking bonus 5 = 11, +4 conquest-only = 15 total
+    expect(p.availableTokens).toBe(15);
+    expect(p.activeRace!.totalTokens).toBe(15);
   });
 
   it('removes conquestOnlyTokens from board after redeployment', () => {
@@ -409,6 +461,61 @@ describe('applyAction — Amazons conquestOnlyTokens', () => {
 
     expect(next.players[0].activeRace!.tokensOnBoard).toBe(8);
     expect(next.players[0].activeRace!.totalTokens).toBe(8);
+  });
+});
+
+// ── Halflings — Hole-in-the-Ground removed on decline/abandon ─────────────────
+
+describe('applyAction — Halflings hasHoleInTheGround cleanup', () => {
+  it('clears hasHoleInTheGround from all regions when Halflings go In Decline', () => {
+    let state = withRace(createInitialState({ firstPlayerIndex: 0 }), 0, 'halflings', 'bivouacking');
+    state = patchRegion(state, 19, { owner: 0, tokens: 2, isDeclined: false, hasHoleInTheGround: true });
+    state = patchRegion(state, 20, { owner: 0, tokens: 2, isDeclined: false, hasHoleInTheGround: true });
+    state = patchState(state, { phase: 'optionalDecline' });
+
+    const next = applyAction(state, { type: 'decline' });
+    expect(next.board.regions.find(r => r.id === 19)!.hasHoleInTheGround).toBe(false);
+    expect(next.board.regions.find(r => r.id === 20)!.hasHoleInTheGround).toBe(false);
+  });
+
+  it('clears hasHoleInTheGround when a region is abandoned via pickUpTokens', () => {
+    let state = withRace(createInitialState({ firstPlayerIndex: 0 }), 0, 'halflings', 'bivouacking', { tokensOnBoard: 1 });
+    state = patchRegion(state, 20, { owner: 0, tokens: 1, isDeclined: false, hasHoleInTheGround: true });
+    state = patchPlayer(state, 0, { availableTokens: 5 });
+    state = patchState(state, { phase: 'readyTroops' });
+
+    const next = applyAction(state, { type: 'pickUpTokens', regionId: 20, count: 1 });
+    const r20 = next.board.regions.find(r => r.id === 20)!;
+    expect(r20.owner).toBeNull();
+    expect(r20.hasHoleInTheGround).toBe(false);
+  });
+
+  it('clears hasHoleInTheGround when a region is abandoned via readyTroopsDeploy', () => {
+    let state = withRace(createInitialState({ firstPlayerIndex: 0 }), 0, 'halflings', 'bivouacking', { tokensOnBoard: 3, totalTokens: 6 });
+    state = patchRegion(state, 19, { owner: 0, tokens: 2, isDeclined: false, hasHoleInTheGround: true });
+    state = patchRegion(state, 20, { owner: 0, tokens: 1, isDeclined: false, hasHoleInTheGround: false });
+    state = patchPlayer(state, 0, { availableTokens: 4 });
+    state = patchState(state, { phase: 'readyTroops' });
+
+    // Abandon region 19 (set to 0)
+    const deployment = new Map([[19, 0], [20, 1]]);
+    const next = applyAction(state, { type: 'readyTroopsDeploy', deployment });
+    const r19 = next.board.regions.find(r => r.id === 19)!;
+    expect(r19.owner).toBeNull();
+    expect(r19.hasHoleInTheGround).toBe(false);
+  });
+
+  it('does NOT clear hasHoleInTheGround when only some tokens are removed (region kept)', () => {
+    let state = withRace(createInitialState({ firstPlayerIndex: 0 }), 0, 'halflings', 'bivouacking', { tokensOnBoard: 3, totalTokens: 6 });
+    state = patchRegion(state, 20, { owner: 0, tokens: 3, isDeclined: false, hasHoleInTheGround: true });
+    state = patchPlayer(state, 0, { availableTokens: 4 });
+    state = patchState(state, { phase: 'readyTroops' });
+
+    // Pick up 1 token but keep 2 in region
+    const next = applyAction(state, { type: 'pickUpTokens', regionId: 20, count: 1 });
+    const r20 = next.board.regions.find(r => r.id === 20)!;
+    expect(r20.tokens).toBe(2);
+    expect(r20.hasHoleInTheGround).toBe(true); // Hole stays when region is kept
   });
 });
 

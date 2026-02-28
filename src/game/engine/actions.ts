@@ -76,6 +76,13 @@ function applySelectComboAction(
   // Replace log tail added by applySelectCombo to avoid double-entry
   const log = [...state.log, logEntry];
   let result = { ...next, phase: nextPhase, log };
+  // Amazons: inject conquest-only tokens at the start of the combat turn.
+  // On turn 1 the player goes directly to conquest (no tokens on board to gather).
+  // On subsequent turns with Ghouls In Decline the tokens are stashed below and
+  // restored after Ghoul phases so they're available for the Amazon combat turn.
+  if (nextPhase === 'conquest' || nextPhase === 'ghoulReadyTroops') {
+    result = addConquestOnlyTokens(result, result.activePlayerIndex);
+  }
   // Stash active race tokens during Ghoul phases
   if (nextPhase === 'ghoulReadyTroops') {
     result = stashTokensForGhouls(result);
@@ -95,6 +102,28 @@ function stashTokensForGhouls(state: GameState): GameState {
       ghoulSavedTokens: player.availableTokens,
       availableTokens: reserve, // Start with any tokens recovered from conquered Ghoul regions
       ghoulTokensInReserve: undefined, // Consumed
+    }),
+  };
+}
+
+/**
+ * Add conquest-only tokens (e.g. Amazon +4) to the active player's hand.
+ * Called when the player enters readyTroops or conquest so the tokens are
+ * available for the full combat turn, not just during conquest itself.
+ */
+function addConquestOnlyTokens(state: GameState, playerIndex: 0 | 1): GameState {
+  const player = state.players[playerIndex];
+  if (!player.activeRace) return state;
+  const mods = getActiveModifiers(player);
+  if (mods.conquestOnlyTokens <= 0) return state;
+  return {
+    ...state,
+    players: patchPlayer(state, playerIndex, {
+      availableTokens: player.availableTokens + mods.conquestOnlyTokens,
+      activeRace: {
+        ...player.activeRace,
+        totalTokens: player.activeRace.totalTokens + mods.conquestOnlyTokens,
+      },
     }),
   };
 }
@@ -127,8 +156,9 @@ function applyPickUpTokens(
   const remaining = region.tokens - actualCount;
 
   // If all tokens removed, abandon the region (FR-13b)
+  // Clear hasHoleInTheGround so Halfling holes disappear on abandon.
   const regionPatch: Partial<RegionState> = remaining === 0
-    ? { tokens: 0, owner: null }
+    ? { tokens: 0, owner: null, hasHoleInTheGround: false }
     : { tokens: remaining };
 
   return {
@@ -164,7 +194,8 @@ function applyReadyTroopsDeploy(
     const diff = region.tokens - newCount;
     tokensPickedUp += diff;
     if (newCount === 0) {
-      return { ...region, tokens: 0, owner: null };
+      // Abandoned region: clear hole-in-the-ground (Halflings lose protection on abandon)
+      return { ...region, tokens: 0, owner: null, hasHoleInTheGround: false };
     }
     return { ...region, tokens: Math.max(0, newCount) };
   });
@@ -815,7 +846,7 @@ function applyDecline(state: GameState, logEntry: GameLogEntry): GameState {
     }
     // Active region → mark as declined
     const declineTokens = mods.keepAllTokensInDecline ? r.tokens : 1;
-    return { ...r, tokens: declineTokens, isDeclined: true, declinedRaceId: race.raceId, hasEncampment: false, hasHero: false };
+    return { ...r, tokens: declineTokens, isDeclined: true, declinedRaceId: race.raceId, hasEncampment: false, hasHero: false, hasHoleInTheGround: false };
   });
 
   // The new declined race entry
@@ -854,26 +885,6 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
   // Restore active race tokens when leaving ghoulRedeploy
   if (state.phase === 'ghoulRedeploy') {
     scored = restoreTokensFromGhouls(scored);
-  }
-
-  // Amazons: add conquestOnlyTokens to hand when entering conquest from readyTroops
-  if (state.phase === 'readyTroops' && nextPhase === 'conquest') {
-    const player = scored.players[scored.activePlayerIndex];
-    if (player.activeRace) {
-      const mods = getActiveModifiers(player);
-      if (mods.conquestOnlyTokens > 0) {
-        scored = {
-          ...scored,
-          players: patchPlayer(scored, scored.activePlayerIndex, {
-            availableTokens: player.availableTokens + mods.conquestOnlyTokens,
-            activeRace: {
-              ...player.activeRace,
-              totalTokens: player.activeRace.totalTokens + mods.conquestOnlyTokens,
-            },
-          }),
-        };
-      }
-    }
   }
 
   // Determine if we switch to the next player
@@ -938,6 +949,12 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
     round: newRound,
     reinforcementDie: null,
   };
+
+  // Amazons: inject conquest-only tokens at the start of the combat turn.
+  // Injection happens before stashing so they're preserved through Ghoul phases.
+  if (nextPhase === 'readyTroops' || nextPhase === 'ghoulReadyTroops') {
+    switchedState = addConquestOnlyTokens(switchedState, nextPlayerIndex);
+  }
 
   // Stash tokens if next player starts with Ghoul phases
   if (nextPhase === 'ghoulReadyTroops') {
