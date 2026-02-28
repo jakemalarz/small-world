@@ -118,9 +118,9 @@ describe('applyAction — decline mechanics', () => {
     expect(next.players[0].availableTokens).toBe(0);
   });
 
-  it('removes a previous non-Spirit declined race when a new race declines', () => {
+  it('removes a previous declined race when a new race declines', () => {
     const previousDeclined: DeclinedRaceState = {
-      raceId: 'humans' as never, powerId: 'alchemist' as never, isSpirit: false,
+      raceId: 'humans' as never, powerId: 'alchemist' as never,
     };
     const state = buildDeclineReadyState({
       raceId: 'elves', powerId: 'flying', priorDeclinedRaces: [previousDeclined],
@@ -128,28 +128,6 @@ describe('applyAction — decline mechanics', () => {
     const next = applyAction(state, { type: 'decline' });
     expect(next.players[0].declinedRaces).toHaveLength(1);
     expect(next.players[0].declinedRaces[0].raceId).toBe('elves');
-  });
-
-  it('preserves a Spirit-powered declined race when a new race enters decline', () => {
-    const spiritDeclined: DeclinedRaceState = {
-      raceId: 'dwarves' as never, powerId: 'spirit' as never, isSpirit: true,
-    };
-    const state = buildDeclineReadyState({
-      raceId: 'orcs', powerId: 'bivouacking', priorDeclinedRaces: [spiritDeclined],
-    });
-    const next = applyAction(state, { type: 'decline' });
-    expect(next.players[0].declinedRaces).toHaveLength(2);
-    const spirit = next.players[0].declinedRaces.find((dr) => dr.raceId === 'dwarves');
-    const newRace = next.players[0].declinedRaces.find((dr) => dr.raceId === 'orcs');
-    expect(spirit).toBeDefined();
-    expect(spirit!.isSpirit).toBe(true);
-    expect(newRace).toBeDefined();
-  });
-
-  it('sets isSpirit=true on declined race entry when powerId is spirit', () => {
-    const state = buildDeclineReadyState({ raceId: 'elves', powerId: 'spirit' });
-    const next = applyAction(state, { type: 'decline' });
-    expect(next.players[0].declinedRaces[0].isSpirit).toBe(true);
   });
 
   it('preserves all tokens on Ghoul regions in decline (keepAllTokensInDecline)', () => {
@@ -220,27 +198,15 @@ describe('applyAction — decline mechanics', () => {
     expect(JSON.stringify(state)).toBe(snapshot);
   });
 
-  it('removes non-surviving declined regions when active race declines (Ghouls cleared)', () => {
-    // A non-Spirit declined region (e.g. Ghouls) should be removed when the active race declines (FR-24)
+  it('removes previous declined regions when active race declines (FR-24)', () => {
     let state = buildDeclineReadyState({ region1Tokens: 3 });
     state = patchRegion(state, 5, { owner: 0, tokens: 4, isDeclined: true, declinedRaceId: 'ghouls' as never });
-    state = patchPlayer(state, 0, { declinedRaces: [{ raceId: 'ghouls' as never, powerId: 'stout' as never, isSpirit: false }] });
+    state = patchPlayer(state, 0, { declinedRaces: [{ raceId: 'ghouls' as never, powerId: 'stout' as never }] });
     const next = applyAction(state, { type: 'decline' });
     const r5 = next.board.regions.find((r) => r.id === 5)!;
     expect(r5.tokens).toBe(0);
     expect(r5.owner).toBeNull();
     expect(r5.isDeclined).toBe(false);
-  });
-
-  it('preserves Spirit-powered declined regions when active race declines', () => {
-    // Spirit-powered declined regions must NOT be cleared when a second race declines
-    let state = buildDeclineReadyState({ region1Tokens: 3 });
-    state = patchRegion(state, 5, { owner: 0, tokens: 4, isDeclined: true, declinedRaceId: 'elves' as never });
-    state = patchPlayer(state, 0, { declinedRaces: [{ raceId: 'elves' as never, powerId: 'spirit' as never, isSpirit: true }] });
-    const next = applyAction(state, { type: 'decline' });
-    const r5 = next.board.regions.find((r) => r.id === 5)!;
-    expect(r5.tokens).toBe(4);
-    expect(r5.isDeclined).toBe(true);
   });
 });
 

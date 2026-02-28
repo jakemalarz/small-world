@@ -52,7 +52,6 @@ export type PowerId =
   | 'berserk'
   | 'bivouacking'
   | 'commando'
-  | 'diplomat'
   | 'dragonMaster'
   | 'flying'
   | 'forest'
@@ -63,7 +62,6 @@ export type PowerId =
   | 'mounted'
   | 'pillaging'
   | 'seafaring'
-  | 'spirit'
   | 'stout'
   | 'swamp'
   | 'underworld'
@@ -87,7 +85,6 @@ export type GameAction =
   | { readonly type: 'defenderRedeploy'; readonly deployment: ReadonlyMap<number, number> }
   | { readonly type: 'placeDragon'; readonly regionId: number }
   | { readonly type: 'sorcererConvert'; readonly regionId: number }
-  | { readonly type: 'selectDiplomatAlly'; readonly playerIndex: 0 | 1 }
   | { readonly type: 'placeHeroes'; readonly regionIds: readonly [number, number] }
   | { readonly type: 'placeEncampments'; readonly regionIds: readonly number[] }
   | { readonly type: 'startFinalConquest' }
@@ -154,7 +151,6 @@ export interface ActiveRaceState {
   readonly heroRegions?: readonly [number, number];
   readonly dragonRegion?: number | null;
   readonly halflingHoles?: readonly number[];
-  readonly diplomatAlly?: 0 | 1 | null;
   readonly wealthyBonusApplied?: boolean;  // Wealthy: +7 applied on first scoring turn
 }
 
@@ -163,7 +159,6 @@ export interface ActiveRaceState {
 export interface DeclinedRaceState {
   readonly raceId: RaceId;
   readonly powerId: PowerId;
-  readonly isSpirit: boolean; // Spirit power — exempt from normal single-race removal
 }
 
 // ─── Player State ─────────────────────────────────────────────────────────────
@@ -171,7 +166,6 @@ export interface DeclinedRaceState {
 export interface PlayerState {
   readonly coins: number;
   readonly activeRace: ActiveRaceState | null;
-  // Normally 0–1 declined races; up to 2 when Spirit is in play
   readonly declinedRaces: readonly DeclinedRaceState[];
   readonly availableTokens: number;  // Tokens in hand (not yet placed on board)
   // Stashed active-race tokens during Ghoul phases (restored after ghoulRedeploy)

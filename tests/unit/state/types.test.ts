@@ -55,11 +55,11 @@ describe('Game state types', () => {
 
   it('has the correct number of power IDs', () => {
     const powerIds: PowerId[] = [
-      'alchemist', 'berserk', 'bivouacking', 'commando', 'diplomat',
+      'alchemist', 'berserk', 'bivouacking', 'commando',
       'dragonMaster', 'flying', 'forest', 'fortified', 'heroic',
       'hill', 'merchant', 'mounted', 'pillaging', 'seafaring',
-      'spirit', 'stout', 'swamp', 'underworld', 'wealthy',
+      'stout', 'swamp', 'underworld', 'wealthy',
     ];
-    expect(powerIds).toHaveLength(20);
+    expect(powerIds).toHaveLength(18);
   });
 });

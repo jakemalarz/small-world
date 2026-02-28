@@ -8,9 +8,9 @@ A web-based implementation of the Small World board game (by Days of Wonder) for
 All 35 tasks done. Full game loop: state/map/race/power/combat/scoring/redeployment engine, Board+HUD scenes, HumanPlayer, Easy+Medium AI, end screen, tooltips, main menu (HvH/HvAI/AivAI).
 
 ### Phase 2 — UX Enhancements & Bug Fixes (COMPLETE)
-All 18 tasks (36–53) done. 343 unit / 79 E2E tests passing. See git log for fix/feature details.
+All 18 tasks (36–53) done. 360 unit / 79 E2E tests passing. See git log for fix/feature details.
 
-**Current workflow**: Working through issues in `design/phase-2-ideas.md` in priority order. Each fix includes unit tests. All 343 unit + 79 E2E tests must pass before committing.
+**Current workflow**: Working through issues in `design/phase-2-ideas.md` in priority order. Each fix includes unit tests. All 360 unit + 79 E2E tests must pass before committing.
 
 ---
 
@@ -35,7 +35,7 @@ small-world/
 │   │   ├── data/
 │   │   │   ├── map2p.ts         # 2-player map: polygons, adjacency, terrain, markers
 │   │   │   ├── races.ts         # 14 race definitions (tokens, abilities, maxSupply)
-│   │   │   └── powers.ts        # 20 power definitions (bonuses, modifiers)
+│   │   │   └── powers.ts        # 18 power definitions (bonuses, modifiers)
 │   │   ├── engine/              # Pure-function game logic (no Phaser dependency)
 │   │   │   ├── actions.ts       # applyAction — central state transition
 │   │   │   ├── legalActions.ts  # getLegalActions — valid moves per phase
@@ -43,7 +43,7 @@ small-world/
 │   │   │   ├── setup.ts         # createInitialState
 │   │   │   ├── comboShop.ts     # Combo selection + shop replenishment
 │   │   │   ├── conquestCost.ts  # Conquest cost with ability modifiers
-│   │   │   ├── decline.ts       # Decline mechanics (Spirit, Ghoul exceptions)
+│   │   │   ├── decline.ts       # Decline mechanics (Ghoul exceptions)
 │   │   │   ├── scoring.ts       # End-of-turn scoring with race/power bonuses
 │   │   │   ├── reinforcementDie.ts # Die roll + final conquest attempt
 │   │   │   └── redeployment.ts  # Token redistribution
@@ -122,7 +122,7 @@ Skill source files live in `pm-skills/skills/` with templates and examples. When
 
 ## Project Documents
 
-- **PRD**: `docs/prd.md` — Full product requirements: user stories, functional requirements, all 14 races, all 20 powers, edge cases, milestones
+- **PRD**: `docs/prd.md` — Full product requirements: user stories, functional requirements, all 14 races, all 18 powers (Diplomat & Spirit descoped), edge cases, milestones
 - **Technical Design**: `design/technical-design.md` — Architecture decisions, game state model, engine structure, scene graph, ability system, testing strategy
 - **Roadmap**: `design/roadmap.md` — Phased delivery plan; Phases 2–7 document future features (visual polish, audio, MCP bridge, online multiplayer, additional player counts, QoL)
 - **Phase 2 E2E Tasks**: `.taskmaster/docs/phase2-e2e-tasks.txt` — Phase 2 E2E test plan (completed)
@@ -146,9 +146,9 @@ npx playwright show-report       # View last test report
 
 ## Testing
 
-- **Vitest** — 343 unit tests covering engine logic (scoring, setup, conquest cost, redeployment, ready troops, reinforcement die, legal actions, decline, Amazons token removal, Sorcerer limits), data tables (races, powers), state types, and audio manager stub. Run: `npx vitest run`
+- **Vitest** — 360 unit tests covering engine logic (scoring, setup, conquest cost, redeployment, ready troops, reinforcement die, legal actions, decline, Amazons token removal, Sorcerer limits), data tables (races, powers), state types, and audio manager stub. Run: `npx vitest run`
 - **Playwright** (`@playwright/test`) — 79 E2E tests per browser across Chromium/Firefox/WebKit. Covers main menu, HvH game flow, HvAI game flow, and Phase 2 features (decline, first conquest, pan mode, browse mode, redeployment, tooltips, final conquest token placement, readyTroops token gathering with abandon). Config: `playwright.config.ts`. Run: `npx playwright test --project=chromium`
-- **Stabilization rule**: Every bug fix must include an E2E test that reproduces the issue. All 343 unit + 79 E2E tests must pass before committing.
+- **Stabilization rule**: Every bug fix must include an E2E test that reproduces the issue. All 360 unit + 79 E2E tests must pass before committing.
 - **E2E execution**: Always run Playwright with `--project=chromium` only (not all browsers) to save context and tokens. Full cross-browser testing is done separately outside of Claude sessions.
 
 ### Recent Changes

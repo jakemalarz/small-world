@@ -39,9 +39,9 @@ describe('createInitialState', () => {
     expect(state.comboShop.raceDeck).toHaveLength(8);
   });
 
-  it('remaining power deck has 20 - 6 = 14 cards', () => {
+  it('remaining power deck has 18 - 6 = 12 cards', () => {
     const state = createInitialState();
-    expect(state.comboShop.powerDeck).toHaveLength(14);
+    expect(state.comboShop.powerDeck).toHaveLength(12);
   });
 
   it('no race or power appears twice across shop + remaining deck', () => {

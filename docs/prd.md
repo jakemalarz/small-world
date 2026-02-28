@@ -1,6 +1,6 @@
 ---
 artifact: prd
-version: "1.5"
+version: "1.7"
 created: 2026-02-20
 status: draft
 ---
@@ -37,7 +37,7 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 | Metric | Current Baseline | Target | Timeline |
 |--------|-----------------|--------|----------|
 | Rules accuracy | N/A | 100% of 2-player rules correctly implemented | MVP |
-| Complete game playable | N/A | Full 10-turn game with all 14 races and 20 powers | MVP |
+| Complete game playable | N/A | Full 10-turn game with all 14 races and 18 powers | MVP |
 | AI opponent functional | N/A | 3 difficulty levels (easy, medium, hard) | MVP |
 | Animation coverage | N/A | All key actions (conquest, decline, scoring, dice roll) animated | MVP |
 | Sound effect coverage | N/A | All key actions have tabletop-style audio feedback | MVP |
@@ -79,7 +79,7 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 
 - **2-player map** — 23-region board with primary terrain types (Mountain, Forest, Farmland, Hill, Swamp, Sea, Lake) and secondary classifications (Mine, Magic, Underworld). Derived classifications (Coastal, Mountain-adjacent) are computed from adjacency
 - **All 14 races** — Amazons, Dwarves, Elves, Ghouls, Giants, Halflings, Humans, Orcs, Ratmen, Skeletons, Sorcerers, Tritons, Trolls, Wizards
-- **All 20 special powers** — Alchemist, Berserk, Bivouacking, Commando, Diplomat, Dragon Master, Flying, Forest, Fortified, Heroic, Hill, Merchant, Mounted, Pillaging, Seafaring, Spirit, Stout, Swamp, Underworld, Wealthy
+- **All 18 special powers** — Alchemist, Berserk, Bivouacking, Commando, Dragon Master, Flying, Forest, Fortified, Heroic, Hill, Merchant, Mounted, Pillaging, Seafaring, Stout, Swamp, Underworld, Wealthy
 - **Complete game loop** — Setup, race selection, ready troops, conquest, reinforcement die, redeployment, decline, scoring, 10-turn structure, end-game
 - **Three play modes** — Human vs. Human (hot-seat), Human vs. AI, AI vs. AI
 - **AI with 3 difficulty levels** — Easy (basic valid moves), Medium (heuristic strategy), Hard (optimized play)
@@ -101,6 +101,8 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 - Game replay or spectator mode
 - Localization / multi-language support
 - Accessibility features (screen reader support, colorblind modes)
+- **Diplomat power** — Descoped: alliance mechanic adds significant complexity to a 2-player game with minimal strategic benefit
+- **Spirit power** — Descoped: the multi-declined-race exception deeply complicates decline logic for a niche interaction
 
 ### Future Considerations
 
@@ -169,14 +171,13 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 #### Decline
 
 - FR-22: A player may choose to go in decline instead of conquering; the turn ends immediately after decline and scoring
-- FR-23: Declining shall animate: banner flip to gray, power badge removal (except Spirit — badge is kept), token reduction to 1 per region with visual flip to declined state
+- FR-23: Declining shall animate: banner flip to gray, power badge removal, token reduction to 1 per region with visual flip to declined state
 - FR-23a: Exception — Ghouls do not reduce to 1 token per region when going In Decline; all Ghoul tokens remain on the map. In Decline Ghouls can move and conquer normally before the player's Active race acts
 - FR-23b: When a player has Ghouls In Decline and a second active race that has been deployed (tokensOnBoard > 0), the player's turn shall begin with the option to decline the active race immediately (before Ghouls act). The "Go In Decline" button is re-labeled "Decline [Race Name]" to clarify which race is being declined. If the player declines: all Ghoul phases are skipped, Ghoul tokens are removed from the board (FR-24), Ghoul regions are not counted in scoring, and the active race goes In Decline normally. This option is NOT available on the first turn after selecting a new combo (tokensOnBoard === 0)
 - FR-23c: When a player has Ghouls In Decline and a second active race, the player's In Decline box shall be highlighted as active during Ghoul phases (ghoulReadyTroops/ghoulConquest/ghoulRedeploy/ghoulReinforcementDie). When the active race's phases begin, the active race box shall be highlighted instead
 - FR-23d: Ghoul In Decline combat — when an opponent conquers a region containing Ghoul In Decline tokens, normal combat rules apply: 1 token is permanently discarded and the remaining N-1 tokens are held in reserve for the Ghoul owner's next turn. At the start of the next Ghoul gathering phase (ghoulReadyTroops), the reserve tokens become immediately available in hand alongside any tokens still gathered from board regions. The In Decline box shall display "In Hand: N" whenever tokens are held in reserve (even outside of Ghoul phases), so the Ghoul owner can see their surviving tokens right after the loss
 - FR-24: If the player already has a declined race, those tokens shall be animated off the board before the new decline takes effect. Scoring for the turn in which the active race declines shall not include regions previously held by the now-removed declined race (e.g. Ghouls In Decline regions are removed and not scored when the active race declines)
-- FR-25: The Spirit power exception: Spirit-powered race tokens In Decline are exempt from the "1 In Decline race" removal rule. When a player with a Spirit race In Decline later declines a different race, the Spirit race's tokens stay on the board and the non-Spirit declined race (if any) is removed normally
-- FR-25a: The Stout power exception: a player with Stout may go In Decline at the end of a regular conquest turn (Conquer → Redeploy → Score → Decline) instead of spending a whole turn on decline
+- FR-25: The Stout power exception: a player with Stout may go In Decline at the end of a regular conquest turn (Conquer → Redeploy → Score → Decline) instead of spending a whole turn on decline
 
 #### Troop Redeployment
 
@@ -217,7 +218,7 @@ All 14 races shall be implemented with the following token counts and abilities.
 
 #### Special Powers
 
-All 20 special powers shall be implemented with the following bonus token counts and abilities:
+All 18 special powers shall be implemented with the following bonus token counts and abilities (Diplomat and Spirit have been descoped — see Out of Scope):
 
 | Power | Bonus Tokens | Ability |
 |-------|-------------|---------|
@@ -225,7 +226,6 @@ All 20 special powers shall be implemented with the following bonus token counts
 | Berserk | +4 | May use the Reinforcement Die for every conquest attempt, not just the last one |
 | Bivouacking | +5 | Deploy up to 5 Encampment tokens (+1 defense each). Can be repositioned every turn. Disappear In Decline |
 | Commando | +4 | Conquest cost -1 on any region |
-| Diplomat | +5 | Choose one opponent as an ally at end of turn (must not have attacked them). That opponent cannot attack you until your next turn |
 | Dragon Master | +5 | Once per turn, conquer a region with 1 token (ignores all defense). Place Dragon there (immune to conquest). Dragon moves each turn |
 | Flying | +5 | May conquer any region regardless of adjacency. Cannot conquer Seas/Lakes |
 | Forest | +4 | +1 Victory Coin per Forest region |
@@ -236,7 +236,6 @@ All 20 special powers shall be implemented with the following bonus token counts
 | Mounted | +5 | Conquest cost -1 on Hill and Farmland regions |
 | Pillaging | +5 | +1 Victory Coin per non-empty region conquered this turn |
 | Seafaring | +5 | May conquer Seas and Lakes (treated as empty regions). Keep them In Decline |
-| Spirit | +5 | In Decline tokens do not count toward the "1 In Decline race" limit. They stay on the board alongside a second declined race |
 | Stout | +4 | Can go In Decline at the end of a regular conquest turn (Conquer → Redeploy → Score → Decline) instead of spending a whole turn |
 | Swamp | +4 | +1 Victory Coin per Swamp region |
 | Underworld | +5 | Conquest cost -1 on Underworld regions. All Underworld regions are considered adjacent to each other |
@@ -325,14 +324,13 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 | Player's last token is defeated while they hold no regions | They redeploy on their next turn as a first conquest (border region entry) |
 | Reinforcement die roll of 0 with only 1 token | Conquest fails; tokens are placed back in the player's previously occupied regions as part of redeployment |
 | Single In Decline token or Lost Tribe conquered | The single token is simply removed/discarded entirely (no "1 discarded + remaining returned" — there are no remaining tokens) |
-| Spirit power + decline | Spirit-powered race tokens are exempt from the normal In Decline removal. When the player declines again, the Spirit race stays and any other non-Spirit In Decline race is removed normally. A player can have at most 2 declined races (1 Spirit + 1 other) |
 | Ghouls in decline attempt conquests | Allowed — Ghouls in decline can move and conquer before the active race acts. Ghouls also keep all tokens on the map when declining (don't reduce to 1) |
 | Ghoul In Decline region conquered by opponent (2+ tokens) | Normal combat rules apply: 1 token permanently discarded, N-1 tokens go to reserve. Reserve tokens are available at the start of the Ghoul owner's next Ghoul gathering phase. The In Decline box shows "In Hand: N" immediately after the loss |
 | Halflings' first 2 regions with Hole-in-the-Ground | These regions are immune to conquest and special powers per the rules (Hole-in-the-Ground tokens placed on first 2 conquered regions). Holes are permanently removed when Halflings go Into Decline or when the player abandons a Hole region during readyTroops. Only 2 Holes total may ever be placed regardless of abandonment |
 | Dragon Master conquers a region with dragon | Dragon Master conquers a new region with only 1 token (ignoring all defense), then places the Dragon there making it immune to conquest. The Dragon moves to a new conquered region each turn |
 | Stout power and decline | Player with Stout performs a full conquest turn (conquer → redeploy → score), then goes In Decline at the end — unlike normal decline which skips conquest entirely |
 | Skeleton/Sorcerer token generation exceeds max supply | No new tokens are generated — the race's token supply is finite (e.g., Skeletons max 20, Sorcerers max 18). Abilities that create tokens are capped by available supply |
-| All race/power combos exhausted | This should not occur in a 2-player, 10-turn game given 14 races and 20 powers |
+| All race/power combos exhausted | This should not occur in a 2-player, 10-turn game given 14 races and 18 powers (ample supply) |
 | Player tries to zoom beyond min/max bounds | Zoom snaps to the nearest valid level with elastic feedback |
 
 ## Technical Considerations
@@ -376,7 +374,7 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 | Race/power interactions create edge cases not covered by rules | M | M | Implement a comprehensive rules engine with unit tests; reference the rulebook FAQ |
 | Phaser.js canvas performance degrades with many animated tokens | L | M | Profile early; use object pooling and limit simultaneous animations |
 | AI difficulty tuning is subjective and hard to balance | M | M | Start with easy/random AI; iterate on medium/hard based on playtesting |
-| Scope of 14 races + 20 powers is large for initial release | M | H | Implement a generic race/power interface; add abilities incrementally behind a shared architecture |
+| Scope of 14 races + 18 powers is large for initial release | M | H | Implement a generic race/power interface; add abilities incrementally behind a shared architecture |
 | Faithful map recreation requires significant art effort | H | M | Consider AI-generated assets (Gemini via nano-banana MCP) for initial art; refine manually |
 
 ## Timeline & Milestones
@@ -384,7 +382,7 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 | Milestone | Description | Target Date |
 |-----------|-------------|-------------|
 | M1: Core Engine | Game loop, turn structure, basic conquest mechanics, placeholder map with clickable regions | TBD |
-| M2: Complete Rules | All 14 races, 20 powers, decline, scoring, reinforcement die — fully rules-accurate | TBD |
+| M2: Complete Rules | All 14 races, 18 powers, decline, scoring, reinforcement die — fully rules-accurate | TBD |
 | M3: Map & Visuals | Faithful 2-player map, terrain art, token art, player color coding, region state indicators | TBD |
 | M4: Animations | Polished animations for all game actions (conquest, decline, scoring, dice, token movement) | TBD |
 | M5: Audio | Complete tabletop sound design — ambient, tokens, dice, coins, transitions, victory | TBD |
@@ -397,7 +395,7 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 - [ ] How should the map region data be sourced? Manually trace polygons from the reference image, or use a map editor tool? — Owner: Developer
 - [ ] What asset generation approach for race banners, power badges, and tokens? Hand-drawn, AI-generated (Gemini), or sourced/licensed? — Owner: Developer
 - [ ] Should the AI "think" visibly (show its reasoning) or just execute moves? — Owner: Developer
-- [ ] How should the Diplomat power's "alliance" selection work in AI vs. human games? — Owner: Developer
+
 - [ ] Should there be a game speed setting for AI vs. AI spectator mode? — Owner: Developer
 - [ ] What are the exact min/max zoom levels for the canvas? — Owner: Developer
 
@@ -421,3 +419,4 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 | 1.4 | 2026-02-27 | Jake + Claude | Ghoul combat bug fix: added FR-23d (Ghoul In Decline tokens follow normal combat rules — 1 discarded, N-1 to reserve); clarified FR-18a (all non-Ghoul declined tokens removed, Ghoul exception); added edge case for Ghoul In Decline region conquered by opponent |
 | 1.5 | 2026-02-27 | Jake + Claude | Amazon and Halfling rule corrections: Amazons +4 tokens now available during readyTroops AND conquest (not conquest-only); Halflings Holes-in-the-Ground removed on In Decline or region abandon; updated race table and edge cases accordingly |
 | 1.6 | 2026-02-27 | Jake + Claude | Skeleton timing fix: tokens from conquered regions are granted at the start of redeployment (not during conquest), so they can be deployed but not used for further conquests; updated race table accordingly |
+| 1.7 | 2026-02-28 | Jake + Claude | Descoped Diplomat and Spirit powers: removed from power table, type system, engine logic, and tests. Diplomat's alliance mechanic adds complexity with minimal 2-player benefit; Spirit's multi-declined-race exception deeply complicates decline logic. Power count reduced from 20 to 18. Removed FR-25 (Spirit exception), Spirit edge case, and Diplomat open question |

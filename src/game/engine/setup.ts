@@ -8,10 +8,10 @@ const ALL_RACE_IDS: readonly RaceId[] = [
 ];
 
 const ALL_POWER_IDS: readonly PowerId[] = [
-  'alchemist', 'berserk', 'bivouacking', 'commando', 'diplomat',
+  'alchemist', 'berserk', 'bivouacking', 'commando',
   'dragonMaster', 'flying', 'forest', 'fortified', 'heroic',
   'hill', 'merchant', 'mounted', 'pillaging', 'seafaring',
-  'spirit', 'stout', 'swamp', 'underworld', 'wealthy',
+  'stout', 'swamp', 'underworld', 'wealthy',
 ];
 
 /** Fisher-Yates shuffle — returns a new array. */

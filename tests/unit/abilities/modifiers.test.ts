@@ -104,10 +104,10 @@ describe('getActiveModifiers', () => {
   });
 
   it('ghouls keepAllTokensInDecline stays true through merge', () => {
-    const player = makePlayer('ghouls', 'spirit');
+    const player = makePlayer('ghouls', 'stout');
     const mods = getActiveModifiers(player);
     expect(mods.keepAllTokensInDecline).toBe(true);
-    expect(mods.declineRacesSurvive).toBe(true);
+    expect(mods.canDeclineAfterConquest).toBe(true);
   });
 
   it('trolls placesLair stays true', () => {

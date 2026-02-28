@@ -71,8 +71,6 @@ export interface AbilityModifiers {
   // ── Decline behaviour ────────────────────────────────────────────────────────
   /** Keep all tokens (don't reduce to 1 per region) when going In Decline (Ghouls) */
   keepAllTokensInDecline?: boolean;
-  /** In Decline tokens are exempt from the single-declined-race limit (Spirit) */
-  declineRacesSurvive?: boolean;
   /** May go In Decline at end of a regular conquest turn instead of a whole turn (Stout) */
   canDeclineAfterConquest?: boolean;
 
@@ -125,7 +123,6 @@ export interface MergedModifiers {
   readonly noDefeatCasualties: boolean;
   // Decline
   readonly keepAllTokensInDecline: boolean;
-  readonly declineRacesSurvive: boolean;
   readonly canDeclineAfterConquest: boolean;
   // Die
   readonly berserkDie: boolean;
@@ -152,7 +149,6 @@ export const EMPTY_MODIFIERS: MergedModifiers = {
   placesLair: false,
   noDefeatCasualties: false,
   keepAllTokensInDecline: false,
-  declineRacesSurvive: false,
   canDeclineAfterConquest: false,
   berserkDie: false,
 };
@@ -213,7 +209,6 @@ function mergeModifiers(r: AbilityModifiers, p: AbilityModifiers): MergedModifie
     placesLair: (r.placesLair ?? false) || (p.placesLair ?? false),
     noDefeatCasualties: (r.noDefeatCasualties ?? false) || (p.noDefeatCasualties ?? false),
     keepAllTokensInDecline: (r.keepAllTokensInDecline ?? false) || (p.keepAllTokensInDecline ?? false),
-    declineRacesSurvive: (r.declineRacesSurvive ?? false) || (p.declineRacesSurvive ?? false),
     canDeclineAfterConquest: (r.canDeclineAfterConquest ?? false) || (p.canDeclineAfterConquest ?? false),
     berserkDie: (r.berserkDie ?? false) || (p.berserkDie ?? false),
   };

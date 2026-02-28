@@ -108,7 +108,7 @@ type TurnPhase =
 interface PlayerState {
   coins: number;
   activeRace: ActiveRaceState | null;
-  declinedRaces: readonly DeclinedRaceState[];  // Usually 0-1, up to 2 with Spirit
+  declinedRaces: readonly DeclinedRaceState[];  // 0-1 declined races
   availableTokens: number;                       // Tokens in hand for placement
 }
 
@@ -123,13 +123,11 @@ interface ActiveRaceState {
   heroRegions?: readonly [number, number];
   dragonRegion?: number;
   halflingHoles?: readonly number[];
-  diplomatAlly?: 0 | 1;
 }
 
 interface DeclinedRaceState {
   raceId: RaceId;
-  powerId: PowerId;                    // Kept only for Spirit check
-  isSpirit: boolean;
+  powerId: PowerId;
 }
 
 interface BoardState {
@@ -180,9 +178,9 @@ type RaceId = 'amazons' | 'dwarves' | 'elves' | 'ghouls' | 'giants'
             | 'sorcerers' | 'tritons' | 'trolls' | 'wizards';
 
 type PowerId = 'alchemist' | 'berserk' | 'bivouacking' | 'commando'
-             | 'diplomat' | 'dragonMaster' | 'flying' | 'forest'
+             | 'dragonMaster' | 'flying' | 'forest'
              | 'fortified' | 'heroic' | 'hill' | 'merchant'
-             | 'mounted' | 'pillaging' | 'seafaring' | 'spirit'
+             | 'mounted' | 'pillaging' | 'seafaring'
              | 'stout' | 'swamp' | 'underworld' | 'wealthy';
 ```
 
@@ -235,7 +233,6 @@ type GameAction =
   | { type: 'ghoulConquer'; regionId: number }       // Ghouls in decline
   | { type: 'placeDragon'; regionId: number }         // Dragon Master
   | { type: 'sorcererConvert'; regionId: number }     // Sorcerers ability
-  | { type: 'selectDiplomatAlly'; playerIndex: 0 | 1 }
   | { type: 'placeHeroes'; regionIds: [number, number] }
   | { type: 'placeEncampments'; regionIds: number[] }
   | { type: 'defenderRedeploy'; deployment: ReadonlyMap<number, number> };
@@ -360,7 +357,7 @@ interface AbilityModifiers {
 
   // Decline modifiers
   keepAllTokensInDecline?: boolean;                  // Ghouls
-  declineRacesSurvive?: boolean;                     // Spirit
+  // (Spirit power removed — declineRacesSurvive no longer needed)
   canDeclineAfterConquest?: boolean;                 // Stout
 
   // Conquest die
@@ -403,7 +400,7 @@ const RACES: Record<RaceId, RaceDefinition> = {
 
 ### 4.3 Custom Handlers
 
-For abilities too complex to express as modifiers (Sorcerers, Dragon Master, Halflings, Diplomat, Heroic):
+For abilities too complex to express as modifiers (Sorcerers, Dragon Master, Halflings, Heroic):
 
 ```typescript
 // src/game/abilities/raceAbilities.ts
@@ -808,7 +805,7 @@ tests/unit/
     conquestCost.test.ts      # Conquest cost with all modifier combos
     scoring.test.ts           # Scoring with all race/power bonuses
     phaseTransition.test.ts   # State machine transitions
-    decline.test.ts           # Decline mechanics (Spirit, Ghouls, Stout)
+    decline.test.ts           # Decline mechanics (Ghouls, Stout)
     comboShop.test.ts         # Combo selection and shop replenishment
   abilities/
     raceAbilities.test.ts     # Each of 14 races
@@ -899,7 +896,7 @@ tests/
 ### M2: Complete Rules
 - All 14 races with abilities
 - All 20 powers with abilities
-- Decline mechanics (Spirit, Ghouls, Stout edge cases)
+- Decline mechanics (Ghouls, Stout edge cases)
 - Scoring with all bonuses
 - Reinforcement die
 - Ready troops phase

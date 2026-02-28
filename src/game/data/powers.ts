@@ -40,14 +40,6 @@ export const POWERS: Readonly<Record<PowerId, PowerDefinition>> = {
     modifiers: { conquestCostModifier: -1 },
     tooltip: '+4 tokens. Conquest cost -1 on any region.',
   },
-  diplomat: {
-    id: 'diplomat',
-    name: 'Diplomat',
-    bonusTokens: 5,
-    modifiers: {},
-    customHandler: 'diplomat',
-    tooltip: "+5 tokens. At end of turn, choose one opponent as ally (if you didn't attack them). They cannot attack you until your next turn.",
-  },
   dragonMaster: {
     id: 'dragonMaster',
     name: 'Dragon Master',
@@ -122,13 +114,6 @@ export const POWERS: Readonly<Record<PowerId, PowerDefinition>> = {
     bonusTokens: 5,
     modifiers: { canConquerSeas: true },
     tooltip: '+5 tokens. May conquer Seas and Lakes (treated as empty regions). Keep them In Decline.',
-  },
-  spirit: {
-    id: 'spirit',
-    name: 'Spirit',
-    bonusTokens: 5,
-    modifiers: { declineRacesSurvive: true },
-    tooltip: '+5 tokens. In Decline tokens are exempt from the 1-declined-race limit — stays alongside another declined race.',
   },
   stout: {
     id: 'stout',

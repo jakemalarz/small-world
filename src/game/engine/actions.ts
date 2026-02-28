@@ -53,7 +53,6 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'defenderRedeploy': return appendLog(state, logEntry); // handled implicitly
     case 'placeHeroes':    return applyPlaceHeroes(state, action.regionIds, logEntry);
     case 'placeEncampments': return applyPlaceEncampments(state, action.regionIds, logEntry);
-    case 'selectDiplomatAlly': return applyDiplomatAlly(state, action.playerIndex, logEntry);
     case 'startFinalConquest': return applyStartFinalConquest(state, logEntry);
     case 'decline':        return applyDecline(state, logEntry);
     case 'endPhase':       return applyEndPhase(state, logEntry);
@@ -718,21 +717,7 @@ function applyPlaceEncampments(
 
 // ── selectDiplomatAlly ────────────────────────────────────────────────────────
 
-function applyDiplomatAlly(
-  state: GameState,
-  allyIndex: 0 | 1,
-  logEntry: GameLogEntry,
-): GameState {
-  const player = state.players[state.activePlayerIndex];
-  if (!player.activeRace) return appendLog(state, logEntry);
 
-  return appendLog({
-    ...state,
-    players: patchPlayer(state, state.activePlayerIndex, {
-      activeRace: { ...player.activeRace, diplomatAlly: allyIndex },
-    }),
-  }, logEntry);
-}
 
 // ── startFinalConquest ────────────────────────────────────────────────────────
 // Simple phase transition: conquest → reinforcementDie.
@@ -801,10 +786,6 @@ function applyDecline(state: GameState, logEntry: GameLogEntry): GameState {
   const race = player.activeRace;
   const mods = getActiveModifiers(player);
 
-  // Determine which previous declined races survive (Spirit only)
-  const survivingDeclined = player.declinedRaces.filter((dr) => dr.isSpirit);
-  const survivingRaceIds = new Set(survivingDeclined.map((dr) => dr.raceId));
-
   // Reduce each active region to 1 token and mark as declined.
   // Bivouacking encampments disappear when going In Decline.
   // Heroic heroes disappear when going In Decline.
@@ -812,14 +793,11 @@ function applyDecline(state: GameState, logEntry: GameLogEntry): GameState {
   //   Non-Seafaring races can never own sea/lake regions, so no special
   //   exclusion needed — just leave them as declined normally.
   //
-  // Also: clear board regions belonging to non-surviving declined races (e.g. Ghouls
-  // when the active race declines — FR-24). Spirit-powered regions are preserved.
+  // Clear board regions belonging to previous declined races (e.g. Ghouls — FR-24).
   const newRegions = state.board.regions.map((r) => {
     if (r.owner !== state.activePlayerIndex) return r;
     if (r.isDeclined) {
-      // Keep only regions belonging to Spirit-powered declined races
-      if (r.declinedRaceId && survivingRaceIds.has(r.declinedRaceId)) return r;
-      // Non-surviving declined region (e.g. Ghouls) → remove from board
+      // Previous declined region → remove from board
       return { ...r, tokens: 0, owner: null as 0 | 1 | null, isDeclined: false, declinedRaceId: null };
     }
     // Active region → mark as declined
@@ -827,15 +805,11 @@ function applyDecline(state: GameState, logEntry: GameLogEntry): GameState {
     return { ...r, tokens: declineTokens, isDeclined: true, declinedRaceId: race.raceId, hasEncampment: false, hasHero: false, hasHoleInTheGround: false };
   });
 
-  // The new declined race entry
-  const newDeclinedRace = {
+  // The new declined race entry (replaces any previous)
+  const newDeclinedRaces = [{
     raceId: race.raceId,
     powerId: race.powerId,
-    isSpirit: race.powerId === 'spirit',
-  };
-
-  // Spirit power: Spirit race survives alongside the new one (max 2 declined)
-  const newDeclinedRaces = [...survivingDeclined, newDeclinedRace];
+  }];
 
   let s: GameState = {
     ...state,

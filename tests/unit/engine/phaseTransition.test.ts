@@ -60,7 +60,7 @@ describe('getNextPhase', () => {
 
     it('transitions to ghoulReadyTroops when ghouls are in decline', () => {
       const player = makePlayer({
-        declinedRaces: [{ raceId: 'ghouls', powerId: 'flying', isSpirit: false }],
+        declinedRaces: [{ raceId: 'ghouls', powerId: 'flying',  }],
       });
       const state = makeState({ phase: 'selectCombo', players: [player, makePlayer()] });
       expect(getNextPhase(state, { type: 'selectCombo', comboIndex: 0 })).toBe('ghoulReadyTroops');
@@ -432,7 +432,7 @@ describe('getStartingPhaseForNextPlayer', () => {
         hasDeclinedThisTurn: false,
         sorcererConversionsThisTurn: 0,
       },
-      declinedRaces: [{ raceId: 'ghouls', powerId: 'hill', isSpirit: false }],
+      declinedRaces: [{ raceId: 'ghouls', powerId: 'hill',  }],
     });
     const state = makeState({
       activePlayerIndex: 0,

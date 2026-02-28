@@ -123,7 +123,7 @@ describe('calculateScore', () => {
     // No active race — Dwarves are in declinedRaces
     state = patchPlayer(state, 0, {
       activeRace: null,
-      declinedRaces: [{ raceId: 'dwarves', powerId: 'bivouacking', isSpirit: false }],
+      declinedRaces: [{ raceId: 'dwarves', powerId: 'bivouacking' }],
     });
     state = ownRegions(state, 0, [15], true); // region 15 hasMine:true, declined
     // Base: 1, mine bonus in decline: +1
@@ -135,7 +135,7 @@ describe('calculateScore', () => {
     state = withActiveRace(state, 0, 'ratmen', 'bivouacking');
     state = patchPlayer(state, 0, {
       ...state.players[0],
-      declinedRaces: [{ raceId: 'dwarves', powerId: 'alchemist', isSpirit: false }],
+      declinedRaces: [{ raceId: 'dwarves', powerId: 'alchemist' }],
     });
     state = ownRegions(state, 0, [12]); // active region (forest, no mine)
     state = ownRegions(state, 0, [15], true); // declined region (hasMine:true)

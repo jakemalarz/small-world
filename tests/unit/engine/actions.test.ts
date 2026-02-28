@@ -195,7 +195,7 @@ describe('applyAction — conquer', () => {
     let state = conquestState();
     // Player 1 has Ghouls In Decline occupying region 20 with 3 tokens
     state = patchPlayer(state, 1, {
-      declinedRaces: [{ raceId: 'ghouls', powerId: 'bivouacking', isSpirit: false }],
+      declinedRaces: [{ raceId: 'ghouls', powerId: 'bivouacking' }],
     });
     state = patchRegion(state, 20, { owner: 1, tokens: 3, isDeclined: true, declinedRaceId: 'ghouls' });
 
@@ -210,7 +210,7 @@ describe('applyAction — conquer', () => {
   it('Ghoul In Decline defender with 1 token: 1 discarded, 0 go to reserve', () => {
     let state = conquestState();
     state = patchPlayer(state, 1, {
-      declinedRaces: [{ raceId: 'ghouls', powerId: 'bivouacking', isSpirit: false }],
+      declinedRaces: [{ raceId: 'ghouls', powerId: 'bivouacking' }],
     });
     state = patchRegion(state, 20, { owner: 1, tokens: 1, isDeclined: true, declinedRaceId: 'ghouls' });
 

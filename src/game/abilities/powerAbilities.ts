@@ -8,10 +8,6 @@ export const POWER_HANDLERS: Partial<Record<string, CustomAbilityHandler>> = {
   // Handled via placeEncampments action; disappear on decline.
   bivouacking: {},
 
-  // Diplomat: at end of turn, choose an opponent as ally (if didn't attack them).
-  // Handled via selectDiplomatAlly action emitted in score phase.
-  diplomat: {},
-
   // Dragon Master: once per turn, conquer any non-sea/lake region with 1 token.
   dragonMaster: {
     modifyLegalActions: (state: GameState, actions: GameAction[]): GameAction[] => {
