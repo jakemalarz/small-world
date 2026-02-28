@@ -642,12 +642,17 @@ class DeclinedDashboard {
       .reduce((sum, r) => sum + r.tokens, 0);
     this.boardTokensText.setText(`Tokens on Board: ${boardTokens}`);
 
-    // Show "In Hand" during ghoul phases for the active player
+    // Show "In Hand" during ghoul phases for the active player,
+    // or whenever there are reserve tokens (conquered Ghoul survivors)
     const isGhoulPhase = state.phase === 'ghoulReadyTroops' || state.phase === 'ghoulConquest' ||
       state.phase === 'ghoulRedeploy' || state.phase === 'ghoulReinforcementDie';
     const isActiveGhoulPhase = isGhoulPhase && playerIndex === activeIndex;
+    const reserve = player.ghoulTokensInReserve ?? 0;
     if (isActiveGhoulPhase) {
       this.inHandText.setText(`In Hand: ${player.availableTokens}`);
+      this.inHandText.setVisible(true);
+    } else if (reserve > 0) {
+      this.inHandText.setText(`In Hand: ${reserve}`);
       this.inHandText.setVisible(true);
     } else {
       this.inHandText.setVisible(false);

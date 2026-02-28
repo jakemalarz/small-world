@@ -177,6 +177,9 @@ export interface PlayerState {
   readonly availableTokens: number;  // Tokens in hand (not yet placed on board)
   // Stashed active-race tokens during Ghoul phases (restored after ghoulRedeploy)
   readonly ghoulSavedTokens?: number;
+  // Ghoul tokens recovered when an opponent conquers a Ghoul In Decline region
+  // (1 token is permanently lost; N-1 survivors wait here until next Ghoul turn)
+  readonly ghoulTokensInReserve?: number;
 }
 
 // ─── Combo Shop ───────────────────────────────────────────────────────────────

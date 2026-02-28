@@ -88,11 +88,13 @@ function applySelectComboAction(
 /** Stash active race's availableTokens so Ghouls can use availableTokens. */
 function stashTokensForGhouls(state: GameState): GameState {
   const player = state.players[state.activePlayerIndex];
+  const reserve = player.ghoulTokensInReserve ?? 0;
   return {
     ...state,
     players: patchPlayer(state, state.activePlayerIndex, {
       ghoulSavedTokens: player.availableTokens,
-      availableTokens: 0, // Ghouls start by gathering from declined regions
+      availableTokens: reserve, // Start with any tokens recovered from conquered Ghoul regions
+      ghoulTokensInReserve: undefined, // Consumed
     }),
   };
 }
@@ -271,21 +273,19 @@ function resolveDefender(state: GameState, region: RegionState): GameState {
   const defenderRace = region.isDeclined ? null : defender.activeRace;
 
   if (region.isDeclined) {
-    // Declined tokens are simply removed from play (no survivors, no redeploy)
-    // Update the defender's activeRace.tokensOnBoard if they match the region's race
-    // (Spirit power keeps declined races, but tokens are still lost)
-    const updatedDeclined = defender.declinedRaces.map((dr) => {
-      // We can't directly tie a declined race to specific regions here without
-      // more state — just reduce tokensOnBoard tracking best-effort
-      return dr;
-    });
-    // Declined tokens leave the game
-    return {
-      ...state,
-      players: patchPlayer(state, defenderIndex, {
-        declinedRaces: updatedDeclined,
-      }),
-    };
+    if (region.declinedRaceId === 'ghouls') {
+      // Ghoul In Decline tokens follow normal combat rules: 1 permanently discarded,
+      // rest returned to the owner's reserve for use on their next Ghoul turn.
+      const survivingGhouls = Math.max(0, region.tokens - 1);
+      return {
+        ...state,
+        players: patchPlayer(state, defenderIndex, {
+          ghoulTokensInReserve: (defender.ghoulTokensInReserve ?? 0) + survivingGhouls,
+        }),
+      };
+    }
+    // All other declined tokens are simply removed from play (no survivors)
+    return state;
   }
 
   // Active race tokens: 1 discarded, rest return to hand (unless Elves)

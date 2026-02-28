@@ -191,6 +191,45 @@ describe('applyAction — conquer', () => {
     expect(defender.activeRace!.tokensOnBoard).toBe(0);
   });
 
+  it('Ghoul In Decline defender: 1 discarded, rest go to ghoulTokensInReserve', () => {
+    let state = conquestState();
+    // Player 1 has Ghouls In Decline occupying region 20 with 3 tokens
+    state = patchPlayer(state, 1, {
+      declinedRaces: [{ raceId: 'ghouls', powerId: 'bivouacking', isSpirit: false }],
+    });
+    state = patchRegion(state, 20, { owner: 1, tokens: 3, isDeclined: true, declinedRaceId: 'ghouls' });
+
+    const next = applyAction(state, { type: 'conquer', regionId: 20 });
+    const defender = next.players[1];
+    // 3 Ghoul tokens: 1 permanently discarded, 2 go to reserve
+    expect(defender.ghoulTokensInReserve).toBe(2);
+    // availableTokens unchanged (reserve is separate)
+    expect(defender.availableTokens).toBe(state.players[1].availableTokens);
+  });
+
+  it('Ghoul In Decline defender with 1 token: 1 discarded, 0 go to reserve', () => {
+    let state = conquestState();
+    state = patchPlayer(state, 1, {
+      declinedRaces: [{ raceId: 'ghouls', powerId: 'bivouacking', isSpirit: false }],
+    });
+    state = patchRegion(state, 20, { owner: 1, tokens: 1, isDeclined: true, declinedRaceId: 'ghouls' });
+
+    const next = applyAction(state, { type: 'conquer', regionId: 20 });
+    const defender = next.players[1];
+    expect(defender.ghoulTokensInReserve ?? 0).toBe(0);
+  });
+
+  it('normal In Decline defender: all tokens removed, none returned', () => {
+    let state = conquestState();
+    state = patchRegion(state, 20, { owner: 1, tokens: 3, isDeclined: true, declinedRaceId: 'humans' });
+
+    const next = applyAction(state, { type: 'conquer', regionId: 20 });
+    const defender = next.players[1];
+    // Normal declined tokens are removed, no reserve
+    expect(defender.ghoulTokensInReserve ?? 0).toBe(0);
+    expect(defender.availableTokens).toBe(state.players[1].availableTokens);
+  });
+
   it('original state is not mutated', () => {
     const state = conquestState();
     const originalOwner = state.board.regions.find((r) => r.id === 20)!.owner;
