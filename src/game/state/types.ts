@@ -120,6 +120,7 @@ export interface RegionState {
   readonly owner: 0 | 1 | null;    // Player index, or null if unoccupied
   readonly tokens: number;          // Number of race tokens on this region
   readonly isDeclined: boolean;     // True if occupied by an In Decline race
+  readonly declinedRaceId: RaceId | null; // Which declined race occupies this region (null if active or empty)
   readonly hasLostTribe: boolean;   // Lost Tribe token present (removed on conquest)
   // Special markers
   readonly hasTrollLair: boolean;

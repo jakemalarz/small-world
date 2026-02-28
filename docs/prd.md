@@ -144,7 +144,7 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 - FR-13b: The player may voluntarily abandon a region entirely by picking up all tokens from it, losing control of that region
 - FR-13c: Tokens picked up are added to the player's available hand for conquests this turn
 - FR-13d: During readyTroops, right-click on an owned active region removes one token to hand; left-click adds one token from hand back to region (mirrors redeployment UX)
-- FR-13e: When removing the last token from a region (abandonment), a confirmation dialog is shown before proceeding
+- FR-13e: When removing the last token from a region (abandonment), a confirmation dialog is shown before proceeding. This applies to both the standard readyTroops phase and the Ghoul In Decline ready troops phase (ghoulReadyTroops)
 
 #### Conquest
 
@@ -171,7 +171,9 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 - FR-22: A player may choose to go in decline instead of conquering; the turn ends immediately after decline and scoring
 - FR-23: Declining shall animate: banner flip to gray, power badge removal (except Spirit — badge is kept), token reduction to 1 per region with visual flip to declined state
 - FR-23a: Exception — Ghouls do not reduce to 1 token per region when going In Decline; all Ghoul tokens remain on the map. In Decline Ghouls can move and conquer normally before the player's Active race acts
-- FR-24: If the player already has a declined race, those tokens shall be animated off the board before the new decline takes effect
+- FR-23b: When a player has Ghouls In Decline and a second active race that has been deployed (tokensOnBoard > 0), the player's turn shall begin with the option to decline the active race immediately (before Ghouls act). The "Go In Decline" button is re-labeled "Decline [Race Name]" to clarify which race is being declined. If the player declines: all Ghoul phases are skipped, Ghoul tokens are removed from the board (FR-24), Ghoul regions are not counted in scoring, and the active race goes In Decline normally. This option is NOT available on the first turn after selecting a new combo (tokensOnBoard === 0)
+- FR-23c: When a player has Ghouls In Decline and a second active race, the player's In Decline box shall be highlighted as active during Ghoul phases (ghoulReadyTroops/ghoulConquest/ghoulRedeploy/ghoulReinforcementDie). When the active race's phases begin, the active race box shall be highlighted instead
+- FR-24: If the player already has a declined race, those tokens shall be animated off the board before the new decline takes effect. Scoring for the turn in which the active race declines shall not include regions previously held by the now-removed declined race (e.g. Ghouls In Decline regions are removed and not scored when the active race declines)
 - FR-25: The Spirit power exception: Spirit-powered race tokens In Decline are exempt from the "1 In Decline race" removal rule. When a player with a Spirit race In Decline later declines a different race, the Spirit race's tokens stay on the board and the non-Spirit declined race (if any) is removed normally
 - FR-25a: The Stout power exception: a player with Stout may go In Decline at the end of a regular conquest turn (Conquer → Redeploy → Score → Decline) instead of spending a whole turn on decline
 
@@ -413,3 +415,4 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 | 1.0 | 2026-02-20 | Jake + Claude | Initial draft based on interview and game rules |
 | 1.1 | 2026-02-20 | Jake + Claude | Rules accuracy pass — added Ready Troops phase, full race/power tables with token counts, coastal entry rule, Seas/Lakes restriction, defeat mechanics exceptions, Ghoul/Stout/Spirit decline details, defender redeployment timing, turn order, tie-breaker specificity; fixed reinforcement die failure behavior, edge cases for Spirit/Halflings/Dragon Master/Sorcerer; noted visible coins as deliberate deviation |
 | 1.2 | 2026-02-21 | Jake + Claude | Phase 2 requirements: added US-15 (interaction/pan mode toggle), US-16 (player box ability tooltips); added FR-53–55 (HUD text labels, browse-at-any-time, map interaction lock); FR-56 (visually distinguish first-conquest entry regions); clarified FR-19 (die roll before End Conquest option); FR-57 (left/right-click redeployment model); FR-58–59 (start at max zoom-out, constant tooltip size); FR-60–62 (interaction/pan toggle, player box tooltips, region polygons match map) |
+| 1.3 | 2026-02-27 | Jake + Claude | Ghoul UX fixes: added FR-23b (pre-Ghoul decline option at turn start); added FR-23c (In Decline box highlighted during Ghoul phases); clarified FR-13e (abandon dialog applies to ghoulReadyTroops too); clarified FR-24 (Ghoul regions not scored when active race declines — scoring excludes removed non-Spirit declined regions) |

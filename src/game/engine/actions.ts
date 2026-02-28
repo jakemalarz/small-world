@@ -208,6 +208,7 @@ function applyConquer(
       owner: s.activePlayerIndex,
       tokens: tokensPlaced,
       isDeclined: false,
+      declinedRaceId: null,
       hasLostTribe: false,
       // Hero and Dragon protection ends when region changes hands
       hasHero: false,
@@ -333,6 +334,7 @@ function applyGhoulConquer(
       owner: s.activePlayerIndex,
       tokens: cost,
       isDeclined: true, // Ghouls conquer as declined tokens
+      declinedRaceId: 'ghouls',
       hasLostTribe: false,
     }),
     players: patchPlayer(s, s.activePlayerIndex, {
@@ -357,7 +359,7 @@ function applyGhoulPickUpTokens(
   const remaining = region.tokens - actualCount;
 
   const regionPatch: Partial<RegionState> = remaining === 0
-    ? { tokens: 0, owner: null, isDeclined: false }
+    ? { tokens: 0, owner: null, isDeclined: false, declinedRaceId: null }
     : { tokens: remaining };
 
   return appendLog({
@@ -387,7 +389,7 @@ function applyGhoulReadyTroopsDeploy(
     const diff = region.tokens - newCount;
     tokensPickedUp += diff;
     if (newCount === 0) {
-      return { ...region, tokens: 0, owner: null, isDeclined: false };
+      return { ...region, tokens: 0, owner: null, isDeclined: false, declinedRaceId: null };
     }
     return { ...region, tokens: Math.max(0, newCount) };
   });
@@ -763,6 +765,7 @@ function applyGhoulUseReinforcement(
       owner: s.activePlayerIndex,
       tokens: tokensPlaced,
       isDeclined: true, // Ghouls conquer as declined tokens
+      declinedRaceId: 'ghouls',
       hasLostTribe: false,
       hasHero: false,
       hasDragon: false,
@@ -789,17 +792,30 @@ function applyDecline(state: GameState, logEntry: GameLogEntry): GameState {
   const race = player.activeRace;
   const mods = getActiveModifiers(player);
 
+  // Determine which previous declined races survive (Spirit only)
+  const survivingDeclined = player.declinedRaces.filter((dr) => dr.isSpirit);
+  const survivingRaceIds = new Set(survivingDeclined.map((dr) => dr.raceId));
+
   // Reduce each active region to 1 token and mark as declined.
   // Bivouacking encampments disappear when going In Decline.
   // Heroic heroes disappear when going In Decline.
   // Seafaring: sea/lake regions are kept In Decline (per rulebook).
   //   Non-Seafaring races can never own sea/lake regions, so no special
   //   exclusion needed — just leave them as declined normally.
+  //
+  // Also: clear board regions belonging to non-surviving declined races (e.g. Ghouls
+  // when the active race declines — FR-24). Spirit-powered regions are preserved.
   const newRegions = state.board.regions.map((r) => {
-    if (r.owner !== state.activePlayerIndex || r.isDeclined) return r;
-    // Ghouls keep all tokens in decline
+    if (r.owner !== state.activePlayerIndex) return r;
+    if (r.isDeclined) {
+      // Keep only regions belonging to Spirit-powered declined races
+      if (r.declinedRaceId && survivingRaceIds.has(r.declinedRaceId)) return r;
+      // Non-surviving declined region (e.g. Ghouls) → remove from board
+      return { ...r, tokens: 0, owner: null as 0 | 1 | null, isDeclined: false, declinedRaceId: null };
+    }
+    // Active region → mark as declined
     const declineTokens = mods.keepAllTokensInDecline ? r.tokens : 1;
-    return { ...r, tokens: declineTokens, isDeclined: true, hasEncampment: false, hasHero: false };
+    return { ...r, tokens: declineTokens, isDeclined: true, declinedRaceId: race.raceId, hasEncampment: false, hasHero: false };
   });
 
   // The new declined race entry
@@ -809,9 +825,7 @@ function applyDecline(state: GameState, logEntry: GameLogEntry): GameState {
     isSpirit: race.powerId === 'spirit',
   };
 
-  // Determine which previous declined races survive
   // Spirit power: Spirit race survives alongside the new one (max 2 declined)
-  const survivingDeclined = player.declinedRaces.filter((dr) => dr.isSpirit);
   const newDeclinedRaces = [...survivingDeclined, newDeclinedRace];
 
   let s: GameState = {

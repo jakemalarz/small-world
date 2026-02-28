@@ -22,6 +22,8 @@ export function getNextPhase(state: GameState, completedAction: GameAction): Tur
         : nextAfterCombo(state);
 
     case 'ghoulReadyTroops':
+      // Player may decline active race before Ghouls act — skips all Ghoul phases
+      if (completedAction.type === 'decline') return 'score';
       if (completedAction.type === 'endPhase') return 'ghoulConquest';
       return 'ghoulReadyTroops';
 

@@ -62,6 +62,7 @@ export function createInitialState(config: GameConfig = {}): GameState {
     owner: null,
     tokens: 0,
     isDeclined: false,
+    declinedRaceId: null,
     hasLostTribe: r.hasLostTribe,
     hasTrollLair: false,
     hasFortress: false,

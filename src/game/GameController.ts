@@ -801,12 +801,65 @@ export class GameController {
   }
 
   private _ghoulGatherRemoveToken(regionId: number): void {
+    if (this._abandonDialogActive) return;
     const current = this._ghoulGatherMap.get(regionId);
     if (current === undefined || current <= 0) return;
-    // No abandon confirmation for Ghouls — just remove
+
+    if (current === 1) {
+      // Last token — show confirmation before abandoning (FR-13e)
+      this._showGhoulGatherAbandonConfirm(regionId);
+      return;
+    }
+
     this._ghoulGatherMap.set(regionId, current - 1);
     this._ghoulGatherTokensInHand++;
     this._renderGhoulGatherPreview();
+  }
+
+  private _showGhoulGatherAbandonConfirm(regionId: number): void {
+    this._abandonDialogActive = true;
+    const W = 1280, _H = 720;
+
+    const overlay = this.hudScene.add.rectangle(W / 2, _H / 2, W, _H, 0x000000, 0.5)
+      .setDepth(50).setInteractive();
+
+    const panel = this.hudScene.add.rectangle(W / 2, _H / 2, 320, 130, 0x1e1e2e, 0.95)
+      .setStrokeStyle(2, 0xef4444, 0.8).setDepth(51);
+
+    const text = this.hudScene.add.text(W / 2, _H / 2 - 25,
+      'Abandon this region?\nAll tokens will be removed.', {
+        fontSize: '14px', fontFamily: 'Arial', color: '#e8d5b7', align: 'center',
+      }).setOrigin(0.5, 0.5).setDepth(52);
+
+    const confirmBg = this.hudScene.add.rectangle(W / 2 - 60, _H / 2 + 30, 90, 28, 0xef4444)
+      .setDepth(52).setInteractive({ useHandCursor: true });
+    const confirmLabel = this.hudScene.add.text(W / 2 - 60, _H / 2 + 30, 'Abandon', {
+      fontSize: '12px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5, 0.5).setDepth(53);
+
+    const cancelBg = this.hudScene.add.rectangle(W / 2 + 60, _H / 2 + 30, 90, 28, 0x4a4a6a)
+      .setDepth(52).setInteractive({ useHandCursor: true });
+    const cancelLabel = this.hudScene.add.text(W / 2 + 60, _H / 2 + 30, 'Cancel', {
+      fontSize: '12px', fontFamily: 'Arial', color: '#ffffff',
+    }).setOrigin(0.5, 0.5).setDepth(53);
+
+    const cleanup = (): void => {
+      overlay.destroy(); panel.destroy(); text.destroy();
+      confirmBg.destroy(); confirmLabel.destroy();
+      cancelBg.destroy(); cancelLabel.destroy();
+      this._abandonDialogActive = false;
+    };
+
+    confirmBg.on('pointerdown', () => {
+      cleanup();
+      this._ghoulGatherMap.set(regionId, 0);
+      this._ghoulGatherTokensInHand++;
+      this._renderGhoulGatherPreview();
+    });
+
+    cancelBg.on('pointerdown', () => {
+      cleanup();
+    });
   }
 
   private _ghoulGatherAddToken(regionId: number): void {

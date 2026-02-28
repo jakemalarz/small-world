@@ -100,6 +100,13 @@ function readyTroopsActions(state: GameState): GameAction[] {
 
 function ghoulReadyTroopsActions(state: GameState): GameAction[] {
   const actions: GameAction[] = [{ type: 'endPhase' }];
+  // Player may decline their active race before Ghouls act, but only if the active race
+  // has already been deployed (tokensOnBoard > 0). On the first turn after selecting a new
+  // combo, tokensOnBoard === 0 so decline is not yet available (FR-23b).
+  const activeRace = state.players[state.activePlayerIndex].activeRace;
+  if (activeRace && activeRace.tokensOnBoard > 0) {
+    actions.push({ type: 'decline' });
+  }
   // Batch deploy placeholder for interactive human gathering
   actions.push({ type: 'ghoulReadyTroopsDeploy', deployment: new Map() });
   for (const region of state.board.regions) {

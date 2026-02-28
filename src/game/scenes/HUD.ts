@@ -71,6 +71,7 @@ export class HUD extends Phaser.Scene {
   private actionBtnLabel!: Phaser.GameObjects.Text;
   private declineButton!: Phaser.GameObjects.Container;
   private declineBtnBg!: Phaser.GameObjects.Rectangle;
+  private declineBtnLabel!: Phaser.GameObjects.Text;
   private finalConquestButton!: Phaser.GameObjects.Container;
   private finalConquestBtnBg!: Phaser.GameObjects.Rectangle;
   private browseButton!: Phaser.GameObjects.Container;
@@ -134,11 +135,22 @@ export class HUD extends Phaser.Scene {
       this.actionButton.setVisible(false);
     }
 
-    // Show decline button during readyTroops phase, turn 2+ only (FR-22)
-    const canDecline = state.turn >= 2 &&
-      state.phase === 'readyTroops' &&
-      state.players[state.activePlayerIndex].activeRace !== null;
+    // Show decline button during readyTroops or ghoulReadyTroops, turn 2+ only (FR-22, FR-23b)
+    // During ghoulReadyTroops: only when active race is already deployed (tokensOnBoard > 0)
+    const activeRace = state.players[state.activePlayerIndex].activeRace;
+    const canDeclineGhoul = state.phase === 'ghoulReadyTroops' &&
+      activeRace !== null && activeRace.tokensOnBoard > 0;
+    const canDecline = state.turn >= 2 && activeRace !== null &&
+      (state.phase === 'readyTroops' || canDeclineGhoul);
     this.declineButton.setVisible(canDecline);
+
+    // Update decline button label: show race name when declining during ghoulReadyTroops
+    if (canDeclineGhoul && activeRace) {
+      const raceName = RACES[activeRace.raceId as keyof typeof RACES]?.name ?? activeRace.raceId;
+      this.declineBtnLabel.setText(`Decline ${raceName}`);
+    } else {
+      this.declineBtnLabel.setText('Go In Decline');
+    }
 
     // Show Final Conquest button during conquest or ghoulConquest when player has tokens
     const canFinalConquest = (state.phase === 'conquest' || state.phase === 'ghoulConquest') &&
@@ -245,7 +257,7 @@ export class HUD extends Phaser.Scene {
     this.declineBtnBg = this.add.rectangle(0, 0, 140, 32, 0x6b21a8)
       .setStrokeStyle(1, 0xffffff, 0.3);
 
-    const declineBtnLabel = this.add.text(0, 0, 'Go In Decline', {
+    this.declineBtnLabel = this.add.text(0, 0, 'Go In Decline', {
       fontSize: '12px',
       fontFamily: 'Arial',
       color: '#ffffff',
@@ -254,7 +266,7 @@ export class HUD extends Phaser.Scene {
 
     this.declineButton = this.add.container(W / 2 - 160, H - 24, [
       this.declineBtnBg,
-      declineBtnLabel,
+      this.declineBtnLabel,
     ]).setDepth(12);
 
     this.declineBtnBg.setInteractive({ useHandCursor: true });
@@ -500,7 +512,12 @@ class PlayerDashboard {
     const player = state.players[playerIndex];
     const isActive = playerIndex === activeIndex;
 
-    this.activeBorder.setVisible(isActive);
+    // During Ghoul phases the In Decline box gets the gold highlight instead
+    const isGhoulPhaseActive = isActive && (
+      state.phase === 'ghoulReadyTroops' || state.phase === 'ghoulConquest' ||
+      state.phase === 'ghoulRedeploy' || state.phase === 'ghoulReinforcementDie'
+    );
+    this.activeBorder.setVisible(isActive && !isGhoulPhaseActive);
 
     const race = player.activeRace;
     this._currentRaceId = race?.raceId ?? null;
@@ -535,6 +552,7 @@ class DeclinedDashboard {
   private readonly scene: Phaser.Scene;
   private readonly playerIndex: 0 | 1;
   private panelBg!: Phaser.GameObjects.Rectangle;
+  private activeBorder!: Phaser.GameObjects.Rectangle;
   private headerText!: Phaser.GameObjects.Text;
   private raceText!: Phaser.GameObjects.Text;
   private powerText!: Phaser.GameObjects.Text;
@@ -562,6 +580,12 @@ class DeclinedDashboard {
       .setStrokeStyle(1, color, 0.3)
       .setDepth(10);
 
+    this.activeBorder = this.scene.add.rectangle(x + w / 2, y + h / 2, w + 4, h + 4)
+      .setStrokeStyle(3, ACTIVE_TINT)
+      .setFillStyle(0, 0)
+      .setDepth(10)
+      .setVisible(false);
+
     this.headerText = this.scene.add.text(x + 8, y + 6, 'In Decline', {
       fontSize: '10px', fontFamily: 'Arial', color: '#6b7280', fontStyle: 'bold',
     }).setDepth(11);
@@ -583,7 +607,7 @@ class DeclinedDashboard {
     }).setDepth(11);
 
     this.allObjects = [
-      this.panelBg, this.headerText, this.raceText,
+      this.panelBg, this.activeBorder, this.headerText, this.raceText,
       this.powerText, this.boardTokensText, this.inHandText,
     ];
 
@@ -621,11 +645,15 @@ class DeclinedDashboard {
     // Show "In Hand" during ghoul phases for the active player
     const isGhoulPhase = state.phase === 'ghoulReadyTroops' || state.phase === 'ghoulConquest' ||
       state.phase === 'ghoulRedeploy' || state.phase === 'ghoulReinforcementDie';
-    if (isGhoulPhase && playerIndex === activeIndex) {
+    const isActiveGhoulPhase = isGhoulPhase && playerIndex === activeIndex;
+    if (isActiveGhoulPhase) {
       this.inHandText.setText(`In Hand: ${player.availableTokens}`);
       this.inHandText.setVisible(true);
     } else {
       this.inHandText.setVisible(false);
     }
+
+    // Highlight In Decline box (instead of active race box) during Ghoul phases
+    this.activeBorder.setVisible(isActiveGhoulPhase);
   }
 }

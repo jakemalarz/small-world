@@ -96,6 +96,13 @@ describe('applyAction — decline mechanics', () => {
     expect(r20.tokens).toBe(1);
   });
 
+  it('sets declinedRaceId on newly declined regions', () => {
+    const state = buildDeclineReadyState({ raceId: 'ratmen', region1Tokens: 3 });
+    const next = applyAction(state, { type: 'decline' });
+    const r19 = next.board.regions.find((r) => r.id === 19)!;
+    expect(r19.declinedRaceId).toBe('ratmen');
+  });
+
   it('moves activeRace into declinedRaces and clears activeRace to null', () => {
     const state = buildDeclineReadyState({ raceId: 'humans', powerId: 'alchemist' });
     const next = applyAction(state, { type: 'decline' });
@@ -213,12 +220,27 @@ describe('applyAction — decline mechanics', () => {
     expect(JSON.stringify(state)).toBe(snapshot);
   });
 
-  it('does not alter already-declined regions belonging to the active player', () => {
+  it('removes non-surviving declined regions when active race declines (Ghouls cleared)', () => {
+    // A non-Spirit declined region (e.g. Ghouls) should be removed when the active race declines (FR-24)
     let state = buildDeclineReadyState({ region1Tokens: 3 });
-    state = patchRegion(state, 5, { owner: 0, tokens: 4, isDeclined: true });
+    state = patchRegion(state, 5, { owner: 0, tokens: 4, isDeclined: true, declinedRaceId: 'ghouls' as never });
+    state = patchPlayer(state, 0, { declinedRaces: [{ raceId: 'ghouls' as never, powerId: 'stout' as never, isSpirit: false }] });
     const next = applyAction(state, { type: 'decline' });
-    expect(next.board.regions.find((r) => r.id === 5)!.tokens).toBe(4);
-    expect(next.board.regions.find((r) => r.id === 5)!.isDeclined).toBe(true);
+    const r5 = next.board.regions.find((r) => r.id === 5)!;
+    expect(r5.tokens).toBe(0);
+    expect(r5.owner).toBeNull();
+    expect(r5.isDeclined).toBe(false);
+  });
+
+  it('preserves Spirit-powered declined regions when active race declines', () => {
+    // Spirit-powered declined regions must NOT be cleared when a second race declines
+    let state = buildDeclineReadyState({ region1Tokens: 3 });
+    state = patchRegion(state, 5, { owner: 0, tokens: 4, isDeclined: true, declinedRaceId: 'elves' as never });
+    state = patchPlayer(state, 0, { declinedRaces: [{ raceId: 'elves' as never, powerId: 'spirit' as never, isSpirit: true }] });
+    const next = applyAction(state, { type: 'decline' });
+    const r5 = next.board.regions.find((r) => r.id === 5)!;
+    expect(r5.tokens).toBe(4);
+    expect(r5.isDeclined).toBe(true);
   });
 });
 
