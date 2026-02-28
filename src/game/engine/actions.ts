@@ -52,7 +52,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'redeploy':       return applyRedeploy(state, action.deployment, logEntry);
     case 'defenderRedeploy': return appendLog(state, logEntry); // handled implicitly
     case 'placeHeroes':    return applyPlaceHeroes(state, action.regionIds, logEntry);
-    case 'placeEncampments': return applyPlaceEncampments(state, action.regionIds, logEntry);
+    case 'placeEncampments': return applyPlaceEncampments(state, action.deployment, logEntry);
+    case 'placeFortress':    return applyPlaceFortress(state, action.regionId, logEntry);
     case 'startFinalConquest': return applyStartFinalConquest(state, logEntry);
     case 'berserkFail':    return applyBerserkFail(state, action.regionId, logEntry);
     case 'decline':        return applyDecline(state, logEntry);
@@ -156,9 +157,9 @@ function applyPickUpTokens(
   const remaining = region.tokens - actualCount;
 
   // If all tokens removed, abandon the region (FR-13b)
-  // Clear hasHoleInTheGround so Halfling holes disappear on abandon.
+  // Clear special markers — holes, lairs, fortresses lost on abandon.
   const regionPatch: Partial<RegionState> = remaining === 0
-    ? { tokens: 0, owner: null, hasHoleInTheGround: false }
+    ? { tokens: 0, owner: null, hasHoleInTheGround: false, hasTrollLair: false, hasFortress: false }
     : { tokens: remaining };
 
   return {
@@ -194,18 +195,36 @@ function applyReadyTroopsDeploy(
     const diff = region.tokens - newCount;
     tokensPickedUp += diff;
     if (newCount === 0) {
-      // Abandoned region: clear hole-in-the-ground (Halflings lose protection on abandon)
-      return { ...region, tokens: 0, owner: null, hasHoleInTheGround: false };
+      // Abandoned region: clear special markers (holes, lairs, fortresses lost on abandon)
+      return { ...region, tokens: 0, owner: null, hasHoleInTheGround: false, hasTrollLair: false, hasFortress: false };
     }
     return { ...region, tokens: Math.max(0, newCount) };
   });
+
+  // Track fortress permanent loss for abandoned regions
+  let fortressesLostCount = 0;
+  for (const [regionId, newCount] of deployment) {
+    if (newCount === 0) {
+      const region = state.board.regions.find(r => r.id === regionId);
+      if (region?.hasFortress) fortressesLostCount++;
+    }
+  }
+
+  const updatedRace = {
+    ...race,
+    tokensOnBoard: race.tokensOnBoard - tokensPickedUp,
+    ...(fortressesLostCount > 0 ? {
+      fortressesPlaced: Math.max(0, (race.fortressesPlaced ?? 0) - fortressesLostCount),
+      fortressesLost: (race.fortressesLost ?? 0) + fortressesLostCount,
+    } : {}),
+  };
 
   return appendLog({
     ...state,
     board: { regions: newRegions },
     players: patchPlayer(state, state.activePlayerIndex, {
       availableTokens: player.availableTokens + tokensPickedUp,
-      activeRace: { ...race, tokensOnBoard: race.tokensOnBoard - tokensPickedUp },
+      activeRace: updatedRace,
     }),
   }, logEntry);
 }
@@ -236,6 +255,9 @@ function applyConquer(
     ? Math.max(1, cost - dieResult)
     : cost;
 
+  // Track fortress/encampment losses for the defender before clearing
+  s = trackDefenderTokenLosses(s, regionId);
+
   s = {
     ...s,
     board: patchRegions(s, regionId, {
@@ -244,9 +266,13 @@ function applyConquer(
       isDeclined: false,
       declinedRaceId: null,
       hasLostTribe: false,
-      // Hero and Dragon protection ends when region changes hands
+      // All special markers cleared when region changes hands
       hasHero: false,
       hasDragon: false,
+      hasTrollLair: false,
+      hasFortress: false,
+      encampmentCount: 0,
+      hasHoleInTheGround: false,
     }),
   };
 
@@ -330,7 +356,7 @@ function applyGhoulConquer(
   const cost = ghoulConquestCost(region);
   const player = state.players[state.activePlayerIndex];
 
-  let s = state;
+  let s = trackDefenderTokenLosses(state, regionId);
   if (region.owner !== null) {
     s = resolveDefender(s, region);
   }
@@ -343,6 +369,12 @@ function applyGhoulConquer(
       isDeclined: true, // Ghouls conquer as declined tokens
       declinedRaceId: 'ghouls',
       hasLostTribe: false,
+      hasTrollLair: false,
+      hasFortress: false,
+      encampmentCount: 0,
+      hasHero: false,
+      hasDragon: false,
+      hasHoleInTheGround: false,
     }),
     players: patchPlayer(s, s.activePlayerIndex, {
       availableTokens: player.availableTokens - cost,
@@ -442,6 +474,8 @@ function applyGhoulRedeploy(
 }
 
 // ── placeDragon ───────────────────────────────────────────────────────────────
+// Dragon Master rework: full conquest with 1 token, ignoring ALL defense.
+// Resolves defender (same as normal conquest), clears all markers, places dragon.
 
 function applyPlaceDragon(
   state: GameState, regionId: number, logEntry: GameLogEntry,
@@ -449,16 +483,59 @@ function applyPlaceDragon(
   const player = state.players[state.activePlayerIndex];
   if (!player.activeRace) return appendLog(state, logEntry);
 
-  // Cost: 1 token. Dragon region becomes unconquerable until next turn.
-  const s: GameState = {
-    ...state,
-    board: patchRegions(state, regionId, { hasDragon: true }),
-    players: patchPlayer(state, state.activePlayerIndex, {
+  const region = getRegion(state, regionId);
+
+  // Was the region non-empty? (counts for conquest scoring like Orcs/Pillaging)
+  const wasNonEmpty = region.tokens > 0 || region.hasLostTribe;
+
+  // Clear previous dragon marker if any
+  let s = state;
+  if (player.activeRace.dragonRegion !== undefined && player.activeRace.dragonRegion !== null) {
+    s = {
+      ...s,
+      board: patchRegions(s, player.activeRace.dragonRegion, { hasDragon: false }),
+    };
+  }
+
+  // Resolve defender (same as normal conquest)
+  if (region.owner !== null) {
+    s = resolveDefender(s, region);
+  }
+
+  // Track fortress/encampment losses for defender
+  s = trackDefenderTokenLosses(s, regionId);
+
+  // Place 1 token + dragon marker, clear all enemy markers
+  s = {
+    ...s,
+    board: patchRegions(s, regionId, {
+      owner: s.activePlayerIndex,
+      tokens: 1,
+      isDeclined: false,
+      declinedRaceId: null,
+      hasLostTribe: false,
+      hasHero: false,
+      hasDragon: true,
+      hasTrollLair: false,
+      hasFortress: false,
+      encampmentCount: 0,
+      hasHoleInTheGround: false,
+    }),
+  };
+
+  // Update attacker: 1 token used, dragon used this turn
+  const attackerRace = player.activeRace;
+  const newConquests = attackerRace.conquestsThisTurn + (wasNonEmpty ? 1 : 0);
+  s = {
+    ...s,
+    players: patchPlayer(s, s.activePlayerIndex, {
       availableTokens: player.availableTokens - 1,
       activeRace: {
-        ...player.activeRace,
-        tokensOnBoard: player.activeRace.tokensOnBoard + 1,
+        ...attackerRace,
+        tokensOnBoard: attackerRace.tokensOnBoard + 1,
+        conquestsThisTurn: newConquests,
         dragonRegion: regionId,
+        dragonUsedThisTurn: true,
       },
     }),
   };
@@ -532,8 +609,10 @@ function applyUseReinforcement(
 
   const cost = calculateConquestCost(state, regionId);
 
+  // Track fortress/encampment losses before clearing
+  let s = trackDefenderTokenLosses(state, regionId);
+
   // Resolve defender (same as normal conquest)
-  let s = state;
   if (region.owner !== null) {
     s = resolveDefender(s, region);
   }
@@ -551,6 +630,10 @@ function applyUseReinforcement(
       hasLostTribe: false,
       hasHero: false,
       hasDragon: false,
+      hasTrollLair: false,
+      hasFortress: false,
+      encampmentCount: 0,
+      hasHoleInTheGround: false,
     }),
     players: patchPlayer(s, s.activePlayerIndex, {
       availableTokens: player.availableTokens - tokensPlaced,
@@ -644,8 +727,43 @@ function applyRedeploy(
     };
   }
 
+  // Trolls: auto-place lairs in all owned active regions (max 10 total)
+  s = autoPlaceTrollLairs(s);
+
   const nextPhase = getNextPhase(s, logEntry.action);
   return appendLog({ ...s, phase: nextPhase }, logEntry);
+}
+
+/** Auto-place Troll's Lairs in all owned active regions without one (cap 10). */
+function autoPlaceTrollLairs(state: GameState): GameState {
+  const player = state.players[state.activePlayerIndex];
+  if (!player.activeRace) return state;
+
+  const mods = getActiveModifiers(player);
+  if (!mods.placesLair) return state;
+
+  let lairsOnBoard = state.board.regions.filter(
+    (r) => r.owner === state.activePlayerIndex && !r.isDeclined && r.hasTrollLair,
+  ).length;
+
+  const MAX_LAIRS = 10;
+  if (lairsOnBoard >= MAX_LAIRS) return state;
+
+  const newRegions = state.board.regions.map((r) => {
+    if (r.owner !== state.activePlayerIndex || r.isDeclined) return r;
+    if (r.hasTrollLair) return r; // already has one
+    if (lairsOnBoard >= MAX_LAIRS) return r;
+    lairsOnBoard++;
+    return { ...r, hasTrollLair: true };
+  });
+
+  return {
+    ...state,
+    board: { regions: newRegions },
+    players: patchPlayer(state, state.activePlayerIndex, {
+      activeRace: { ...player.activeRace, trollLairsOnBoard: lairsOnBoard },
+    }),
+  };
 }
 
 // ── placeHeroes ───────────────────────────────────────────────────────────────
@@ -687,34 +805,62 @@ function applyPlaceHeroes(
 
 function applyPlaceEncampments(
   state: GameState,
-  regionIds: readonly number[],
+  deployment: ReadonlyMap<number, number>,
   logEntry: GameLogEntry,
 ): GameState {
   const player = state.players[state.activePlayerIndex];
   if (!player.activeRace) return appendLog(state, logEntry);
 
-  let s = state;
-  // Clear existing encampments first
-  s = {
-    ...s,
-    board: {
-      regions: s.board.regions.map((r) =>
-        r.owner === s.activePlayerIndex ? { ...r, hasEncampment: false } : r,
-      ),
-    },
-  };
-  // Place new encampments
-  for (const id of regionIds) {
-    s = { ...s, board: patchRegions(s, id, { hasEncampment: true }) };
+  // Clear existing encampments on owned active regions, then apply new deployment (cap 5)
+  const MAX_ENCAMPMENTS = 5;
+  let totalPlaced = 0;
+  const newRegions = state.board.regions.map((r) => {
+    if (r.owner !== state.activePlayerIndex || r.isDeclined) return r;
+    const requested = deployment.get(r.id) ?? 0;
+    const allowed = Math.min(requested, MAX_ENCAMPMENTS - totalPlaced);
+    totalPlaced += allowed;
+    return { ...r, encampmentCount: allowed };
+  });
+
+  // Build encampmentRegions array from deployment for backward compat
+  const encampmentRegions: number[] = [];
+  for (const [regionId, count] of deployment) {
+    for (let i = 0; i < count; i++) encampmentRegions.push(regionId);
   }
-  s = {
-    ...s,
-    players: patchPlayer(s, s.activePlayerIndex, {
-      activeRace: { ...player.activeRace, encampmentRegions: regionIds },
+
+  let s: GameState = {
+    ...state,
+    board: { regions: newRegions },
+    players: patchPlayer(state, state.activePlayerIndex, {
+      activeRace: { ...player.activeRace, encampmentRegions },
     }),
   };
 
-  return appendLog(s, logEntry);
+  const nextPhase = getNextPhase(s, logEntry.action);
+  return appendLog({ ...s, phase: nextPhase }, logEntry);
+}
+
+// ── placeFortress ────────────────────────────────────────────────────────────
+
+function applyPlaceFortress(
+  state: GameState, regionId: number, logEntry: GameLogEntry,
+): GameState {
+  const player = state.players[state.activePlayerIndex];
+  if (!player.activeRace) return appendLog(state, logEntry);
+
+  const s: GameState = {
+    ...state,
+    board: patchRegions(state, regionId, { hasFortress: true }),
+    players: patchPlayer(state, state.activePlayerIndex, {
+      activeRace: {
+        ...player.activeRace,
+        fortressesPlaced: (player.activeRace.fortressesPlaced ?? 0) + 1,
+      },
+    }),
+  };
+
+  const nextPhase = getNextPhase(s, logEntry.action);
+  return appendLog({ ...s, phase: nextPhase }, logEntry);
 }
 
 // ── selectDiplomatAlly ────────────────────────────────────────────────────────
@@ -769,7 +915,7 @@ function applyGhoulUseReinforcement(
   const cost = ghoulConquestCost(region);
   const player = state.players[state.activePlayerIndex];
 
-  let s = state;
+  let s = trackDefenderTokenLosses(state, regionId);
   if (region.owner !== null) {
     s = resolveDefender(s, region);
   }
@@ -787,6 +933,10 @@ function applyGhoulUseReinforcement(
       hasLostTribe: false,
       hasHero: false,
       hasDragon: false,
+      hasTrollLair: false,
+      hasFortress: false,
+      encampmentCount: 0,
+      hasHoleInTheGround: false,
     }),
     players: patchPlayer(s, s.activePlayerIndex, {
       availableTokens: player.availableTokens - tokensPlaced,
@@ -826,7 +976,7 @@ function applyDecline(state: GameState, logEntry: GameLogEntry): GameState {
     }
     // Active region → mark as declined
     const declineTokens = mods.keepAllTokensInDecline ? r.tokens : 1;
-    return { ...r, tokens: declineTokens, isDeclined: true, declinedRaceId: race.raceId, hasEncampment: false, hasHero: false, hasHoleInTheGround: false };
+    return { ...r, tokens: declineTokens, isDeclined: true, declinedRaceId: race.raceId, encampmentCount: 0, hasHero: false, hasHoleInTheGround: false, hasDragon: false };
   });
 
   // The new declined race entry (replaces any previous)
@@ -892,6 +1042,11 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
     scored = addSkeletonTokensForRedeploy(scored);
   }
 
+  // Trolls: auto-place lairs when leaving redeploy via endPhase (AI path)
+  if (state.phase === 'redeploy') {
+    scored = autoPlaceTrollLairs(scored);
+  }
+
   // Determine if we switch to the next player
   if (!needsPlayerSwitch(state, logEntry.action)) {
     return appendLog({ ...scored, phase: nextPhase }, logEntry);
@@ -933,6 +1088,7 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
           hasDeclinedThisTurn: false,
           sorcererConversionsThisTurn: 0,
           dragonRegion: undefined,
+          dragonUsedThisTurn: false,
           heroRegions: undefined,
           berserkAttemptedRegions: undefined,
         },
@@ -985,6 +1141,38 @@ function needsPlayerSwitch(state: GameState, action: GameAction): boolean {
     return action.type === 'decline' || action.type === 'endPhase';
   }
   return false;
+}
+
+/**
+ * Track defender's permanent token losses when a region is conquered.
+ * - Fortress: permanently lost (increment fortressesLost, decrement fortressesPlaced)
+ */
+function trackDefenderTokenLosses(state: GameState, regionId: number): GameState {
+  const region = getRegion(state, regionId);
+  if (region.owner === null) return state;
+
+  const defenderIndex = region.owner;
+  const defender = state.players[defenderIndex];
+
+  let s = state;
+
+  // Fortress permanently lost
+  if (region.hasFortress && !region.isDeclined && defender.activeRace) {
+    const placed = defender.activeRace.fortressesPlaced ?? 0;
+    const lost = defender.activeRace.fortressesLost ?? 0;
+    s = {
+      ...s,
+      players: patchPlayer(s, defenderIndex, {
+        activeRace: {
+          ...defender.activeRace,
+          fortressesPlaced: Math.max(0, placed - 1),
+          fortressesLost: lost + 1,
+        },
+      }),
+    };
+  }
+
+  return s;
 }
 
 function getRegion(state: GameState, id: number): RegionState {
@@ -1082,7 +1270,7 @@ function actionsMatch(a: GameAction, b: GameAction): boolean {
       return ba.regionIds[0] === a.regionIds[0] && ba.regionIds[1] === a.regionIds[1];
     }
     case 'placeEncampments': return true; // validated by phase
-    case 'selectDiplomatAlly': return (b as typeof a).playerIndex === a.playerIndex;
+    case 'placeFortress':    return (b as typeof a).regionId === a.regionId;
     case 'readyTroopsDeploy': return true; // validated by phase
     case 'redeploy':      return true; // validated by phase
     case 'defenderRedeploy': return true;

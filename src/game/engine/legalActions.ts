@@ -37,6 +37,8 @@ export function getLegalActions(state: GameState): readonly GameAction[] {
     case 'conquest':         return conquestActions(state);
     case 'reinforcementDie': return reinforcementDieActions(state);
     case 'redeploy':         return redeployActions(state);
+    case 'placeFortress':    return placeFortressActions(state);
+    case 'placeEncampments': return placeEncampmentsActions(state);
     case 'placeHeroes':      return placeHeroesActions(state);
     case 'score':            return [{ type: 'endPhase' }];
     case 'optionalDecline':  return [{ type: 'decline' }, { type: 'endPhase' }];
@@ -342,6 +344,34 @@ function placeHeroesActions(state: GameState): GameAction[] {
   }
   actions.push({ type: 'endPhase' }); // skip hero placement
   return actions;
+}
+
+// ── placeFortress ──────────────────────────────────────────────────────────
+// Fortified power: place 1 fortress per turn on an owned active region (max 6 total ever).
+
+function placeFortressActions(state: GameState): GameAction[] {
+  const player = state.players[state.activePlayerIndex];
+  if (!player.activeRace) return [{ type: 'endPhase' }];
+
+  const placed = player.activeRace.fortressesPlaced ?? 0;
+  const lost = player.activeRace.fortressesLost ?? 0;
+  if (placed + lost >= 6) return [{ type: 'endPhase' }];
+
+  const actions: GameAction[] = [];
+  for (const region of state.board.regions) {
+    if (region.owner !== state.activePlayerIndex || region.isDeclined) continue;
+    if (region.hasFortress) continue; // max 1 per region
+    actions.push({ type: 'placeFortress', regionId: region.id });
+  }
+  actions.push({ type: 'endPhase' }); // skip fortress placement
+  return actions;
+}
+
+// ── placeEncampments ──────────────────────────────────────────────────────
+// Bivouacking power: deploy up to 5 encampments across owned active regions.
+
+function placeEncampmentsActions(_state: GameState): GameAction[] {
+  return [{ type: 'placeEncampments', deployment: new Map() }, { type: 'endPhase' }];
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────

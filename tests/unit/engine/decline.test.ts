@@ -174,21 +174,21 @@ describe('applyAction — decline mechanics', () => {
     expect(last.playerIndex).toBe(0);
   });
 
-  it('clears hasEncampment flags from declining player regions (Bivouacking)', () => {
+  it('clears encampmentCount from declining player regions (Bivouacking)', () => {
     let state = buildDeclineReadyState({ raceId: 'ratmen', powerId: 'bivouacking' });
-    state = patchRegion(state, 19, { hasEncampment: true });
-    state = patchRegion(state, 20, { hasEncampment: true });
+    state = patchRegion(state, 19, { encampmentCount: 2 });
+    state = patchRegion(state, 20, { encampmentCount: 1 });
     const next = applyAction(state, { type: 'decline' });
-    expect(next.board.regions.find((r) => r.id === 19)!.hasEncampment).toBe(false);
-    expect(next.board.regions.find((r) => r.id === 20)!.hasEncampment).toBe(false);
+    expect(next.board.regions.find((r) => r.id === 19)!.encampmentCount).toBe(0);
+    expect(next.board.regions.find((r) => r.id === 20)!.encampmentCount).toBe(0);
   });
 
   it('does not clear encampments on other player regions during decline', () => {
     let state = buildDeclineReadyState();
     // Give opponent an encampment
-    state = patchRegion(state, 5, { owner: 1, tokens: 2, isDeclined: false, hasEncampment: true });
+    state = patchRegion(state, 5, { owner: 1, tokens: 2, isDeclined: false, encampmentCount: 1 });
     const next = applyAction(state, { type: 'decline' });
-    expect(next.board.regions.find((r) => r.id === 5)!.hasEncampment).toBe(true);
+    expect(next.board.regions.find((r) => r.id === 5)!.encampmentCount).toBe(1);
   });
 
   it('does not mutate the original state', () => {

@@ -66,7 +66,7 @@ export function createInitialState(config: GameConfig = {}): GameState {
     hasLostTribe: r.hasLostTribe,
     hasTrollLair: false,
     hasFortress: false,
-    hasEncampment: false,
+    encampmentCount: 0,
     hasHoleInTheGround: false,
     hasHero: false,
     hasDragon: false,

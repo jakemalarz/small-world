@@ -26,6 +26,8 @@ const PHASE_LABELS: Record<TurnPhase, string> = {
   conquest:               'Conquest',
   reinforcementDie:       'Final Conquest',
   redeploy:               'Redeploy',
+  placeFortress:          'Place Fortress',
+  placeEncampments:       'Place Encampments',
   placeHeroes:            'Place Heroes',
   score:                  'Scoring',
   optionalDecline:        'Optional Decline',
@@ -42,6 +44,8 @@ const ACTION_BUTTONS: Partial<Record<TurnPhase, string>> = {
   conquest:              'End Conquest',
   reinforcementDie:      'End Conquest',
   redeploy:              'Confirm Redeploy',
+  placeFortress:         'Skip Fortress',
+  placeEncampments:      'Confirm Encampments',
   placeHeroes:           'Skip Heroes',
   score:                 'End Turn',
   optionalDecline:       'End Turn',
@@ -395,6 +399,7 @@ class PlayerDashboard {
   private raceText!: Phaser.GameObjects.Text;
   private powerText!: Phaser.GameObjects.Text;
   private tokensText!: Phaser.GameObjects.Text;
+  private stashText!: Phaser.GameObjects.Text;
   private coinsText!: Phaser.GameObjects.Text;
   private activeBorder!: Phaser.GameObjects.Rectangle;
   private tooltipContainer!: Phaser.GameObjects.Container;
@@ -461,6 +466,12 @@ class PlayerDashboard {
       fontFamily: 'Arial',
       color: TEXT_COLOR,
     }).setDepth(11);
+
+    this.stashText = this.scene.add.text(x + 8, y + 72, '', {
+      fontSize: '10px',
+      fontFamily: 'Arial',
+      color: '#a78bfa',
+    }).setDepth(11).setVisible(false);
 
     this.coinsText = this.scene.add.text(x + 8, y + 72, 'Coins: —', {
       fontSize: '12px',
@@ -545,6 +556,35 @@ class PlayerDashboard {
     } else {
       this.tokensText.setText(`Tokens: ${player.availableTokens} / ${race?.totalTokens ?? '—'}`);
     }
+    // Special token stash display
+    let stashLabel = '';
+    if (race) {
+      if (race.powerId === 'fortified') {
+        const placed = race.fortressesPlaced ?? 0;
+        const lost = race.fortressesLost ?? 0;
+        const remaining = 6 - placed - lost;
+        stashLabel = `Fortresses: ${remaining}/6`;
+      } else if (race.powerId === 'bivouacking') {
+        const onBoard = state.board.regions
+          .filter(r => r.owner === playerIndex && !r.isDeclined)
+          .reduce((sum, r) => sum + r.encampmentCount, 0);
+        stashLabel = `Encampments: ${5 - onBoard}/5 in hand`;
+      } else if (race.raceId === 'trolls') {
+        const lairs = race.trollLairsOnBoard ?? 0;
+        stashLabel = `Lairs: ${lairs}`;
+      } else if (race.powerId === 'dragonMaster') {
+        stashLabel = race.dragonUsedThisTurn ? 'Dragon: Used' : 'Dragon: Available';
+      }
+    }
+    if (stashLabel) {
+      this.stashText.setText(stashLabel);
+      this.stashText.setVisible(true);
+      this.coinsText.setY(this.stashText.y + 14);
+    } else {
+      this.stashText.setVisible(false);
+      this.coinsText.setY(this.stashText.y);
+    }
+
     this.coinsText.setText(`Coins: ${player.coins}`);
   }
 }

@@ -98,7 +98,7 @@ describe('calculateConquestCost', () => {
   it('adds 1 for encampment', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist');
-    state = patchRegion(state, BASE_REGION, { hasEncampment: true, owner: 1, tokens: 1 });
+    state = patchRegion(state, BASE_REGION, { encampmentCount: 1, owner: 1, tokens: 1 });
     // defenseTokens = 1 + 1 = 2 → cost = 2 + 2 = 4
     expect(calculateConquestCost(state, BASE_REGION)).toBe(4);
   });

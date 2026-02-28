@@ -79,10 +79,11 @@ describe('redeployment phase', () => {
     expect(next.phase).toBe('redeploy');
   });
 
-  it('transitions to score phase when endPhase is submitted', () => {
+  it('transitions to placeEncampments when Bivouacking, or score otherwise', () => {
+    // Bivouacking power → placeEncampments
     const state = redeployState();
     const next = applyAction(state, { type: 'endPhase' });
-    expect(next.phase).toBe('score');
+    expect(next.phase).toBe('placeEncampments');
   });
 
   it('updates tokensOnBoard on active race', () => {

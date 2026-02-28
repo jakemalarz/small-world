@@ -60,6 +60,13 @@ export function getNextPhase(state: GameState, completedAction: GameAction): Tur
       if (completedAction.type === 'endPhase') return nextAfterRedeploy(state);
       return 'redeploy';
 
+    case 'placeFortress':
+      return nextAfterFortress(state);
+
+    case 'placeEncampments':
+      if (completedAction.type === 'endPhase') return nextAfterEncampments(state);
+      return nextAfterEncampments(state);
+
     case 'placeHeroes':
       return 'score';
 
@@ -134,11 +141,37 @@ function hasGhoulsInDecline(player: PlayerState): boolean {
   return player.declinedRaces.some((r) => r.raceId === 'ghouls');
 }
 
-/** After redeployment, go to placeHeroes if Heroic, otherwise score. */
+/** After redeployment, check Fortified → Bivouacking → Heroic → score. */
 function nextAfterRedeploy(state: GameState): TurnPhase {
   const player = state.players[state.activePlayerIndex];
+  if (!player.activeRace) return 'score';
+
+  if (player.activeRace.powerId === 'fortified') {
+    // Can place fortress if under the cap
+    const placed = player.activeRace.fortressesPlaced ?? 0;
+    const lost = player.activeRace.fortressesLost ?? 0;
+    if (placed + lost < 6) {
+      const hasValidTarget = state.board.regions.some(
+        (r) => r.owner === state.activePlayerIndex && !r.isDeclined && !r.hasFortress,
+      );
+      if (hasValidTarget) return 'placeFortress';
+    }
+  }
+
+  return nextAfterFortress(state);
+}
+
+/** After fortress placement, check Bivouacking → Heroic → score. */
+function nextAfterFortress(state: GameState): TurnPhase {
+  const player = state.players[state.activePlayerIndex];
+  if (player.activeRace?.powerId === 'bivouacking') return 'placeEncampments';
+  return nextAfterEncampments(state);
+}
+
+/** After encampment placement, check Heroic → score. */
+function nextAfterEncampments(state: GameState): TurnPhase {
+  const player = state.players[state.activePlayerIndex];
   if (player.activeRace?.powerId === 'heroic') {
-    // Need at least 2 owned active regions to place heroes
     const ownedActive = state.board.regions.filter(
       (r) => r.owner === state.activePlayerIndex && !r.isDeclined,
     );

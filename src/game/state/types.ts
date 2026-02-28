@@ -10,6 +10,8 @@ export type TurnPhase =
   | 'conquest'
   | 'reinforcementDie'
   | 'redeploy'
+  | 'placeFortress'     // Fortified power: place 1 fortress after redeployment
+  | 'placeEncampments'  // Bivouacking power: place up to 5 encampments after redeployment
   | 'placeHeroes'       // Heroic power: place 2 heroes after redeployment
   | 'score'
   | 'optionalDecline'   // Stout power: decline offered after scoring
@@ -86,7 +88,8 @@ export type GameAction =
   | { readonly type: 'placeDragon'; readonly regionId: number }
   | { readonly type: 'sorcererConvert'; readonly regionId: number }
   | { readonly type: 'placeHeroes'; readonly regionIds: readonly [number, number] }
-  | { readonly type: 'placeEncampments'; readonly regionIds: readonly number[] }
+  | { readonly type: 'placeEncampments'; readonly deployment: ReadonlyMap<number, number> }
+  | { readonly type: 'placeFortress'; readonly regionId: number }
   | { readonly type: 'startFinalConquest' }
   | { readonly type: 'berserkFail'; readonly regionId: number }
   | { readonly type: 'decline' }
@@ -122,7 +125,7 @@ export interface RegionState {
   // Special markers
   readonly hasTrollLair: boolean;
   readonly hasFortress: boolean;
-  readonly hasEncampment: boolean;
+  readonly encampmentCount: number;    // Number of encampments (0-5, stackable)
   readonly hasHoleInTheGround: boolean; // Halflings — immune to conquest/powers
   readonly hasHero: boolean;        // Heroic power — immune to conquest
   readonly hasDragon: boolean;      // Dragon Master — immune to conquest
@@ -147,11 +150,14 @@ export interface ActiveRaceState {
   readonly hasDeclinedThisTurn: boolean; // Stout: tracks decline within same turn
   readonly sorcererConversionsThisTurn: number; // Sorcerer: once per turn per opponent
   // Power-specific persistent state (undefined = not applicable)
-  readonly fortressesPlaced?: number;
+  readonly fortressesPlaced?: number;    // Fortresses currently on board
+  readonly fortressesLost?: number;      // Fortresses permanently destroyed (conquered/abandoned)
   readonly encampmentRegions?: readonly number[];
   readonly heroRegions?: readonly [number, number];
   readonly dragonRegion?: number | null;
+  readonly dragonUsedThisTurn?: boolean; // Dragon Master: true after dragon conquest this turn
   readonly halflingHoles?: readonly number[];
+  readonly trollLairsOnBoard?: number;   // Trolls: count of lairs currently on board
   readonly wealthyBonusApplied?: boolean;  // Wealthy: +7 applied on first scoring turn
   readonly berserkAttemptedRegions?: readonly number[]; // Berserk: regions failed this turn
 }

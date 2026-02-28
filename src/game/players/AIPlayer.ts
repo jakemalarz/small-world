@@ -45,7 +45,8 @@ export class AIPlayer implements IPlayer {
 function _pickAction(actions: readonly GameAction[]): GameAction {
   // --- Conquest targets: prefer empty regions (lower cost = empty) ----------
   const conquestActions = actions.filter(
-    (a) => a.type === 'conquer' || a.type === 'useReinforcement' || a.type === 'ghoulUseReinforcement',
+    (a) => a.type === 'conquer' || a.type === 'useReinforcement' || a.type === 'ghoulUseReinforcement' ||
+           a.type === 'placeDragon',
   );
   if (conquestActions.length > 0) {
     // 80% chance to conquer rather than endPhase (keeps AI aggressive)
@@ -89,6 +90,10 @@ function _pickAction(actions: readonly GameAction[]): GameAction {
   const heroAction = actions.find((a) => a.type === 'placeHeroes');
   if (heroAction) return heroAction;
 
+  // --- placeFortress: pick first valid region --------------------------------
+  const fortressAction = actions.find((a) => a.type === 'placeFortress');
+  if (fortressAction) return fortressAction;
+
   // --- Final conquest: 50% chance to attempt if available --------------------
   const finalConquest = actions.find((a) => a.type === 'startFinalConquest' || a.type === 'startGhoulFinalConquest');
   if (finalConquest && Math.random() < 0.5) {
@@ -101,7 +106,8 @@ function _pickAction(actions: readonly GameAction[]): GameAction {
     a.type !== 'readyTroopsDeploy' &&
     a.type !== 'ghoulReadyTroopsDeploy' &&
     a.type !== 'ghoulRedeploy' &&
-    a.type !== 'redeploy',
+    a.type !== 'redeploy' &&
+    a.type !== 'placeEncampments',
   );
   return _randomFrom(fallback);
 }

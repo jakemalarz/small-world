@@ -91,7 +91,7 @@ export function getLegalReinforcementTargets(
 export function ghoulConquestCost(region: RegionState): number {
   return Math.max(2, region.tokens + (region.hasLostTribe ? 1 : 0) +
     (region.hasMountain ? 1 : 0) + (region.hasTrollLair ? 1 : 0) +
-    (region.hasFortress ? 1 : 0) + (region.hasEncampment ? 1 : 0) + 1);
+    (region.hasFortress ? 1 : 0) + region.encampmentCount + 1);
 }
 
 /**

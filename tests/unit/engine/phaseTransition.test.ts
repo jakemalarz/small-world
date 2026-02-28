@@ -377,7 +377,7 @@ describe('getNextPhase — Heroic placeHeroes transition', () => {
     expect(getNextPhase(state, { type: 'endPhase' })).toBe('score');
   });
 
-  it('redeploy → score when player does NOT have Heroic (even with 2+ owned regions)', () => {
+  it('redeploy → placeEncampments when player has Bivouacking (not Heroic)', () => {
     const state = makeState({
       phase: 'redeploy',
       players: [
@@ -402,7 +402,7 @@ describe('getNextPhase — Heroic placeHeroes transition', () => {
         ],
       },
     });
-    expect(getNextPhase(state, { type: 'endPhase' })).toBe('score');
+    expect(getNextPhase(state, { type: 'endPhase' })).toBe('placeEncampments');
   });
 
   it('placeHeroes always transitions to score', () => {

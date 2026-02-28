@@ -46,6 +46,21 @@ function _pickAction(state: GameState, actions: readonly GameAction[]): GameActi
   }
 
   // --- Conquest / reinforcement: prefer lowest-cost target -------------------
+  // --- Dragon Master: always use dragon on highest-defense target if available
+  const dragonActions = actions.filter((a) => a.type === 'placeDragon');
+  if (dragonActions.length > 0 && Math.random() < 0.7) {
+    // Pick the highest-defense region (best value for dragon)
+    let bestDragon = dragonActions[0];
+    let bestDefense = -1;
+    for (const action of dragonActions) {
+      if (action.type !== 'placeDragon') continue;
+      let cost: number;
+      try { cost = calculateConquestCost(state, action.regionId); } catch { cost = 0; }
+      if (cost > bestDefense) { bestDefense = cost; bestDragon = action; }
+    }
+    return bestDragon;
+  }
+
   const conquestActions = actions.filter(
     (a) => a.type === 'conquer' || a.type === 'useReinforcement' || a.type === 'ghoulUseReinforcement',
   );
@@ -80,6 +95,10 @@ function _pickAction(state: GameState, actions: readonly GameAction[]): GameActi
   const heroAction = actions.find((a) => a.type === 'placeHeroes');
   if (heroAction) return heroAction;
 
+  // --- placeFortress: pick first valid region --------------------------------
+  const fortressAction = actions.find((a) => a.type === 'placeFortress');
+  if (fortressAction) return fortressAction;
+
   // --- Final conquest: always attempt if available ----------------------------
   const finalConquest = actions.find((a) => a.type === 'startFinalConquest' || a.type === 'startGhoulFinalConquest');
   if (finalConquest) {
@@ -92,7 +111,8 @@ function _pickAction(state: GameState, actions: readonly GameAction[]): GameActi
     a.type !== 'readyTroopsDeploy' &&
     a.type !== 'ghoulReadyTroopsDeploy' &&
     a.type !== 'ghoulRedeploy' &&
-    a.type !== 'redeploy',
+    a.type !== 'redeploy' &&
+    a.type !== 'placeEncampments',
   );
   return _randomFrom(fallback);
 }

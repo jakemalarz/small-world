@@ -123,8 +123,9 @@ export class PlaceholderTokenRenderer {
       this._drawMarker(cx + offsetX, cy, MARKER_COLORS['fortress'], 'F');
       offsetX += step;
     }
-    if (region.hasEncampment) {
-      this._drawMarker(cx + offsetX, cy, MARKER_COLORS['encampment'], 'E');
+    if (region.encampmentCount > 0) {
+      const label = region.encampmentCount > 1 ? `E${region.encampmentCount}` : 'E';
+      this._drawMarker(cx + offsetX, cy, MARKER_COLORS['encampment'], label);
       offsetX += step;
     }
     if (region.hasHoleInTheGround) {
@@ -182,7 +183,7 @@ export class PlaceholderTokenRenderer {
     return (
       region.hasTrollLair ||
       region.hasFortress ||
-      region.hasEncampment ||
+      region.encampmentCount > 0 ||
       region.hasHoleInTheGround ||
       region.hasHero ||
       region.hasDragon

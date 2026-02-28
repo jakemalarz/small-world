@@ -9,7 +9,7 @@ import { getActiveModifiers } from '@/game/abilities/modifiers';
 //   then enforce minimum of 1
 //
 // Defense tokens = region.tokens (enemy race) + hasLostTribe (+1) +
-//   hasMountain (+1) + hasTrollLair (+1) + hasFortress (+1) + hasEncampment (+1)
+//   hasMountain (+1) + hasTrollLair (+1) + hasFortress (+1) + encampmentCount (+N)
 //
 // Modifiers (all from MergedModifiers, may be negative):
 //   conquestCostFlat         — Commando: -1 on all conquests
@@ -35,7 +35,7 @@ export function calculateConquestCost(state: GameState, regionId: number): numbe
   if (region.hasMountain)   defenseTokens += 1;
   if (region.hasTrollLair)  defenseTokens += 1;
   if (region.hasFortress)   defenseTokens += 1;
-  if (region.hasEncampment) defenseTokens += 1;
+  defenseTokens += region.encampmentCount;       // each encampment adds +1
 
   // Base cost: 2 for an empty region, +1 per defensive feature/token
   let cost = defenseTokens + 2;

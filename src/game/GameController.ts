@@ -85,6 +85,12 @@ export class GameController {
   private _abandonDialogActive = false;
   /** First selected hero region during placeHeroes phase. */
   private _heroFirstRegion: number | null = null;
+  /** Mutable map for interactive encampment placement during placeEncampments. */
+  private _encampmentMap: Map<number, number> = new Map();
+  /** Encampments remaining in hand during placement. */
+  private _encampmentsInHand = 0;
+  /** True after encampment submission — next tick should auto-advance with endPhase. */
+  private _encampmentSubmitted = false;
   /** Mutable map for Ghoul token gathering during ghoulReadyTroops. */
   private _ghoulGatherMap: Map<number, number> = new Map();
   /** Ghoul tokens in hand during gathering. */
@@ -160,6 +166,14 @@ export class GameController {
         this.eventBus.emit('playerAction', { type: 'ghoulRedeploy', deployment: new Map(this._ghoulRedeployMap) });
         this._ghoulRedeployMap.clear();
         this._ghoulRedeployTokensInHand = 0;
+        return;
+      }
+      // Encampment placement: intercept endPhase during placeEncampments
+      if (action.type === 'endPhase' && this.state.phase === 'placeEncampments' && this._encampmentMap.size > 0) {
+        this._encampmentSubmitted = true;
+        this.eventBus.emit('playerAction', { type: 'placeEncampments', deployment: new Map(this._encampmentMap) });
+        this._encampmentMap.clear();
+        this._encampmentsInHand = 0;
         return;
       }
       // Remap Final Conquest button to ghoul version during ghoulConquest
@@ -263,6 +277,13 @@ export class GameController {
       return;
     }
 
+    // After encampment submission, auto-advance with endPhase
+    if (this.state.phase === 'placeEncampments' && this._encampmentSubmitted) {
+      this._encampmentSubmitted = false;
+      this.state = applyAction(this.state, { type: 'endPhase' });
+      return;
+    }
+
     // Initialize redeployment map when entering redeploy phase (FR-57)
     if (this.state.phase === 'redeploy' && this._redeployMap.size === 0) {
       this._initRedeployMap();
@@ -284,6 +305,12 @@ export class GameController {
     // Initialize Ghoul redeploy map when entering ghoulRedeploy
     if (this.state.phase === 'ghoulRedeploy' && this._ghoulRedeployMap.size === 0) {
       this._initGhoulRedeployMap();
+    }
+
+    // Initialize encampment map when entering placeEncampments (human only)
+    if (this.state.phase === 'placeEncampments' && this._encampmentMap.size === 0
+      && this.players[this.state.activePlayerIndex].type === 'human') {
+      this._initEncampmentMap();
     }
 
     this.legalActions = getLegalActions(this.state);
@@ -373,6 +400,13 @@ export class GameController {
       this._ghoulRedeployTokensInHand = 0;
       this._ghoulRedeploySubmitted = false;
     }
+
+    // Clear encampment state if phase changed away from placeEncampments
+    if (this.state.phase !== 'placeEncampments') {
+      this._encampmentMap.clear();
+      this._encampmentsInHand = 0;
+      this._encampmentSubmitted = false;
+    }
   }
 
   private _renderState(): void {
@@ -391,17 +425,21 @@ export class GameController {
       for (const [id, count] of this._gatherMap) {
         if (count > 0) validTargetIds.add(id);
       }
-    } else if (this.state.phase === 'placeHeroes') {
-      // Highlight owned active regions during hero placement
-      for (const r of this.state.board.regions) {
-        if (r.owner === this.state.activePlayerIndex && !r.isDeclined) {
-          validTargetIds.add(r.id);
-        }
+    } else if (this.state.phase === 'placeEncampments' && this._encampmentMap.size > 0) {
+      // Highlight owned active regions during encampment placement
+      for (const id of this._encampmentMap.keys()) {
+        validTargetIds.add(id);
+      }
+    } else if (this.state.phase === 'placeHeroes' || this.state.phase === 'placeFortress') {
+      // Highlight owned active regions during hero/fortress placement
+      for (const a of this.legalActions) {
+        if ('regionId' in a) validTargetIds.add((a as { regionId: number }).regionId);
       }
     } else {
       for (const a of this.legalActions) {
         if ((a.type === 'conquer' || a.type === 'useReinforcement' ||
-             a.type === 'ghoulConquer' || a.type === 'ghoulUseReinforcement') && 'regionId' in a) {
+             a.type === 'ghoulConquer' || a.type === 'ghoulUseReinforcement' ||
+             a.type === 'placeDragon') && 'regionId' in a) {
           validTargetIds.add((a as { regionId: number }).regionId);
         }
       }
@@ -446,6 +484,24 @@ export class GameController {
       return;
     }
 
+    // Encampment placement: left-click adds encampment
+    if (this.state.phase === 'placeEncampments' && this._encampmentMap.size > 0) {
+      this._encampmentAddToken(regionId);
+      return;
+    }
+
+    // Fortified: single click to place fortress
+    if (this.state.phase === 'placeFortress') {
+      const action = this.legalActions.find(
+        (a) => a.type === 'placeFortress' && (a as { regionId: number }).regionId === regionId,
+      );
+      if (action) {
+        this.selectedRegionId = regionId;
+        this.eventBus.emit('playerAction', action);
+      }
+      return;
+    }
+
     // Heroic: select 2 regions for hero placement
     if (this.state.phase === 'placeHeroes') {
       this._heroRegionClick(regionId);
@@ -474,7 +530,8 @@ export class GameController {
 
     const action = this.legalActions.find(
       (a) =>
-        (a.type === 'conquer' || a.type === 'useReinforcement' || a.type === 'ghoulConquer') &&
+        (a.type === 'conquer' || a.type === 'useReinforcement' || a.type === 'ghoulConquer' ||
+         a.type === 'placeDragon') &&
         (a as { regionId: number }).regionId === regionId,
     );
     if (action) {
@@ -608,6 +665,10 @@ export class GameController {
     }
     if (this.state.phase === 'ghoulRedeploy') {
       this._ghoulRedeployRemoveToken(regionId);
+      return;
+    }
+    if (this.state.phase === 'placeEncampments' && this._encampmentMap.size > 0) {
+      this._encampmentRemoveToken(regionId);
       return;
     }
     if (this.state.phase !== 'redeploy') return;
@@ -1006,6 +1067,59 @@ export class GameController {
     this.hudScene.refresh(previewState);
     this.tokenRenderer.render(previewState);
     this.regionRenderer.render(previewState, new Set(), null);
+  }
+
+  // ── Encampment Placement (placeEncampments) ──────────────────────────────
+
+  /** Initialize encampment map: 5 encampments in hand, all owned active regions at 0. */
+  private _initEncampmentMap(): void {
+    this._encampmentMap.clear();
+    this._encampmentsInHand = 5;
+
+    for (const region of this.state.board.regions) {
+      if (region.owner === this.state.activePlayerIndex && !region.isDeclined) {
+        this._encampmentMap.set(region.id, 0);
+      }
+    }
+  }
+
+  /** Left-click: add one encampment to a region (if hand > 0). */
+  private _encampmentAddToken(regionId: number): void {
+    if (this._encampmentsInHand <= 0) return;
+    const current = this._encampmentMap.get(regionId);
+    if (current === undefined) return; // not an owned active region
+    this._encampmentMap.set(regionId, current + 1);
+    this._encampmentsInHand--;
+    this._renderEncampmentPreview();
+  }
+
+  /** Right-click: remove one encampment from a region (min 0). */
+  private _encampmentRemoveToken(regionId: number): void {
+    const current = this._encampmentMap.get(regionId);
+    if (current === undefined || current <= 0) return;
+    this._encampmentMap.set(regionId, current - 1);
+    this._encampmentsInHand++;
+    this._renderEncampmentPreview();
+  }
+
+  /** Update display with encampment placement preview. */
+  private _renderEncampmentPreview(): void {
+    const newRegions = this.state.board.regions.map((r) => {
+      const count = this._encampmentMap.get(r.id);
+      if (count !== undefined) return { ...r, encampmentCount: count };
+      return r;
+    });
+    const previewState = {
+      ...this.state,
+      board: { regions: newRegions },
+    };
+    this.hudScene.refresh(previewState);
+    this.tokenRenderer.render(previewState);
+    const validTargetIds = new Set<number>();
+    for (const id of this._encampmentMap.keys()) {
+      validTargetIds.add(id);
+    }
+    this.regionRenderer.render(previewState, validTargetIds, null);
   }
 
   private _onGameOver(): void {
