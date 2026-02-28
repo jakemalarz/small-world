@@ -188,8 +188,16 @@ function _buildTooltipLines(region: RegionState, state: GameState): string[] {
   const mapRegion = MAP_2P.regions.find((r) => r.id === region.id)!;
   lines.push(mapRegion?.name ?? `Region ${region.id}`);
 
-  // Line 1: Terrain
-  lines.push(`Terrain: ${_capitalize(region.terrain)}`);
+  // Line 1: Terrain + secondary classifications
+  const secondary: string[] = [];
+  if (region.hasMine) secondary.push('Mine');
+  if (region.hasMagicSource) secondary.push('Magic');
+  if (region.hasUnderworld) secondary.push('Underworld');
+  if (region.isCoastal) secondary.push('Coastal');
+  const terrainLabel = secondary.length > 0
+    ? `${_capitalize(region.terrain)} (${secondary.join(', ')})`
+    : _capitalize(region.terrain);
+  lines.push(`Terrain: ${terrainLabel}`);
 
   // Line 2: Owner + status
   if (region.owner === null && region.hasLostTribe) {

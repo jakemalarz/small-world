@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { rollReinforcementDie, getLegalReinforcementTargets, getFinalConquestTargets } from '@/game/engine/reinforcementDie';
 import { createInitialState } from '@/game/engine/setup';
+import { isBorderRegion } from '@/game/engine/legalActions';
 import type { GameState, PlayerState } from '@/game/state/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -137,7 +138,7 @@ describe('getLegalReinforcementTargets', () => {
   });
 
   it('respects adjacency for non-first conquests', () => {
-    // Player owns region 20 (adjacent to 13,16,17,18,19 per map data).
+    // Player owns region 20 (adjacent to 16,17,18,21,22,23 per map data).
     // Non-adjacent regions (e.g. region 1) should not appear.
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActivePlayer(state, 3, 5); // tokensOnBoard > 0 → not first
@@ -148,7 +149,7 @@ describe('getLegalReinforcementTargets', () => {
       (a): a is Extract<typeof a, { type: 'useReinforcement' }> => a.type === 'useReinforcement',
     );
     // Region 1 is far from region 20 on the map
-    const adjacentToOwned = [13, 16, 17, 18, 19]; // neighbours of 20
+    const adjacentToOwned = [16, 17, 18, 21, 22, 23]; // neighbours of 20
     for (const a of reinforcementActions) {
       const isAdjacentOrOwned = adjacentToOwned.includes(a.regionId) || a.regionId === 20;
       expect(isAdjacentOrOwned).toBe(true);
@@ -162,11 +163,11 @@ describe('getLegalReinforcementTargets', () => {
     const reinforcementActions = actions.filter(
       (a): a is Extract<typeof a, { type: 'useReinforcement' }> => a.type === 'useReinforcement',
     );
-    // All targets must be border regions (edge or adjacent to edge sea)
+    // All targets must be border regions (edge or adjacent to edge sea/lake)
     // Interior lake-adjacent regions (e.g. region 8) should be excluded
     for (const a of reinforcementActions) {
       const region = state.board.regions.find((r) => r.id === a.regionId)!;
-      expect(region.isEdge).toBe(true);
+      expect(isBorderRegion(state, region)).toBe(true);
     }
   });
 

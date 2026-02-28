@@ -19,8 +19,8 @@ export interface AbilityModifiers {
   conquestCostCoastalModifier?: number;
   /** Cost modifier when target is adjacent to an own mountain region (Giants: -1) */
   conquestCostAdjacentOwnMountainModifier?: number;
-  /** Cost modifier for cavern regions (Underworld: -1) */
-  conquestCostCavernModifier?: number;
+  /** Cost modifier for underworld regions (Underworld: -1) */
+  conquestCostUnderworldModifier?: number;
 
   // ── Movement / adjacency ─────────────────────────────────────────────────────
   /** May conquer any region ignoring adjacency (Flying) */
@@ -29,8 +29,8 @@ export interface AbilityModifiers {
   canConquerSeas?: boolean;
   /** First conquest may target any region, not just edge/coastal (Halflings) */
   firstConquestAnywhere?: boolean;
-  /** All cavern regions are considered mutually adjacent (Underworld) */
-  cavernsAreAdjacent?: boolean;
+  /** All underworld regions are considered mutually adjacent (Underworld) */
+  underworldAreAdjacent?: boolean;
 
   // ── Scoring bonuses ──────────────────────────────────────────────────────────
   /** +N coin per region of the specified terrain (Humans, Forest, Hill, Swamp powers) */
@@ -40,7 +40,7 @@ export interface AbilityModifiers {
   };
   /** +N coin per region with the specified feature; optionally applies in decline */
   bonusPerRegionFeature?: {
-    readonly feature: 'mine' | 'magicSource' | 'cavern';
+    readonly feature: 'mine' | 'magicSource' | 'underworld';
     readonly bonus: number;
     readonly appliesInDecline?: boolean;
   };
@@ -90,7 +90,7 @@ export interface MergedModifiers {
   readonly conquestCostFlat: number;
   readonly conquestCostCoastal: number;
   readonly conquestCostAdjacentOwnMountain: number;
-  readonly conquestCostCavern: number;
+  readonly conquestCostUnderworld: number;
   readonly terrainCostModifiers: readonly {
     readonly terrains: readonly Terrain[];
     readonly modifier: number;
@@ -99,14 +99,14 @@ export interface MergedModifiers {
   readonly ignoreAdjacency: boolean;
   readonly canConquerSeas: boolean;
   readonly firstConquestAnywhere: boolean;
-  readonly cavernsAreAdjacent: boolean;
+  readonly underworldAreAdjacent: boolean;
   // Scoring — arrays so race AND power can each contribute
   readonly terrainBonuses: readonly {
     readonly terrain: Terrain;
     readonly bonus: number;
   }[];
   readonly featureBonuses: readonly {
-    readonly feature: 'mine' | 'magicSource' | 'cavern';
+    readonly feature: 'mine' | 'magicSource' | 'underworld';
     readonly bonus: number;
     readonly appliesInDecline: boolean;
   }[];
@@ -135,12 +135,12 @@ export const EMPTY_MODIFIERS: MergedModifiers = {
   conquestCostFlat: 0,
   conquestCostCoastal: 0,
   conquestCostAdjacentOwnMountain: 0,
-  conquestCostCavern: 0,
+  conquestCostUnderworld: 0,
   terrainCostModifiers: [],
   ignoreAdjacency: false,
   canConquerSeas: false,
   firstConquestAnywhere: false,
-  cavernsAreAdjacent: false,
+  underworldAreAdjacent: false,
   terrainBonuses: [],
   featureBonuses: [],
   bonusPerRegion: 0,
@@ -171,7 +171,7 @@ function mergeModifiers(r: AbilityModifiers, p: AbilityModifiers): MergedModifie
   if (p.bonusPerTerrain) terrainBonuses.push(p.bonusPerTerrain);
 
   const featureBonuses: {
-    feature: 'mine' | 'magicSource' | 'cavern';
+    feature: 'mine' | 'magicSource' | 'underworld';
     bonus: number;
     appliesInDecline: boolean;
   }[] = [];
@@ -196,12 +196,12 @@ function mergeModifiers(r: AbilityModifiers, p: AbilityModifiers): MergedModifie
     conquestCostFlat: (r.conquestCostModifier ?? 0) + (p.conquestCostModifier ?? 0),
     conquestCostCoastal: (r.conquestCostCoastalModifier ?? 0) + (p.conquestCostCoastalModifier ?? 0),
     conquestCostAdjacentOwnMountain: (r.conquestCostAdjacentOwnMountainModifier ?? 0) + (p.conquestCostAdjacentOwnMountainModifier ?? 0),
-    conquestCostCavern: (r.conquestCostCavernModifier ?? 0) + (p.conquestCostCavernModifier ?? 0),
+    conquestCostUnderworld: (r.conquestCostUnderworldModifier ?? 0) + (p.conquestCostUnderworldModifier ?? 0),
     terrainCostModifiers,
     ignoreAdjacency: (r.ignoreAdjacency ?? false) || (p.ignoreAdjacency ?? false),
     canConquerSeas: (r.canConquerSeas ?? false) || (p.canConquerSeas ?? false),
     firstConquestAnywhere: (r.firstConquestAnywhere ?? false) || (p.firstConquestAnywhere ?? false),
-    cavernsAreAdjacent: (r.cavernsAreAdjacent ?? false) || (p.cavernsAreAdjacent ?? false),
+    underworldAreAdjacent: (r.underworldAreAdjacent ?? false) || (p.underworldAreAdjacent ?? false),
     terrainBonuses,
     featureBonuses,
     bonusPerRegion: (r.bonusPerRegion ?? 0) + (p.bonusPerRegion ?? 0),

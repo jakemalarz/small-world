@@ -15,7 +15,7 @@ import { getActiveModifiers } from '@/game/abilities/modifiers';
 //   conquestCostFlat         — Commando: -1 on all conquests
 //   terrainCostModifiers     — Mounted: -1 on farmland/hill
 //   conquestCostCoastal      — Tritons: -1 on coastal regions
-//   conquestCostCavern       — Underworld: -1 on cavern regions
+//   conquestCostUnderworld   — Underworld: -1 on underworld regions
 //   conquestCostAdjacentOwnMountain — Giants: -1 if adjacent to own mountain
 
 /**
@@ -56,8 +56,8 @@ export function calculateConquestCost(state: GameState, regionId: number): numbe
   // Coastal modifier (Tritons: -1 on coastal)
   if (region.isCoastal) cost += mods.conquestCostCoastal;
 
-  // Cavern modifier (Underworld: -1 on cavern)
-  if (region.hasCavern) cost += mods.conquestCostCavern;
+  // Underworld modifier (Underworld: -1 on underworld)
+  if (region.hasUnderworld) cost += mods.conquestCostUnderworld;
 
   // Giants: -1 when target is adjacent to an own active mountain region
   if (mods.conquestCostAdjacentOwnMountain !== 0) {

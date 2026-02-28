@@ -58,9 +58,9 @@ describe('createInitialState', () => {
     expect(new Set(allPowers).size).toBe(allPowers.length);
   });
 
-  it('board has exactly 20 regions', () => {
+  it('board has exactly 23 regions', () => {
     const state = createInitialState();
-    expect(state.board.regions).toHaveLength(20);
+    expect(state.board.regions).toHaveLength(23);
   });
 
   it('all board regions start with owner=null and tokens=0', () => {
@@ -79,13 +79,13 @@ describe('createInitialState', () => {
     expect(stateLostTribes.sort()).toEqual(mapLostTribes.sort());
   });
 
-  it('mine, magic source, cavern features match map data', () => {
+  it('mine, magic source, underworld features match map data', () => {
     const state = createInitialState();
     for (const mapRegion of MAP_2P.regions) {
       const stateRegion = state.board.regions.find((r) => r.id === mapRegion.id)!;
       expect(stateRegion.hasMine).toBe(mapRegion.hasMine);
       expect(stateRegion.hasMagicSource).toBe(mapRegion.hasMagicSource);
-      expect(stateRegion.hasCavern).toBe(mapRegion.hasCavern);
+      expect(stateRegion.hasUnderworld).toBe(mapRegion.hasUnderworld);
     }
   });
 

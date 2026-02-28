@@ -70,7 +70,7 @@ describe('calculateScore', () => {
   it('scores 1 coin per active region (base)', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'alchemist');
-    state = ownRegions(state, 0, [19, 20]); // 2 active regions
+    state = ownRegions(state, 0, [14, 16]); // 2 active regions
     expect(calculateScore(state, 0)).toBeGreaterThanOrEqual(2);
   });
 
@@ -78,26 +78,26 @@ describe('calculateScore', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'alchemist');
     state = ownRegions(state, 0, [19], false);   // 1 active
-    state = ownRegions(state, 0, [20], true);    // 1 declined
+    state = ownRegions(state, 0, [14], true);    // 1 declined
     // Alchemist +2 flat, plus 1 + 1 base = 4
     expect(calculateScore(state, 0)).toBeGreaterThanOrEqual(2);
   });
 
   it('Humans get +1 per farmland region', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
-    // Regions 20 (farmland) and 19 (forest)
+    // Region 13 (farmland) and 12 (forest)
     state = withActiveRace(state, 0, 'humans', 'bivouacking');
-    state = ownRegions(state, 0, [20, 19]); // 1 farmland + 1 forest
+    state = ownRegions(state, 0, [13, 12]); // 1 farmland + 1 forest
 
     const score = calculateScore(state, 0);
-    // Base: 2, Humans farmland bonus: +1 for region 20
+    // Base: 2, Humans farmland bonus: +1 for region 13
     expect(score).toBe(3);
   });
 
   it('Humans farmland bonus does not apply to non-farmland regions', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'humans', 'bivouacking');
-    state = ownRegions(state, 0, [19]); // forest only
+    state = ownRegions(state, 0, [12]); // forest only
     // Base: 1, no farmland bonus
     expect(calculateScore(state, 0)).toBe(1);
   });
@@ -105,7 +105,7 @@ describe('calculateScore', () => {
   it('Dwarves get +1 per mine region (active)', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'dwarves', 'bivouacking');
-    state = ownRegions(state, 0, [2]); // region 2 hasMine:true
+    state = ownRegions(state, 0, [15]); // region 15 hasMine:true
     // Base: 1, mine bonus: +1
     expect(calculateScore(state, 0)).toBe(2);
   });
@@ -113,7 +113,7 @@ describe('calculateScore', () => {
   it('Dwarves mine bonus applies in decline', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'dwarves', 'bivouacking');
-    state = ownRegions(state, 0, [2], true); // region 2 declined
+    state = ownRegions(state, 0, [15], true); // region 15 declined
     // Base declined: 1, mine bonus in decline: +1
     expect(calculateScore(state, 0)).toBe(2);
   });
@@ -125,7 +125,7 @@ describe('calculateScore', () => {
       activeRace: null,
       declinedRaces: [{ raceId: 'dwarves', powerId: 'bivouacking', isSpirit: false }],
     });
-    state = ownRegions(state, 0, [2], true); // region 2 hasMine:true, declined
+    state = ownRegions(state, 0, [15], true); // region 15 hasMine:true, declined
     // Base: 1, mine bonus in decline: +1
     expect(calculateScore(state, 0)).toBe(2);
   });
@@ -137,8 +137,8 @@ describe('calculateScore', () => {
       ...state.players[0],
       declinedRaces: [{ raceId: 'dwarves', powerId: 'alchemist', isSpirit: false }],
     });
-    state = ownRegions(state, 0, [19]); // active region (forest, no mine)
-    state = ownRegions(state, 0, [2], true); // declined region (hasMine:true)
+    state = ownRegions(state, 0, [12]); // active region (forest, no mine)
+    state = ownRegions(state, 0, [15], true); // declined region (hasMine:true)
     // Base: 2 (1 active + 1 declined), Dwarf mine bonus: +1 for declined mine region
     expect(calculateScore(state, 0)).toBe(3);
   });
@@ -146,7 +146,7 @@ describe('calculateScore', () => {
   it('Merchant +1 per active region', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'merchant');
-    state = ownRegions(state, 0, [19, 20]); // 2 active regions
+    state = ownRegions(state, 0, [14, 16]); // 2 active regions
     // Base: 2, Merchant +2 = 4
     expect(calculateScore(state, 0)).toBe(4);
   });
@@ -154,7 +154,7 @@ describe('calculateScore', () => {
   it('Merchant does not apply to declined regions', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'merchant');
-    state = ownRegions(state, 0, [20], true); // 1 declined only
+    state = ownRegions(state, 0, [14], true); // 1 declined only
     // Base: 1, Merchant: 0 (no active regions)
     expect(calculateScore(state, 0)).toBe(1);
   });
@@ -162,7 +162,7 @@ describe('calculateScore', () => {
   it('Alchemist gives +2 flat bonus', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'alchemist');
-    state = ownRegions(state, 0, [20]); // 1 active region
+    state = ownRegions(state, 0, [14]); // 1 active region
     // Base: 1, Alchemist: +2 = 3
     expect(calculateScore(state, 0)).toBe(3);
   });
@@ -170,7 +170,7 @@ describe('calculateScore', () => {
   it('Orcs +1 per non-empty conquest (conquestsThisTurn)', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'orcs', 'bivouacking', { conquestsThisTurn: 3 });
-    state = ownRegions(state, 0, [20]);
+    state = ownRegions(state, 0, [14]);
     // Base: 1, Orcs +3 = 4
     expect(calculateScore(state, 0)).toBe(4);
   });
@@ -178,7 +178,7 @@ describe('calculateScore', () => {
   it('Pillaging +1 per non-empty conquest', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'pillaging', { conquestsThisTurn: 2 });
-    state = ownRegions(state, 0, [20]);
+    state = ownRegions(state, 0, [14]);
     // Base: 1, Pillaging +2 = 3
     expect(calculateScore(state, 0)).toBe(3);
   });
@@ -186,7 +186,7 @@ describe('calculateScore', () => {
   it('Fortified +1 per fortress placed', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'fortified', { fortressesPlaced: 2 });
-    state = ownRegions(state, 0, [20]);
+    state = ownRegions(state, 0, [14]);
     // Base: 1, Fortified: +2 = 3
     expect(calculateScore(state, 0)).toBe(3);
   });
@@ -202,10 +202,10 @@ describe('calculateScore', () => {
   it('Trolls do NOT get +1 per Troll Lair (lairs are defense-only)', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'trolls', 'bivouacking');
-    state = ownRegions(state, 0, [19, 20]);
+    state = ownRegions(state, 0, [14, 16]);
     // Place Troll Lairs on both regions
-    state = patchRegion(state, 19, { hasTrollLair: true });
-    state = patchRegion(state, 20, { hasTrollLair: true });
+    state = patchRegion(state, 14, { hasTrollLair: true });
+    state = patchRegion(state, 16, { hasTrollLair: true });
     // Base: 2 regions = 2 coins. No lair scoring bonus.
     expect(calculateScore(state, 0)).toBe(2);
   });
@@ -213,7 +213,7 @@ describe('calculateScore', () => {
   it('scores do not bleed to opponent', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'humans', 'alchemist');
-    state = ownRegions(state, 0, [20]);
+    state = ownRegions(state, 0, [14]);
     expect(calculateScore(state, 1)).toBe(0); // player 1 owns nothing
   });
 
@@ -229,7 +229,7 @@ describe('applyScoring', () => {
   it('adds calculated score coins to active player', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'bivouacking');
-    state = ownRegions(state, 0, [20]);
+    state = ownRegions(state, 0, [14]);
     const beforeCoins = state.players[0].coins;
     const expectedScore = calculateScore(state, 0);
     const result = applyScoring(state);
@@ -239,7 +239,7 @@ describe('applyScoring', () => {
   it('does not modify opponent coins', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'bivouacking');
-    state = ownRegions(state, 0, [20]);
+    state = ownRegions(state, 0, [14]);
     const opponent = state.players[1].coins;
     const result = applyScoring(state);
     expect(result.players[1].coins).toBe(opponent);
@@ -258,7 +258,7 @@ describe('Wealthy bonus timing', () => {
   it('calculateScore includes +7 when firstTurnBonus > 0 and wealthyBonusApplied is not set', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'wealthy');
-    state = ownRegions(state, 0, [20]); // 1 region = base 1
+    state = ownRegions(state, 0, [14]); // 1 region = base 1
     // Wealthy: +7 firstTurnBonus, wealthyBonusApplied is undefined (not yet applied)
     const score = calculateScore(state, 0);
     // Base: 1, Wealthy firstTurnBonus: +7 = 8
@@ -268,7 +268,7 @@ describe('Wealthy bonus timing', () => {
   it('calculateScore does NOT include +7 when wealthyBonusApplied is true', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'wealthy', { wealthyBonusApplied: true });
-    state = ownRegions(state, 0, [20]); // 1 region = base 1
+    state = ownRegions(state, 0, [14]); // 1 region = base 1
     const score = calculateScore(state, 0);
     // Base: 1, no Wealthy bonus (already applied)
     expect(score).toBe(1);
@@ -277,7 +277,7 @@ describe('Wealthy bonus timing', () => {
   it('applyScoring sets wealthyBonusApplied=true on activeRace after first scoring', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'wealthy');
-    state = ownRegions(state, 0, [20]);
+    state = ownRegions(state, 0, [14]);
     const result = applyScoring(state);
     expect(result.players[0].activeRace!.wealthyBonusApplied).toBe(true);
   });
@@ -285,7 +285,7 @@ describe('Wealthy bonus timing', () => {
   it('applyScoring does not set wealthyBonusApplied on non-Wealthy power', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'alchemist');
-    state = ownRegions(state, 0, [20]);
+    state = ownRegions(state, 0, [14]);
     const result = applyScoring(state);
     expect(result.players[0].activeRace!.wealthyBonusApplied).toBeUndefined();
   });
@@ -293,7 +293,7 @@ describe('Wealthy bonus timing', () => {
   it('applyScoring does not re-apply wealthy bonus when wealthyBonusApplied is already true', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'wealthy', { wealthyBonusApplied: true });
-    state = ownRegions(state, 0, [20]);
+    state = ownRegions(state, 0, [14]);
     const beforeCoins = state.players[0].coins;
     const result = applyScoring(state);
     // Only base 1 coin scored (no +7 bonus)
@@ -303,7 +303,7 @@ describe('Wealthy bonus timing', () => {
   it('applyScoring includes +7 on first scoring (wealthyBonusApplied not set) and coins are correct', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'ratmen', 'wealthy');
-    state = ownRegions(state, 0, [20]);
+    state = ownRegions(state, 0, [14]);
     const beforeCoins = state.players[0].coins;
     const result = applyScoring(state);
     // Base 1 + Wealthy +7 = 8

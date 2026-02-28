@@ -149,10 +149,10 @@ export const POWERS: Readonly<Record<PowerId, PowerDefinition>> = {
     name: 'Underworld',
     bonusTokens: 5,
     modifiers: {
-      conquestCostCavernModifier: -1,
-      cavernsAreAdjacent: true,
+      conquestCostUnderworldModifier: -1,
+      underworldAreAdjacent: true,
     },
-    tooltip: '+5 tokens. Conquest cost -1 on Cavern regions. All Cavern regions are adjacent to each other.',
+    tooltip: '+5 tokens. Conquest cost -1 on Underworld regions. All Underworld regions are adjacent to each other.',
   },
   wealthy: {
     id: 'wealthy',

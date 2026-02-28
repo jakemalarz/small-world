@@ -90,10 +90,11 @@ describe('getActiveModifiers', () => {
     expect(mods.canConquerSeas).toBe(true);
   });
 
-  it('underworld power sets cavernsAreAdjacent and conquestCostCavern', () => {
+  it('underworld power sets underworldAreAdjacent and conquestCostUnderworld', () => {
     const player = makePlayer('sorcerers', 'underworld');
     const mods = getActiveModifiers(player);
-    expect(mods.cavernsAreAdjacent).toBe(true);
+    expect(mods.underworldAreAdjacent).toBe(true);
+    expect(mods.conquestCostUnderworld).toBe(-1);
   });
 
   it('berserk power sets berserkDie flag', () => {

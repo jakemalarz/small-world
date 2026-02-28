@@ -57,7 +57,7 @@ export function createInitialState(config: GameConfig = {}): GameState {
     hasMountain: r.hasMountain,
     hasMine: r.hasMine,
     hasMagicSource: r.hasMagicSource,
-    hasCavern: r.hasCavern,
+    hasUnderworld: r.hasUnderworld,
     // Dynamic state — all start at defaults
     owner: null,
     tokens: 0,

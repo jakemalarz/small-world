@@ -19,7 +19,7 @@ import { POWER_HANDLERS } from '@/game/abilities/powerAbilities';
 //                     (unless Flying → any non-sea/lake; or Halflings → anywhere)
 //   Subsequent     → target must be adjacent to an own active region
 //                     (unless Flying → any non-sea/lake)
-//                     Underworld: own cavern regions are also adjacent to all other caverns
+//                     Underworld: own underworld regions are also adjacent to all other underworld regions
 //   Sea / Lake      → only conquerable by Seafaring
 //   Protected       → hasHoleInTheGround, hasHero, hasDragon block all standard conquest
 //   Cost            → player must have enough tokens in hand (availableTokens ≥ cost)
@@ -144,7 +144,7 @@ function ghoulConquestActions(state: GameState): GameAction[] {
     /* isFirst= */ ghoulRegions.length === 0,
     /* ignoreAdjacency= */ false,
     /* firstConquestAnywhere= */ false,
-    /* cavernsAreAdjacent= */ false,
+    /* underworldAreAdjacent= */ false,
   );
 
   const actions: GameAction[] = [{ type: 'endPhase' }];
@@ -220,7 +220,7 @@ function conquestActions(state: GameState): GameAction[] {
     isFirst,
     mods.ignoreAdjacency,
     mods.firstConquestAnywhere,
-    mods.cavernsAreAdjacent,
+    mods.underworldAreAdjacent,
   );
 
   // Berserk: die roll supplements every conquest attempt (max die = 3)
@@ -357,7 +357,7 @@ function buildReachableSet(
   isFirst: boolean,
   ignoreAdjacency: boolean,
   firstConquestAnywhere: boolean,
-  cavernsAreAdjacent: boolean,
+  underworldAreAdjacent: boolean,
 ): Set<number> {
   const reachable = new Set<number>();
 
@@ -389,15 +389,15 @@ function buildReachableSet(
     }
   }
 
-  // Underworld cavern adjacency
-  if (cavernsAreAdjacent) {
-    const ownsCavern = ownRegionIds.some((id) => {
+  // Underworld adjacency: all underworld regions are mutually adjacent
+  if (underworldAreAdjacent) {
+    const ownsUnderworld = ownRegionIds.some((id) => {
       const r = state.board.regions.find((region) => region.id === id);
-      return r?.hasCavern ?? false;
+      return r?.hasUnderworld ?? false;
     });
-    if (ownsCavern) {
+    if (ownsUnderworld) {
       state.board.regions
-        .filter((r) => r.hasCavern && !ownSet.has(r.id))
+        .filter((r) => r.hasUnderworld && !ownSet.has(r.id))
         .forEach((r) => reachable.add(r.id));
     }
   }

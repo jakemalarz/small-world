@@ -64,9 +64,9 @@ describe('POWERS data table', () => {
     expect(mod?.modifier).toBe(-1);
   });
 
-  it('Underworld has both cavern modifiers', () => {
-    expect(POWERS.underworld.modifiers.conquestCostCavernModifier).toBe(-1);
-    expect(POWERS.underworld.modifiers.cavernsAreAdjacent).toBe(true);
+  it('Underworld has both underworld modifiers', () => {
+    expect(POWERS.underworld.modifiers.conquestCostUnderworldModifier).toBe(-1);
+    expect(POWERS.underworld.modifiers.underworldAreAdjacent).toBe(true);
   });
 
   it('Berserk has berserkDie modifier', () => {

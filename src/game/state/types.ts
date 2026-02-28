@@ -24,7 +24,6 @@ export type Terrain =
   | 'farmland'
   | 'hill'
   | 'swamp'
-  | 'mine'
   | 'sea'
   | 'lake';
 
@@ -115,7 +114,7 @@ export interface RegionState {
   readonly hasMountain: boolean;    // Mountain symbol (adds +1 to conquest cost)
   readonly hasMine: boolean;
   readonly hasMagicSource: boolean;
-  readonly hasCavern: boolean;
+  readonly hasUnderworld: boolean;
   // Dynamic ownership & tokens
   readonly owner: 0 | 1 | null;    // Player index, or null if unoccupied
   readonly tokens: number;          // Number of race tokens on this region

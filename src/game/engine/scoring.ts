@@ -23,12 +23,12 @@ import { POWERS } from '@/game/data/powers';
 /** Look up a boolean feature field on a region. */
 function regionHasFeature(
   region: RegionState,
-  feature: 'mine' | 'magicSource' | 'cavern',
+  feature: 'mine' | 'magicSource' | 'underworld',
 ): boolean {
   switch (feature) {
     case 'mine':        return region.hasMine;
     case 'magicSource': return region.hasMagicSource;
-    case 'cavern':      return region.hasCavern;
+    case 'underworld':  return region.hasUnderworld;
   }
 }
 

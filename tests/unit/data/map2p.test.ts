@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { MAP_2P, getRegionData } from '@/game/data/map2p';
 
 describe('2-player map data', () => {
-  it('has 20 regions', () => {
-    expect(MAP_2P.regions).toHaveLength(20);
+  it('has 23 regions', () => {
+    expect(MAP_2P.regions).toHaveLength(23);
   });
 
   it('region IDs are unique', () => {
@@ -79,10 +79,39 @@ describe('2-player map data', () => {
     }
   });
 
-  it('has at least one mine, magic source, and cavern', () => {
+  it('has at least one mine, magic source, and underworld', () => {
     expect(MAP_2P.regions.some((r) => r.hasMine)).toBe(true);
     expect(MAP_2P.regions.some((r) => r.hasMagicSource)).toBe(true);
-    expect(MAP_2P.regions.some((r) => r.hasCavern)).toBe(true);
+    expect(MAP_2P.regions.some((r) => r.hasUnderworld)).toBe(true);
+  });
+
+  it('has correct terrain distribution', () => {
+    const counts = new Map<string, number>();
+    for (const r of MAP_2P.regions) {
+      counts.set(r.terrain, (counts.get(r.terrain) ?? 0) + 1);
+    }
+    expect(counts.get('sea')).toBe(2);
+    expect(counts.get('lake')).toBe(1);
+    expect(counts.get('farmland')).toBe(4);
+    expect(counts.get('mountain')).toBe(4);
+    expect(counts.get('forest')).toBe(4);
+    expect(counts.get('hill')).toBe(4);
+    expect(counts.get('swamp')).toBe(4);
+  });
+
+  it('has correct secondary classification counts', () => {
+    const mines = MAP_2P.regions.filter((r) => r.hasMine);
+    const magics = MAP_2P.regions.filter((r) => r.hasMagicSource);
+    const underworlds = MAP_2P.regions.filter((r) => r.hasUnderworld);
+    expect(mines.length).toBe(4); // Mtn+Mine, Mtn+Mine+UW, Forest+Mine, Swamp+Mine
+    expect(magics.length).toBe(4); // 2 Farmland+Magic, Forest+Magic, Swamp+Magic
+    expect(underworlds.length).toBe(4); // 2 Hill+UW, Mtn+Mine+UW, Swamp+UW
+  });
+
+  it('no region has mine as primary terrain', () => {
+    for (const r of MAP_2P.regions) {
+      expect(r.terrain).not.toBe('mine');
+    }
   });
 
   it('has lost tribes on some regions', () => {

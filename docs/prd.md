@@ -77,7 +77,7 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 
 ### In Scope
 
-- **2-player map** — Faithful recreation of the official 2-player board with all regions, terrain types, and symbols
+- **2-player map** — 23-region board with primary terrain types (Mountain, Forest, Farmland, Hill, Swamp, Sea, Lake) and secondary classifications (Mine, Magic, Underworld). Derived classifications (Coastal, Mountain-adjacent) are computed from adjacency
 - **All 14 races** — Amazons, Dwarves, Elves, Ghouls, Giants, Halflings, Humans, Orcs, Ratmen, Skeletons, Sorcerers, Tritons, Trolls, Wizards
 - **All 20 special powers** — Alchemist, Berserk, Bivouacking, Commando, Diplomat, Dragon Master, Flying, Forest, Fortified, Heroic, Hill, Merchant, Mounted, Pillaging, Seafaring, Spirit, Stout, Swamp, Underworld, Wealthy
 - **Complete game loop** — Setup, race selection, ready troops, conquest, reinforcement die, redeployment, decline, scoring, 10-turn structure, end-game
@@ -118,7 +118,7 @@ Build a web-based implementation of the 2-player Small World board game using Ph
 #### Game Setup
 
 - FR-1: The game shall display the 2-player map with all regions rendered as interactive, clickable polygons
-- FR-2: Each region shall display its terrain type visually (mountain, forest, farmland, hill, swamp, magic, cavern, mine) matching the board game art style
+- FR-2: Each region shall display its primary terrain type visually (mountain, forest, farmland, hill, swamp, sea, lake) and secondary classification markers (mine, magic, underworld) matching the board game art style
 - FR-3: Lost Tribe tokens shall be placed on regions marked with the Lost Tribe symbol at game start
 - FR-4: Mountain tokens shall be placed on regions marked with the Mountain symbol at game start
 - FR-5: The turn track (1-10) shall be displayed and the turn marker placed on turn 1
@@ -239,7 +239,7 @@ All 20 special powers shall be implemented with the following bonus token counts
 | Spirit | +5 | In Decline tokens do not count toward the "1 In Decline race" limit. They stay on the board alongside a second declined race |
 | Stout | +4 | Can go In Decline at the end of a regular conquest turn (Conquer → Redeploy → Score → Decline) instead of spending a whole turn |
 | Swamp | +4 | +1 Victory Coin per Swamp region |
-| Underworld | +5 | Conquest cost -1 on Cavern regions. All Cavern regions are considered adjacent to each other |
+| Underworld | +5 | Conquest cost -1 on Underworld regions. All Underworld regions are considered adjacent to each other |
 | Wealthy | +4 | Gain 7 bonus Victory Coins at the end of first turn only |
 
 - FR-34: Token count for a race/power combo = (number on Race Banner) + (bonus from Special Power Badge)

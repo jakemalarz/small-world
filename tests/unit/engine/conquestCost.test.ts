@@ -44,8 +44,8 @@ function withRace(state: GameState, raceId: string, powerId: string): GameState 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('calculateConquestCost', () => {
-  // Use region 20 (Southern Shore, farmland, large empty region)
-  const BASE_REGION = 20;
+  // Use region 14 (Bogmoss, swamp, edge, empty region — no adjacent mountains)
+  const BASE_REGION = 14;
 
   it('costs 2 for a completely empty region', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
@@ -141,12 +141,12 @@ describe('calculateConquestCost', () => {
   });
 
   it('applies Mounted -1 on farmland region', () => {
-    // Region 20 is farmland, region 4 is farmland
+    // Region 13 (Coastal Pastures) is farmland
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'mounted');
-    const costMounted = calculateConquestCost(state, BASE_REGION);
+    const costMounted = calculateConquestCost(state, 13);
     state = withRace(state, 'humans', 'alchemist');
-    const costNormal = calculateConquestCost(state, BASE_REGION);
+    const costNormal = calculateConquestCost(state, 13);
     expect(costMounted).toBe(costNormal - 1);
   });
 
