@@ -88,6 +88,7 @@ export type GameAction =
   | { readonly type: 'placeHeroes'; readonly regionIds: readonly [number, number] }
   | { readonly type: 'placeEncampments'; readonly regionIds: readonly number[] }
   | { readonly type: 'startFinalConquest' }
+  | { readonly type: 'berserkFail'; readonly regionId: number }
   | { readonly type: 'decline' }
   | { readonly type: 'endPhase' };
 
@@ -152,6 +153,7 @@ export interface ActiveRaceState {
   readonly dragonRegion?: number | null;
   readonly halflingHoles?: readonly number[];
   readonly wealthyBonusApplied?: boolean;  // Wealthy: +7 applied on first scoring turn
+  readonly berserkAttemptedRegions?: readonly number[]; // Berserk: regions failed this turn
 }
 
 // ─── Declined Race State ──────────────────────────────────────────────────────

@@ -54,6 +54,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'placeHeroes':    return applyPlaceHeroes(state, action.regionIds, logEntry);
     case 'placeEncampments': return applyPlaceEncampments(state, action.regionIds, logEntry);
     case 'startFinalConquest': return applyStartFinalConquest(state, logEntry);
+    case 'berserkFail':    return applyBerserkFail(state, action.regionId, logEntry);
     case 'decline':        return applyDecline(state, logEntry);
     case 'endPhase':       return applyEndPhase(state, logEntry);
     default: {
@@ -229,9 +230,10 @@ function applyConquer(
   }
 
   // ── Update conquered region ───────────────────────────────────────────────
-  // Berserk: die supplements tokens, so place min(available, cost).
+  // Berserk: die reduces cost, but player still places at least 1 token.
+  // Formula: max(1, cost - dieResult). Without dieResult: place exactly cost.
   const tokensPlaced = dieResult !== undefined
-    ? Math.min(attacker.availableTokens, cost)
+    ? Math.max(1, cost - dieResult)
     : cost;
 
   s = {
@@ -735,6 +737,28 @@ function applyStartGhoulFinalConquest(state: GameState, logEntry: GameLogEntry):
   return appendLog({ ...state, phase: nextPhase }, logEntry);
 }
 
+// ── berserkFail ───────────────────────────────────────────────────────────────
+// Record a failed Berserk conquest attempt so the region cannot be tried again this turn.
+
+function applyBerserkFail(
+  state: GameState, regionId: number, logEntry: GameLogEntry,
+): GameState {
+  const player = state.players[state.activePlayerIndex];
+  const race = player.activeRace;
+  if (!race) return appendLog(state, logEntry);
+
+  const existing = race.berserkAttemptedRegions ?? [];
+  return appendLog({
+    ...state,
+    players: patchPlayer(state, state.activePlayerIndex, {
+      activeRace: {
+        ...race,
+        berserkAttemptedRegions: [...existing, regionId],
+      },
+    }),
+  }, logEntry);
+}
+
 // ── ghoulUseReinforcement ────────────────────────────────────────────────────
 // Like applyGhoulConquer but places min(available, cost) tokens — die covers shortfall.
 
@@ -821,8 +845,32 @@ function applyDecline(state: GameState, logEntry: GameLogEntry): GameState {
     }),
   };
 
-  // Transition phase
   const nextPhase = getNextPhase(s, logEntry.action);
+
+  // optionalDecline + decline: applyEndPhase is NOT called, so we must
+  // switch the active player here directly (it won't go through score phase).
+  if (state.phase === 'optionalDecline') {
+    const nextPlayerIndex: 0 | 1 = s.activePlayerIndex === 0 ? 1 : 0;
+    const isNewRound = nextPlayerIndex === s.firstPlayerIndex;
+    const newTurn = isNewRound && nextPhase !== 'gameOver' ? s.turn + 1 : s.turn;
+    const newRound = isNewRound && nextPhase !== 'gameOver' ? s.round + 1 : s.round;
+    let switched: GameState = {
+      ...s,
+      phase: nextPhase,
+      activePlayerIndex: nextPlayerIndex,
+      turn: newTurn,
+      round: newRound,
+      reinforcementDie: null,
+    };
+    if (nextPhase === 'readyTroops' || nextPhase === 'ghoulReadyTroops') {
+      switched = addConquestOnlyTokens(switched, nextPlayerIndex);
+    }
+    if (nextPhase === 'ghoulReadyTroops') {
+      switched = stashTokensForGhouls(switched);
+    }
+    return appendLog(switched, logEntry);
+  }
+
   return appendLog({ ...s, phase: nextPhase }, logEntry);
 }
 
@@ -886,6 +934,7 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
           sorcererConversionsThisTurn: 0,
           dragonRegion: undefined,
           heroRegions: undefined,
+          berserkAttemptedRegions: undefined,
         },
       }),
     };
@@ -1038,6 +1087,7 @@ function actionsMatch(a: GameAction, b: GameAction): boolean {
     case 'redeploy':      return true; // validated by phase
     case 'defenderRedeploy': return true;
     case 'startFinalConquest': return true;
+    case 'berserkFail':   return (b as typeof a).regionId === a.regionId;
     case 'decline':       return true;
     case 'endPhase':      return true;
     default: return false;

@@ -521,6 +521,40 @@ describe('conquest — Berserk die supplements affordability', () => {
     const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
     expect(conquests).toHaveLength(0);
   });
+
+  it('Berserk requires at least 1 token in hand (0 tokens → no conquests)', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'ratmen', 'berserk', { tokensOnBoard: 0 });
+    state = patchPlayer(state, 0, { availableTokens: 0 });
+    state = patchState(state, { phase: 'conquest' });
+    const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
+    expect(conquests).toHaveLength(0);
+  });
+
+  it('Berserk excludes already-attempted regions from legal conquests', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'ratmen', 'berserk', {
+      tokensOnBoard: 0,
+      berserkAttemptedRegions: [20],
+    });
+    state = patchPlayer(state, 0, { availableTokens: 2 });
+    state = patchState(state, { phase: 'conquest' });
+    const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
+    const has20 = conquests.some(
+      (a) => (a as { type: 'conquer'; regionId: number }).regionId === 20,
+    );
+    expect(has20).toBe(false);
+  });
+
+  it('Berserk includes berserkFail as a legal action for valid targets', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 'ratmen', 'berserk', { tokensOnBoard: 0 });
+    state = patchPlayer(state, 0, { availableTokens: 1 });
+    state = patchState(state, { phase: 'conquest' });
+    const actions = getLegalActions(state);
+    const fails = actions.filter((a) => a.type === 'berserkFail');
+    expect(fails.length).toBeGreaterThan(0);
+  });
 });
 
 // ── Feature 8: Heroic placeHeroes phase ───────────────────────────────────────

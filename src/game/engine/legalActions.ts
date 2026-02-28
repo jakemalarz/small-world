@@ -224,11 +224,14 @@ function conquestActions(state: GameState): GameAction[] {
   );
 
   // Berserk: die roll supplements every conquest attempt (max die = 3)
+  // Player needs at least 1 token in hand to attempt Berserk conquest.
   const effectiveTokens = mods.berserkDie
     ? player.availableTokens + 3
     : player.availableTokens;
+  const berserkAttempted = new Set(player.activeRace.berserkAttemptedRegions ?? []);
 
   const standardConquests: GameAction[] = [];
+  const berserkFails: GameAction[] = [];
   for (const region of state.board.regions) {
     if (!reachable.has(region.id)) continue;
     // Own active region — cannot conquer
@@ -239,14 +242,22 @@ function conquestActions(state: GameState): GameAction[] {
     if (region.hasHoleInTheGround) continue;
     if (region.hasHero) continue;
     if (region.hasDragon) continue;
+    // Berserk: skip regions already attempted this turn
+    if (mods.berserkDie && berserkAttempted.has(region.id)) continue;
+    // Berserk: player must have at least 1 token to attempt
+    if (mods.berserkDie && player.availableTokens < 1) continue;
     // Affordability (Berserk gets +3 potential from die)
     if (effectiveTokens < calculateConquestCost(state, region.id)) continue;
 
     standardConquests.push({ type: 'conquer', regionId: region.id });
+    // Berserk: berserkFail is legal for any target the player might click
+    if (mods.berserkDie) {
+      berserkFails.push({ type: 'berserkFail', regionId: region.id });
+    }
   }
 
   // Assemble base actions
-  let actions: GameAction[] = [...standardConquests, { type: 'endPhase' }];
+  let actions: GameAction[] = [...standardConquests, ...berserkFails, { type: 'endPhase' }];
 
   // Offer final conquest when the player has tokens and valid die targets exist
   if (player.availableTokens > 0) {

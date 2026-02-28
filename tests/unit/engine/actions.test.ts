@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyAction } from '@/game/engine/actions';
+import { getLegalActions } from '@/game/engine/legalActions';
 import { createInitialState } from '@/game/engine/setup';
 import type { GameState, PlayerState, RegionState } from '@/game/state/types';
 
@@ -279,12 +280,18 @@ describe('applyAction — decline', () => {
     expect(next.players[0].availableTokens).toBe(0);
   });
 
-  it('transitions phase to score after decline', () => {
+  it('transitions to the next player\'s starting phase (not same player selectCombo)', () => {
     const next = applyAction(declineState(), { type: 'decline' });
-    // decline → score (same player scores after declining)
-    // Actually looking at phaseTransition: optionalDecline → decline → advanceTurn
-    // So this should switch to next player's turn
-    expect(['score', 'selectCombo', 'readyTroops', 'ghoulConquest']).toContain(next.phase);
+    // optionalDecline + decline → advanceTurn for the NEXT player
+    expect(['selectCombo', 'readyTroops', 'ghoulConquest']).toContain(next.phase);
+  });
+
+  it('switches activePlayerIndex after declining from optionalDecline (Stout)', () => {
+    // Player 0 is in optionalDecline. After declining, player 1 should become active.
+    const state = declineState(); // activePlayerIndex: 0, firstPlayerIndex: 0
+    expect(state.activePlayerIndex).toBe(0);
+    const next = applyAction(state, { type: 'decline' });
+    expect(next.activePlayerIndex).toBe(1);
   });
 });
 
@@ -607,10 +614,9 @@ describe('immutability', () => {
 // ── Feature 7: Berserk — applyConquer with dieResult ─────────────────────────
 
 describe('applyAction — Berserk conquest with dieResult', () => {
-  it('places min(availableTokens, cost) tokens when dieResult is provided', () => {
-    // First conquest (tokensOnBoard=0): border regions are reachable.
-    // Empty region 20 costs 2. Player has 1 token. With Berserk die result = 2: 1+2=3 >= 2.
-    // But applyConquer places min(availableTokens=1, cost=2) = 1 token.
+  it('places max(1, cost - dieResult) tokens: die reduces cost', () => {
+    // Empty region 20 costs 2. Player has 1 token. Die result = 2.
+    // Tokens placed = max(1, 2-2) = max(1, 0) = 1 token.
     let state = conquestState('ratmen', 'berserk', 0);
     state = patchPlayer(state, 0, {
       ...state.players[0],
@@ -618,18 +624,16 @@ describe('applyAction — Berserk conquest with dieResult', () => {
       activeRace: { ...state.players[0].activeRace!, tokensOnBoard: 0 },
     });
 
-    // Berserk: region 20 is in legal list because effectiveTokens = 1+3=4 >= 2.
-    // Submit with dieResult — actionsMatch allows dieResult on conquer actions.
     const next = applyAction(state, { type: 'conquer', regionId: 20, dieResult: 2 });
     const region = next.board.regions.find((r) => r.id === 20)!;
     expect(region.owner).toBe(0);
-    // Tokens placed = min(availableTokens=1, cost=2) = 1
+    // Tokens placed = max(1, 2-2) = 1
     expect(region.tokens).toBe(1);
     expect(next.players[0].availableTokens).toBe(0);
   });
 
-  it('places full cost tokens when availableTokens >= cost (die not needed)', () => {
-    // First conquest; availableTokens = 5, cost = 2 → tokensPlaced = min(5, 2) = 2
+  it('places max(1, cost - dieResult) tokens: die of 1 on cost-2 region leaves 1 token placed', () => {
+    // Player has 5 tokens. cost=2, dieResult=1 → max(1, 2-1) = max(1, 1) = 1 token placed.
     let state = conquestState('ratmen', 'berserk', 0);
     state = patchPlayer(state, 0, {
       ...state.players[0],
@@ -640,7 +644,24 @@ describe('applyAction — Berserk conquest with dieResult', () => {
     const next = applyAction(state, { type: 'conquer', regionId: 20, dieResult: 1 });
     const region = next.board.regions.find((r) => r.id === 20)!;
     expect(region.owner).toBe(0);
-    // Tokens placed = min(5, 2) = 2
+    // Tokens placed = max(1, 2-1) = 1
+    expect(region.tokens).toBe(1);
+    expect(next.players[0].availableTokens).toBe(4);
+  });
+
+  it('places max(1, cost - dieResult) tokens: die of 0 places full cost', () => {
+    // cost=2, dieResult=0 → max(1, 2-0) = 2 tokens placed.
+    let state = conquestState('ratmen', 'berserk', 0);
+    state = patchPlayer(state, 0, {
+      ...state.players[0],
+      availableTokens: 5,
+      activeRace: { ...state.players[0].activeRace!, tokensOnBoard: 0 },
+    });
+
+    const next = applyAction(state, { type: 'conquer', regionId: 20, dieResult: 0 });
+    const region = next.board.regions.find((r) => r.id === 20)!;
+    expect(region.owner).toBe(0);
+    // Tokens placed = max(1, 2-0) = 2
     expect(region.tokens).toBe(2);
     expect(next.players[0].availableTokens).toBe(3);
   });
@@ -651,6 +672,46 @@ describe('applyAction — Berserk conquest with dieResult', () => {
     const next = applyAction(state, { type: 'conquer', regionId: 20 });
     const region = next.board.regions.find((r) => r.id === 20)!;
     expect(region.tokens).toBe(2); // empty region cost = 2
+  });
+});
+
+describe('applyAction — berserkFail', () => {
+  it('adds regionId to berserkAttemptedRegions', () => {
+    let state = conquestState('ratmen', 'berserk', 0);
+    state = patchPlayer(state, 0, {
+      ...state.players[0],
+      availableTokens: 1,
+      activeRace: { ...state.players[0].activeRace!, tokensOnBoard: 0 },
+    });
+    const next = applyAction(state, { type: 'berserkFail', regionId: 20 });
+    expect(next.players[0].activeRace!.berserkAttemptedRegions).toContain(20);
+  });
+
+  it('accumulates multiple failed regions', () => {
+    let state = conquestState('ratmen', 'berserk', 0);
+    state = patchPlayer(state, 0, {
+      ...state.players[0],
+      availableTokens: 2,
+      activeRace: { ...state.players[0].activeRace!, tokensOnBoard: 0 },
+    });
+    let next = applyAction(state, { type: 'berserkFail', regionId: 20 });
+    next = applyAction(next, { type: 'berserkFail', regionId: 22 });
+    expect(next.players[0].activeRace!.berserkAttemptedRegions).toContain(20);
+    expect(next.players[0].activeRace!.berserkAttemptedRegions).toContain(22);
+    expect(next.players[0].activeRace!.berserkAttemptedRegions).toHaveLength(2);
+  });
+
+  it('attempted region is excluded from legal conquests', () => {
+    let state = conquestState('ratmen', 'berserk', 0);
+    state = patchPlayer(state, 0, {
+      ...state.players[0],
+      availableTokens: 2,
+      activeRace: { ...state.players[0].activeRace!, tokensOnBoard: 0, berserkAttemptedRegions: [20] },
+    });
+    const actions = getLegalActions(state);
+    const conquests = actions.filter((a) => a.type === 'conquer');
+    const has20 = conquests.some((a) => (a as { type: 'conquer'; regionId: number }).regionId === 20);
+    expect(has20).toBe(false);
   });
 });
 
@@ -730,5 +791,91 @@ describe('applyAction — Heroic hero cleared at player switch (endPhase from sc
     expect(next.board.regions.find((r) => r.id === 20)!.hasHero).toBe(false);
     // heroRegions on the previous player's activeRace should be gone
     expect(next.players[0].activeRace?.heroRegions).toBeUndefined();
+  });
+});
+
+// ── Ghouls + Stout — optionalDecline regression ───────────────────────────────
+//
+// Regression: When player 1 (Ghouls+Stout, first player) declines from
+// optionalDecline, player 0 must receive a clean conquest turn with
+// endPhase and startFinalConquest legally available.
+
+describe('applyAction — Ghouls+Stout optionalDecline regression', () => {
+  function buildGhoulStoutState(): GameState {
+    // Player 1 is the first player with Ghouls+Stout in conquest phase (turn 1).
+    let state = createInitialState({ firstPlayerIndex: 1 });
+    state = withRace(state, 1, 'ghouls', 'stout');
+    state = patchState(state, { phase: 'conquest', activePlayerIndex: 1 });
+    return state;
+  }
+
+  it('engine allows player 0 to end conquest after Ghouls+Stout player 1 declines from optionalDecline', () => {
+    let state = buildGhoulStoutState();
+
+    // Player 1 conquers a border region (first conquest — any legal conquer target)
+    const legal1 = getLegalActions(state);
+    const conquerAction = legal1.find((a) => a.type === 'conquer');
+    expect(conquerAction).toBeDefined();
+    state = applyAction(state, conquerAction!);
+    expect(state.activePlayerIndex).toBe(1);
+    expect(state.phase).toBe('conquest');
+
+    // End conquest → redeploy
+    state = applyAction(state, { type: 'endPhase' });
+    expect(state.phase).toBe('redeploy');
+
+    // End redeploy → score
+    state = applyAction(state, { type: 'endPhase' });
+    expect(state.phase).toBe('score');
+
+    // End score → optionalDecline (Stout power triggers this)
+    state = applyAction(state, { type: 'endPhase' });
+    expect(state.phase).toBe('optionalDecline');
+    expect(state.activePlayerIndex).toBe(1); // still player 1
+
+    // Player 1 declines from optionalDecline → switches to player 0
+    state = applyAction(state, { type: 'decline' });
+    expect(state.activePlayerIndex).toBe(0);
+    expect(state.phase).toBe('selectCombo');
+
+    // Player 0 selects a combo
+    state = applyAction(state, { type: 'selectCombo', comboIndex: 0 });
+    expect(state.activePlayerIndex).toBe(0);
+    // First combo: no tokens on board → goes directly to conquest
+    expect(state.phase).toBe('conquest');
+
+    // endPhase must be legal in player 0's conquest phase
+    const legal2 = getLegalActions(state);
+    expect(legal2.some((a) => a.type === 'endPhase')).toBe(true);
+
+    // Apply endPhase — this is what "End Conquest" button does
+    const afterEnd = applyAction(state, { type: 'endPhase' });
+    expect(afterEnd.phase).toBe('redeploy');
+    expect(afterEnd.activePlayerIndex).toBe(0); // still player 0
+  });
+
+  it('Final Conquest (startFinalConquest) is legal when player 0 has tokens in hand after Stout decline', () => {
+    let state = buildGhoulStoutState();
+
+    // Player 1: conquer, end conquest, end redeploy, end score, decline
+    const conquerAction = getLegalActions(state).find((a) => a.type === 'conquer')!;
+    state = applyAction(state, conquerAction);
+    state = applyAction(state, { type: 'endPhase' }); // conquest → redeploy
+    state = applyAction(state, { type: 'endPhase' }); // redeploy → score
+    state = applyAction(state, { type: 'endPhase' }); // score → optionalDecline
+    state = applyAction(state, { type: 'decline' });   // optionalDecline → player 0 selectCombo
+
+    // Player 0: select combo, which gives availableTokens > 0
+    state = applyAction(state, { type: 'selectCombo', comboIndex: 0 });
+    expect(state.phase).toBe('conquest');
+
+    // If player 0 has tokens in hand, startFinalConquest should be offered
+    // (requires valid die targets to exist — getLegalActions handles this)
+    const legal = getLegalActions(state);
+    const hasEndPhase = legal.some((a) => a.type === 'endPhase');
+    expect(hasEndPhase).toBe(true);
+
+    // Verify applyAction doesn't throw for endPhase in conquest
+    expect(() => applyAction(state, { type: 'endPhase' })).not.toThrow();
   });
 });

@@ -44,7 +44,7 @@ const ACTION_BUTTONS: Partial<Record<TurnPhase, string>> = {
   redeploy:              'Confirm Redeploy',
   placeHeroes:           'Skip Heroes',
   score:                 'End Turn',
-  optionalDecline:       'Skip Decline',
+  optionalDecline:       'End Turn',
   decline:               'Go In Decline',
 };
 
@@ -137,11 +137,14 @@ export class HUD extends Phaser.Scene {
 
     // Show decline button during readyTroops or ghoulReadyTroops, turn 2+ only (FR-22, FR-23b)
     // During ghoulReadyTroops: only when active race is already deployed (tokensOnBoard > 0)
+    // During optionalDecline (Stout): always available, any turn
     const activeRace = state.players[state.activePlayerIndex].activeRace;
     const canDeclineGhoul = state.phase === 'ghoulReadyTroops' &&
       activeRace !== null && activeRace.tokensOnBoard > 0;
-    const canDecline = state.turn >= 2 && activeRace !== null &&
-      (state.phase === 'readyTroops' || canDeclineGhoul);
+    const canDecline = activeRace !== null && (
+      (state.turn >= 2 && (state.phase === 'readyTroops' || canDeclineGhoul)) ||
+      state.phase === 'optionalDecline'
+    );
     this.declineButton.setVisible(canDecline);
 
     // Update decline button label: show race name when declining during ghoulReadyTroops

@@ -328,7 +328,8 @@ export class GameController {
         if (activePlayer.availableTokens + dieResult >= cost) {
           resolvedAction = { ...action, dieResult };
         } else {
-          // Die roll failed — skip this conquest, try next action
+          // Die roll failed — record the attempted region; AI moves to next action
+          this.state = applyAction(this.state, { type: 'berserkFail', regionId: action.regionId });
           return;
         }
       }
@@ -568,8 +569,8 @@ export class GameController {
       // Success — conquer the region with die assistance
       this.eventBus.emit('playerAction', { type: 'conquer', regionId, dieResult: result });
     } else {
-      // Failure — conquest attempt wasted, player stays in conquest phase
-      this._renderState();
+      // Failure — record the attempted region; player cannot try it again this turn
+      this.eventBus.emit('playerAction', { type: 'berserkFail', regionId });
     }
   }
 
