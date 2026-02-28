@@ -1,6 +1,6 @@
 ---
 artifact: prd
-version: "1.4"
+version: "1.5"
 created: 2026-02-20
 status: draft
 ---
@@ -198,12 +198,12 @@ All 14 races shall be implemented with the following token counts and abilities.
 
 | Race | Tokens | Max Supply | Ability |
 |------|--------|-----------|---------|
-| Amazons | 6 | 15 | +4 tokens available for conquest only. After redeployment, remove 4 tokens from the map (they return to hand next turn) |
+| Amazons | 6 | 15 | +4 extra tokens are added to hand at the start of each combat turn (during readyTroops, or directly at conquest on turn 1). These tokens are available for both readyTroops gathering and conquest. After redeployment, 4 tokens are removed from the map (largest stacks first, min 1 per region) and re-granted at the start of the next turn |
 | Dwarves | 3 | 8 | +1 Victory Coin per Mine region occupied (Active or In Decline) |
 | Elves | 6 | 11 | When defeated, suffer no casualties — discard 0 tokens; keep all in hand for redeployment |
 | Ghouls | 5 | 10 | Tokens stay on map when going In Decline (don't reduce to 1). In Decline Ghouls can move and conquer normally before the Active race acts |
 | Giants | 6 | 11 | Conquest cost -1 for any region adjacent to a Mountain region occupied by the Giants |
-| Halflings | 6 | 11 | May enter the map at any region (not just borders). Place a Hole-in-the-Ground in the first 2 regions conquered (makes them immune to conquest/powers) |
+| Halflings | 6 | 11 | May enter the map at any region (not just borders). Place a Hole-in-the-Ground in the first 2 regions conquered (makes them immune to conquest/powers). Holes are removed when Halflings go Into Decline or when the player abandons the region |
 | Humans | 5 | 10 | +1 Victory Coin per Farmland region |
 | Orcs | 5 | 10 | +1 Victory Coin per non-empty region conquered this turn |
 | Ratmen | 8 | 13 | No special ability — high token count is the advantage |
@@ -328,7 +328,7 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 | Spirit power + decline | Spirit-powered race tokens are exempt from the normal In Decline removal. When the player declines again, the Spirit race stays and any other non-Spirit In Decline race is removed normally. A player can have at most 2 declined races (1 Spirit + 1 other) |
 | Ghouls in decline attempt conquests | Allowed — Ghouls in decline can move and conquer before the active race acts. Ghouls also keep all tokens on the map when declining (don't reduce to 1) |
 | Ghoul In Decline region conquered by opponent (2+ tokens) | Normal combat rules apply: 1 token permanently discarded, N-1 tokens go to reserve. Reserve tokens are available at the start of the Ghoul owner's next Ghoul gathering phase. The In Decline box shows "In Hand: N" immediately after the loss |
-| Halflings' first 2 regions with Hole-in-the-Ground | These regions are immune to conquest and special powers per the rules (Hole-in-the-Ground tokens placed on first 2 conquered regions) |
+| Halflings' first 2 regions with Hole-in-the-Ground | These regions are immune to conquest and special powers per the rules (Hole-in-the-Ground tokens placed on first 2 conquered regions). Holes are permanently removed when Halflings go Into Decline or when the player abandons a Hole region during readyTroops. Only 2 Holes total may ever be placed regardless of abandonment |
 | Dragon Master conquers a region with dragon | Dragon Master conquers a new region with only 1 token (ignoring all defense), then places the Dragon there making it immune to conquest. The Dragon moves to a new conquered region each turn |
 | Stout power and decline | Player with Stout performs a full conquest turn (conquer → redeploy → score), then goes In Decline at the end — unlike normal decline which skips conquest entirely |
 | Skeleton/Sorcerer token generation exceeds max supply | No new tokens are generated — the race's token supply is finite (e.g., Skeletons max 20, Sorcerers max 18). Abilities that create tokens are capped by available supply |
@@ -419,3 +419,4 @@ Players pan and zoom freely. The camera auto-focuses on relevant areas during ke
 | 1.2 | 2026-02-21 | Jake + Claude | Phase 2 requirements: added US-15 (interaction/pan mode toggle), US-16 (player box ability tooltips); added FR-53–55 (HUD text labels, browse-at-any-time, map interaction lock); FR-56 (visually distinguish first-conquest entry regions); clarified FR-19 (die roll before End Conquest option); FR-57 (left/right-click redeployment model); FR-58–59 (start at max zoom-out, constant tooltip size); FR-60–62 (interaction/pan toggle, player box tooltips, region polygons match map) |
 | 1.3 | 2026-02-27 | Jake + Claude | Ghoul UX fixes: added FR-23b (pre-Ghoul decline option at turn start); added FR-23c (In Decline box highlighted during Ghoul phases); clarified FR-13e (abandon dialog applies to ghoulReadyTroops too); clarified FR-24 (Ghoul regions not scored when active race declines — scoring excludes removed non-Spirit declined regions) |
 | 1.4 | 2026-02-27 | Jake + Claude | Ghoul combat bug fix: added FR-23d (Ghoul In Decline tokens follow normal combat rules — 1 discarded, N-1 to reserve); clarified FR-18a (all non-Ghoul declined tokens removed, Ghoul exception); added edge case for Ghoul In Decline region conquered by opponent |
+| 1.5 | 2026-02-27 | Jake + Claude | Amazon and Halfling rule corrections: Amazons +4 tokens now available during readyTroops AND conquest (not conquest-only); Halflings Holes-in-the-Ground removed on In Decline or region abandon; updated race table and edge cases accordingly |
