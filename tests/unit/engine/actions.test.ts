@@ -771,8 +771,8 @@ describe('applyAction — placeHeroes', () => {
   });
 });
 
-describe('applyAction — Heroic hero cleared at player switch (endPhase from score)', () => {
-  it('heroRegions and hasHero are cleared when player switch occurs', () => {
+describe('applyAction — Heroic hero persistence through opponent turn', () => {
+  it('heroRegions and hasHero persist through player switch (immunity)', () => {
     // Set up player 0 with Heroic in score phase, heroes placed
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 0, 'humans', 'heroic', {
@@ -785,12 +785,12 @@ describe('applyAction — Heroic hero cleared at player switch (endPhase from sc
 
     const next = applyAction(state, { type: 'endPhase' });
 
-    // After switching to the next player, hero markers should be gone
-    // (may or may not still have owner=0 on regions, but hasHero should be cleared)
-    expect(next.board.regions.find((r) => r.id === 19)!.hasHero).toBe(false);
-    expect(next.board.regions.find((r) => r.id === 20)!.hasHero).toBe(false);
-    // heroRegions on the previous player's activeRace should be gone
-    expect(next.players[0].activeRace?.heroRegions).toBeUndefined();
+    // Heroes persist through opponent's turn (providing immunity)
+    // They are only cleared when placeHeroes is called on the player's next turn
+    expect(next.board.regions.find((r) => r.id === 19)!.hasHero).toBe(true);
+    expect(next.board.regions.find((r) => r.id === 20)!.hasHero).toBe(true);
+    // heroRegions preserved so placeHeroes can clear them next turn
+    expect(next.players[0].activeRace?.heroRegions).toEqual([19, 20]);
   });
 });
 

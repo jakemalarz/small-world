@@ -1060,25 +1060,12 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
   const activePlayer = scored.players[scored.activePlayerIndex];
   let resetState = scored;
   if (activePlayer.activeRace) {
-    // Clear hero markers from the board (heroes are re-placed each turn)
-    if (activePlayer.activeRace.heroRegions) {
-      const heroIds = new Set(activePlayer.activeRace.heroRegions);
-      resetState = {
-        ...resetState,
-        board: {
-          regions: resetState.board.regions.map((r) =>
-            heroIds.has(r.id) ? { ...r, hasHero: false } : r,
-          ),
-        },
-      };
-    }
-    // Clear dragon marker from the board
-    if (activePlayer.activeRace.dragonRegion != null) {
-      resetState = {
-        ...resetState,
-        board: patchRegions(resetState, activePlayer.activeRace.dragonRegion, { hasDragon: false }),
-      };
-    }
+    // Hero markers persist on the board through the opponent's turn
+    // (providing immunity). They are cleared and re-placed when the player
+    // enters placeHeroes on their next turn (applyPlaceHeroes clears old heroes).
+    // Dragon marker also persists (provides immunity). Only moved/cleared when
+    // the player uses placeDragon again, or when the race declines.
+    // We reset per-turn flags but keep heroRegions/dragonRegion intact.
     resetState = {
       ...resetState,
       players: patchPlayer(resetState, resetState.activePlayerIndex, {
@@ -1087,9 +1074,7 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
           conquestsThisTurn: 0,
           hasDeclinedThisTurn: false,
           sorcererConversionsThisTurn: 0,
-          dragonRegion: undefined,
           dragonUsedThisTurn: false,
-          heroRegions: undefined,
           berserkAttemptedRegions: undefined,
         },
       }),

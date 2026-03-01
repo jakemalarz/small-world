@@ -69,6 +69,8 @@ export class GameController {
   private _browseMode = false;
   /** True when pan-only mode is active (FR-60). */
   private _panMode = false;
+  /** True when Dragon Master conquest mode is active. */
+  private _dragonMode = false;
   /** Mutable deployment map for interactive redeployment (FR-57). */
   private _redeployMap: Map<number, number> = new Map();
   /** Tokens remaining in hand during redeployment. */
@@ -197,6 +199,12 @@ export class GameController {
     // Pan mode toggle (FR-60)
     this.hudScene.events.on('panModeChanged', (panMode: boolean) => {
       this._panMode = panMode;
+      this._renderState();
+    });
+
+    // Dragon mode toggle
+    this.hudScene.events.on('dragonModeChanged', (dragonMode: boolean) => {
+      this._dragonMode = dragonMode;
       this._renderState();
     });
 
@@ -372,6 +380,11 @@ export class GameController {
       this._heroFirstRegion = null;
     }
 
+    // Clear dragon mode if phase changed away from conquest
+    if (this.state.phase !== 'conquest') {
+      this._dragonMode = false;
+    }
+
     // Clear redeploy state if phase changed away from redeploy
     if (this.state.phase !== 'redeploy') {
       this._redeployMap.clear();
@@ -434,6 +447,13 @@ export class GameController {
       // Highlight owned active regions during hero/fortress placement
       for (const a of this.legalActions) {
         if ('regionId' in a) validTargetIds.add((a as { regionId: number }).regionId);
+      }
+    } else if (this._dragonMode) {
+      // Dragon mode: only show dragon targets
+      for (const a of this.legalActions) {
+        if (a.type === 'placeDragon' && 'regionId' in a) {
+          validTargetIds.add((a as { regionId: number }).regionId);
+        }
       }
     } else {
       for (const a of this.legalActions) {
@@ -528,12 +548,16 @@ export class GameController {
       return;
     }
 
-    const action = this.legalActions.find(
-      (a) =>
-        (a.type === 'conquer' || a.type === 'useReinforcement' || a.type === 'ghoulConquer' ||
-         a.type === 'placeDragon') &&
-        (a as { regionId: number }).regionId === regionId,
-    );
+    // Dragon mode: prefer placeDragon over normal conquest
+    const action = this._dragonMode
+      ? this.legalActions.find(
+          (a) => a.type === 'placeDragon' && (a as { regionId: number }).regionId === regionId,
+        )
+      : this.legalActions.find(
+          (a) =>
+            (a.type === 'conquer' || a.type === 'useReinforcement' || a.type === 'ghoulConquer') &&
+            (a as { regionId: number }).regionId === regionId,
+        );
     if (action) {
       // Berserk: roll die before every conquest attempt
       if (action.type === 'conquer' && this.state.phase === 'conquest') {

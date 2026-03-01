@@ -78,6 +78,10 @@ export class HUD extends Phaser.Scene {
   private declineBtnLabel!: Phaser.GameObjects.Text;
   private finalConquestButton!: Phaser.GameObjects.Container;
   private finalConquestBtnBg!: Phaser.GameObjects.Rectangle;
+  private dragonButton!: Phaser.GameObjects.Container;
+  private dragonBtnBg!: Phaser.GameObjects.Rectangle;
+  private dragonBtnLabel!: Phaser.GameObjects.Text;
+  private _dragonMode = false;
   private browseButton!: Phaser.GameObjects.Container;
   private browseBtnBg!: Phaser.GameObjects.Rectangle;
   private comboShop!: ComboShopRenderer;
@@ -163,6 +167,21 @@ export class HUD extends Phaser.Scene {
     const canFinalConquest = (state.phase === 'conquest' || state.phase === 'ghoulConquest') &&
       state.players[state.activePlayerIndex].availableTokens > 0;
     this.finalConquestButton.setVisible(canFinalConquest);
+
+    // Show Dragon button during conquest when Dragon Master power active and dragon not used
+    const canDragon = state.phase === 'conquest' &&
+      activeRace !== null &&
+      activeRace.powerId === 'dragonMaster' &&
+      !activeRace.dragonUsedThisTurn &&
+      state.players[state.activePlayerIndex].availableTokens >= 1;
+    this.dragonButton.setVisible(canDragon);
+    // Reset dragon mode if no longer available
+    if (!canDragon && this._dragonMode) {
+      this._dragonMode = false;
+      this.dragonBtnLabel.setText('Use Dragon');
+      this.dragonBtnBg.setFillStyle(0x7c2d12);
+      this.events.emit('dragonModeChanged', false);
+    }
 
     // Show browse button when not in selectCombo (FR-54)
     this.browseButton.setVisible(
@@ -321,6 +340,33 @@ export class HUD extends Phaser.Scene {
     });
 
     this.finalConquestButton.setVisible(false);
+
+    // Dragon Master toggle button
+    this.dragonBtnBg = this.add.rectangle(0, 0, 160, 32, 0x7c2d12)
+      .setStrokeStyle(1, 0xffffff, 0.3);
+
+    this.dragonBtnLabel = this.add.text(0, 0, 'Use Dragon', {
+      fontSize: '12px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5, 0.5);
+
+    this.dragonButton = this.add.container(W / 2 + 160, H - 58, [
+      this.dragonBtnBg, this.dragonBtnLabel,
+    ]).setDepth(12);
+
+    this.dragonBtnBg.setInteractive({ useHandCursor: true });
+    this.dragonBtnBg.on('pointerover', () => {
+      this.dragonBtnBg.setFillStyle(this._dragonMode ? 0xb91c1c : 0x9a3412);
+    });
+    this.dragonBtnBg.on('pointerout', () => {
+      this.dragonBtnBg.setFillStyle(this._dragonMode ? 0xdc2626 : 0x7c2d12);
+    });
+    this.dragonBtnBg.on('pointerdown', () => {
+      this._dragonMode = !this._dragonMode;
+      this.dragonBtnLabel.setText(this._dragonMode ? 'Cancel Dragon' : 'Use Dragon');
+      this.dragonBtnBg.setFillStyle(this._dragonMode ? 0xdc2626 : 0x7c2d12);
+      this.events.emit('dragonModeChanged', this._dragonMode);
+    });
+    this.dragonButton.setVisible(false);
   }
 
   /** Whether pan-only mode is active (FR-60). */

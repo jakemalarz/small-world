@@ -227,12 +227,16 @@ function _buildTooltipLines(region: RegionState, state: GameState): string[] {
   if (region.hasHoleInTheGround) markers.push('Hole in the Ground');
   if (markers.length > 0) lines.push(markers.join(', '));
 
-  // Last line: Conquest cost
-  try {
-    const cost = calculateConquestCost(state, region.id);
-    lines.push(`Conquest cost: ${cost} tokens`);
-  } catch {
-    // ignore if cost can't be calculated
+  // Last line: Conquest cost (or Immune if protected)
+  if (region.hasHero || region.hasDragon || region.hasHoleInTheGround) {
+    lines.push('Conquest cost: Immune');
+  } else {
+    try {
+      const cost = calculateConquestCost(state, region.id);
+      lines.push(`Conquest cost: ${cost} tokens`);
+    } catch {
+      // ignore if cost can't be calculated
+    }
   }
 
   return lines;
