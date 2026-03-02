@@ -44,8 +44,8 @@ function withRace(state: GameState, raceId: string, powerId: string): GameState 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('calculateConquestCost', () => {
-  // Use region 14 (Bogmoss, swamp, edge, empty region — no adjacent mountains)
-  const BASE_REGION = 14;
+  // Use region 6 (Yellowstone, hill, isEdge:true, no lost tribe, no mountain)
+  const BASE_REGION = 6;
 
   it('costs 2 for a completely empty region', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
@@ -54,20 +54,20 @@ describe('calculateConquestCost', () => {
   });
 
   it('costs 3 for a lost-tribe-only region (0 + 1 lost tribe + 2 base = 3)', () => {
-    // Region 2 has a lost tribe
+    // Region 8 (Alpine Pasture) has a lost tribe and no mountain
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist');
-    expect(calculateConquestCost(state, 2)).toBe(3);
+    expect(calculateConquestCost(state, 8)).toBe(3);
   });
 
   it('costs 4 for a region with 1 lost tribe + 1 mountain', () => {
-    // Region 3: Highrock — hasMountain: true, no lost tribe
-    // Patch region 3 to also have a lost tribe for this test
+    // Region 7: Grand Teton — hasMountain: true, no lost tribe initially
+    // Patch region 7 to also have a lost tribe for this test
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist');
-    state = patchRegion(state, 3, { hasLostTribe: true }); // hasMountain already true
+    state = patchRegion(state, 7, { hasLostTribe: true }); // hasMountain already true
     // defenseTokens = 0 (tokens) + 1 (lostTribe) + 1 (mountain) = 2 → cost = 2 + 2 = 4
-    expect(calculateConquestCost(state, 3)).toBe(4);
+    expect(calculateConquestCost(state, 7)).toBe(4);
   });
 
   it('adds 1 per enemy token in region', () => {
@@ -130,51 +130,53 @@ describe('calculateConquestCost', () => {
   });
 
   it('does not apply coastal modifier to non-coastal region', () => {
-    // Region 3 (Highrock) is not coastal
+    // Region 4 (Swamp Lands) is not coastal
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'tritons', 'seafaring');
-    const costTritons = calculateConquestCost(state, 3);
+    const costTritons = calculateConquestCost(state, 4);
     state = withRace(state, 'humans', 'alchemist');
-    const costHumans = calculateConquestCost(state, 3);
+    const costHumans = calculateConquestCost(state, 4);
     // No coastal discount on non-coastal
     expect(costTritons).toBe(costHumans);
   });
 
   it('applies Mounted -1 on farmland region', () => {
-    // Region 13 (Coastal Pastures) is farmland
+    // Region 2 (Merchant's Rest) is farmland with no lost tribe
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'mounted');
-    const costMounted = calculateConquestCost(state, 13);
+    const costMounted = calculateConquestCost(state, 2);
     state = withRace(state, 'humans', 'alchemist');
-    const costNormal = calculateConquestCost(state, 13);
+    const costNormal = calculateConquestCost(state, 2);
     expect(costMounted).toBe(costNormal - 1);
   });
 
-  it('applies Mounted -1 on hill region (region 16)', () => {
+  it('applies Mounted -1 on hill region (region 6)', () => {
+    // Region 6 (Yellowstone) is hill with no special tokens
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'mounted');
-    const costMounted = calculateConquestCost(state, 16);
+    const costMounted = calculateConquestCost(state, 6);
     state = withRace(state, 'humans', 'alchemist');
-    const costNormal = calculateConquestCost(state, 16);
+    const costNormal = calculateConquestCost(state, 6);
     expect(costMounted).toBe(costNormal - 1);
   });
 
-  it('does not apply Mounted discount on mountain terrain (region 3)', () => {
+  it('does not apply Mounted discount on mountain terrain (region 5)', () => {
+    // Region 5 (Mt. Washburn) is mountain terrain
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'mounted');
-    const costMounted = calculateConquestCost(state, 3);
+    const costMounted = calculateConquestCost(state, 5);
     state = withRace(state, 'humans', 'alchemist');
-    const costNormal = calculateConquestCost(state, 3);
+    const costNormal = calculateConquestCost(state, 5);
     expect(costMounted).toBe(costNormal);
   });
 
   it('applies Giants -1 when adjacent to own active mountain region', () => {
-    // Region 3 (Highrock, mountain) is adjacent to region 2 (farmland)
-    // Make player 0 own region 3 (active), then try to conquer region 2
+    // Region 7 (Grand Teton, mountain) is adjacent to region 2 (farmland, no lost tribe)
+    // Make player 0 own region 7 (active mountain), then try to conquer region 2
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'giants', 'alchemist');
-    // Simulate owning region 3 (mountain)
-    state = patchRegion(state, 3, {
+    // Simulate owning region 7 (mountain)
+    state = patchRegion(state, 7, {
       owner: 0,
       tokens: 2,
       isDeclined: false,

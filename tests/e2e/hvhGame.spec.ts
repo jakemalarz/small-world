@@ -8,6 +8,7 @@ import {
   clickActionButton,
   clickComboSlot,
   completeHumanTurn,
+  advanceFromRedeployToScore,
   clickGame,
   HUD,
 } from './helpers';
@@ -165,7 +166,7 @@ test.describe('Human vs Human — phase progression', () => {
     await waitForPhase(page, 'redeploy', 10_000);
     await clickActionButton(page);
 
-    await waitForPhase(page, 'score', 10_000);
+    await advanceFromRedeployToScore(page);
     expect(await getPhase(page)).toBe('score');
   });
 
@@ -184,7 +185,7 @@ test.describe('Human vs Human — phase progression', () => {
     await clickActionButton(page);
     await waitForPhase(page, 'redeploy', 10_000);
     await clickActionButton(page);
-    await waitForPhase(page, 'score', 10_000);
+    await advanceFromRedeployToScore(page);
 
     // Coins are awarded during score phase transition
     const coinsAfter = await page.evaluate((idx) => {

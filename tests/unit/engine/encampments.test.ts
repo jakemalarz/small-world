@@ -87,8 +87,8 @@ describe('Encampment placement', () => {
       },
       availableTokens: 10,
     });
-    // Region 14 with 1 enemy token and 2 encampments
-    state = patchRegion(state, 14, { owner: 1, tokens: 1, isDeclined: false, encampmentCount: 2 });
+    // Region 14 with 1 enemy token and 2 encampments (clear lost tribe so cost is predictable)
+    state = patchRegion(state, 14, { owner: 1, tokens: 1, isDeclined: false, encampmentCount: 2, hasLostTribe: false });
     // Cost = 2 base + 1 token + 2 encampments = 5
     expect(calculateConquestCost(state, 14)).toBe(5);
   });

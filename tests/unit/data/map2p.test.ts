@@ -60,7 +60,7 @@ describe('2-player map data', () => {
     }
   });
 
-  it('sea and lake regions are not marked as edge (they define their own water boundary)', () => {
+  it('sea and lake terrain regions exist', () => {
     const waterRegions = MAP_2P.regions.filter(
       (r) => r.terrain === 'sea' || r.terrain === 'lake',
     );
@@ -117,7 +117,20 @@ describe('2-player map data', () => {
   it('has lost tribes on some regions', () => {
     const ltCount = MAP_2P.regions.filter((r) => r.hasLostTribe).length;
     expect(ltCount).toBeGreaterThanOrEqual(4);
-    expect(ltCount).toBeLessThanOrEqual(8);
+    expect(ltCount).toBeLessThanOrEqual(10);
+  });
+
+  it('isMountainAdjacent matches actual adjacency to mountain terrain', () => {
+    const mountainIds = new Set(
+      MAP_2P.regions.filter((r) => r.terrain === 'mountain').map((r) => r.id),
+    );
+    for (const r of MAP_2P.regions) {
+      const expected = r.adjacentRegionIds.some((id) => mountainIds.has(id));
+      expect(
+        r.isMountainAdjacent,
+        `Region ${r.id} (${r.name}) isMountainAdjacent should be ${expected}`,
+      ).toBe(expected);
+    }
   });
 
   it('getRegionData returns the correct region', () => {

@@ -68,6 +68,9 @@ export class Board extends Phaser.Scene {
     this._setupCamera();
     this._setupZoom();
     this._setupPan();
+    if (new URLSearchParams(window.location.search).has('debug')) {
+      this._createDebugOverlay();
+    }
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
@@ -201,6 +204,28 @@ export class Board extends Phaser.Scene {
     }
     const region = MAP_2P.regions.find((r) => r.id === id);
     if (region) this._selectRegion(id, region.polygon);
+  }
+
+  /**
+   * Debug overlay — enabled via ?debug in the URL.
+   * Draws bright-red polygon borders + region IDs over the map so misalignments
+   * are immediately visible without entering the polygon editor.
+   */
+  private _createDebugOverlay(): void {
+    const gfx = this.add.graphics().setDepth(10);
+    for (const region of MAP_2P.regions) {
+      gfx.lineStyle(2, 0xff2222, 1);
+      gfx.strokePoints(
+        region.polygon.map(([x, y]) => new Phaser.Geom.Point(x, y)),
+        true,
+      );
+      this.add.text(region.center[0], region.center[1], String(region.id), {
+        fontSize: '14px',
+        color: '#ff2222',
+        backgroundColor: '#00000088',
+        padding: { x: 2, y: 1 },
+      }).setOrigin(0.5, 0.5).setDepth(11);
+    }
   }
 
   // ── Camera ─────────────────────────────────────────────────────────────────

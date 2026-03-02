@@ -85,12 +85,12 @@ describe('calculateScore', () => {
 
   it('Humans get +1 per farmland region', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
-    // Region 13 (farmland) and 12 (forest)
+    // Region 11 (Lee Vining, farmland) and 12 (Enchanted Woods, forest)
     state = withActiveRace(state, 0, 'humans', 'bivouacking');
-    state = ownRegions(state, 0, [13, 12]); // 1 farmland + 1 forest
+    state = ownRegions(state, 0, [11, 12]); // 1 farmland + 1 forest
 
     const score = calculateScore(state, 0);
-    // Base: 2, Humans farmland bonus: +1 for region 13
+    // Base: 2, Humans farmland bonus: +1 for region 11
     expect(score).toBe(3);
   });
 
@@ -105,7 +105,7 @@ describe('calculateScore', () => {
   it('Dwarves get +1 per mine region (active)', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'dwarves', 'bivouacking');
-    state = ownRegions(state, 0, [15]); // region 15 hasMine:true
+    state = ownRegions(state, 0, [3]); // region 3 (Dark Forest) hasMine:true
     // Base: 1, mine bonus: +1
     expect(calculateScore(state, 0)).toBe(2);
   });
@@ -113,7 +113,7 @@ describe('calculateScore', () => {
   it('Dwarves mine bonus applies in decline', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'dwarves', 'bivouacking');
-    state = ownRegions(state, 0, [15], true); // region 15 declined
+    state = ownRegions(state, 0, [3], true); // region 3 declined
     // Base declined: 1, mine bonus in decline: +1
     expect(calculateScore(state, 0)).toBe(2);
   });
@@ -125,7 +125,7 @@ describe('calculateScore', () => {
       activeRace: null,
       declinedRaces: [{ raceId: 'dwarves', powerId: 'bivouacking' }],
     });
-    state = ownRegions(state, 0, [15], true); // region 15 hasMine:true, declined
+    state = ownRegions(state, 0, [3], true); // region 3 (Dark Forest) hasMine:true, declined
     // Base: 1, mine bonus in decline: +1
     expect(calculateScore(state, 0)).toBe(2);
   });
@@ -138,7 +138,7 @@ describe('calculateScore', () => {
       declinedRaces: [{ raceId: 'dwarves', powerId: 'alchemist' }],
     });
     state = ownRegions(state, 0, [12]); // active region (forest, no mine)
-    state = ownRegions(state, 0, [15], true); // declined region (hasMine:true)
+    state = ownRegions(state, 0, [3], true); // declined region (hasMine:true)
     // Base: 2 (1 active + 1 declined), Dwarf mine bonus: +1 for declined mine region
     expect(calculateScore(state, 0)).toBe(3);
   });
@@ -194,7 +194,7 @@ describe('calculateScore', () => {
   it('Wizards +1 per magic source region', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withActiveRace(state, 0, 'wizards', 'bivouacking');
-    state = ownRegions(state, 0, [6]); // region 6 hasMagicSource:true
+    state = ownRegions(state, 0, [2]); // region 2 (Merchant's Rest) hasMagicSource:true
     // Base: 1, magic source: +1 = 2
     expect(calculateScore(state, 0)).toBe(2);
   });

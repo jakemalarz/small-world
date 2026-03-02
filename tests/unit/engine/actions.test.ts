@@ -143,7 +143,7 @@ describe('applyAction — pickUpTokens', () => {
 describe('applyAction — conquer', () => {
   it('places attacker tokens in region and sets ownership', () => {
     let state = conquestState();
-    const regionId = 20; // edge farmland, empty
+    const regionId = 6; // edge hill (Yellowstone), empty, no mountain token
     const before = state.players[0].availableTokens;
     const cost = 2; // empty region costs 2
 
@@ -615,7 +615,7 @@ describe('immutability', () => {
 
 describe('applyAction — Berserk conquest with dieResult', () => {
   it('places max(1, cost - dieResult) tokens: die reduces cost', () => {
-    // Empty region 20 costs 2. Player has 1 token. Die result = 2.
+    // Empty region 6 (Yellowstone, hill) costs 2. Player has 1 token. Die result = 2.
     // Tokens placed = max(1, 2-2) = max(1, 0) = 1 token.
     let state = conquestState('ratmen', 'berserk', 0);
     state = patchPlayer(state, 0, {
@@ -624,8 +624,8 @@ describe('applyAction — Berserk conquest with dieResult', () => {
       activeRace: { ...state.players[0].activeRace!, tokensOnBoard: 0 },
     });
 
-    const next = applyAction(state, { type: 'conquer', regionId: 20, dieResult: 2 });
-    const region = next.board.regions.find((r) => r.id === 20)!;
+    const next = applyAction(state, { type: 'conquer', regionId: 6, dieResult: 2 });
+    const region = next.board.regions.find((r) => r.id === 6)!;
     expect(region.owner).toBe(0);
     // Tokens placed = max(1, 2-2) = 1
     expect(region.tokens).toBe(1);
@@ -641,8 +641,8 @@ describe('applyAction — Berserk conquest with dieResult', () => {
       activeRace: { ...state.players[0].activeRace!, tokensOnBoard: 0 },
     });
 
-    const next = applyAction(state, { type: 'conquer', regionId: 20, dieResult: 1 });
-    const region = next.board.regions.find((r) => r.id === 20)!;
+    const next = applyAction(state, { type: 'conquer', regionId: 6, dieResult: 1 });
+    const region = next.board.regions.find((r) => r.id === 6)!;
     expect(region.owner).toBe(0);
     // Tokens placed = max(1, 2-1) = 1
     expect(region.tokens).toBe(1);
@@ -658,8 +658,8 @@ describe('applyAction — Berserk conquest with dieResult', () => {
       activeRace: { ...state.players[0].activeRace!, tokensOnBoard: 0 },
     });
 
-    const next = applyAction(state, { type: 'conquer', regionId: 20, dieResult: 0 });
-    const region = next.board.regions.find((r) => r.id === 20)!;
+    const next = applyAction(state, { type: 'conquer', regionId: 6, dieResult: 0 });
+    const region = next.board.regions.find((r) => r.id === 6)!;
     expect(region.owner).toBe(0);
     // Tokens placed = max(1, 2-0) = 2
     expect(region.tokens).toBe(2);
@@ -669,8 +669,8 @@ describe('applyAction — Berserk conquest with dieResult', () => {
   it('normal conquest (no dieResult) still places exactly cost tokens', () => {
     // Without dieResult, should behave as normal: place exactly cost tokens
     const state = conquestState('ratmen', 'berserk', 0);
-    const next = applyAction(state, { type: 'conquer', regionId: 20 });
-    const region = next.board.regions.find((r) => r.id === 20)!;
+    const next = applyAction(state, { type: 'conquer', regionId: 6 });
+    const region = next.board.regions.find((r) => r.id === 6)!;
     expect(region.tokens).toBe(2); // empty region cost = 2
   });
 });

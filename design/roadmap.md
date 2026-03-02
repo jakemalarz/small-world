@@ -92,29 +92,54 @@ This roadmap captures the phased delivery plan for the Small World digital board
 
 ## Phase 3: Visual Polish
 
-**Goal:** Replace placeholder art with polished visuals matching the Small World board game aesthetic.
+**Goal:** Replace placeholder art with polished visuals matching the Small World board game aesthetic, redesign the HUD, and upgrade gameplay interactions and animations.
 
 **Depends on:** Phase 2 complete
 
-### Map Art
+**Status:** In progress
 
-- Commission or generate a pre-rendered 2-player map image (hand-painted fantasy style)
-- Options: AI-generated via Gemini (nano-banana MCP), hand-painted, or licensed reference
-- Map image replaces placeholder; hit polygons and overlays remain unchanged
+### Task 1: Map Region Redraw
 
-### Token & Banner Art
+Manually redraw all region polygons to closely match the physical board game map, and label each region to match the board game's named territories.
 
-- Replace colored circles with sprite-based tokens per race
-- Race banners and power badges as illustrated cards
-- Sprite sheets for token states (active, declined, special markers)
-- Drop-in replacement via `SpriteTokenRenderer` implementing existing `ITokenRenderer` interface
+- Trace region boundaries from the `src/assets/reference/2-player-map.jpeg` reference image
+- Replace existing polygon coordinates in `src/game/data/map2p.ts` with redrawn shapes
+- Label each region with its board-game name (e.g. "The Cavern", "The Forest of Death", etc.)
+- Verify all adjacency relationships still hold after redraw
+- Update hit polygon overlays in `Board.ts` to match new shapes
+- **Note:** This is an offline/manual task before implementation can begin
 
-### Animation Polish
+### Task 2: Map Token Replacement
 
-- Refined tween curves and timing for all actions
-- Particle effects for conquest impacts, coin scoring
-- Camera choreography improvements (smooth auto-focus during key moments)
+Replace colored-circle placeholder tokens with image-based tokens per race.
+
+- Source or generate token artwork for each of the 14 races
+- Replace `TokenRenderer.ts` placeholder circles with sprite-based rendering
+- Implement `SpriteTokenRenderer` as a drop-in replacement via the existing `ITokenRenderer` interface
+- Include token states: active, declined, and special markers (Lost Tribe, Troll Lair, Fortress, Encampment)
+- Race banners and power badges as illustrated cards in the combo shop
+
+### Task 3: HUD Redesign
+
+Redesign the HUD to match the Small World board game's visual style and improve usability.
+
+- Replace placeholder text-based race/power display with illustrated cards and banners
+- Redesign the combo shop to show race+power cards with artwork
+- Redesign the turn track, score display, and player dashboards
+- Redesign action buttons (Conquer, Decline, End Turn, etc.) with polished styling
+- Redesign the reinforcement die with a visual die face
+
+### Task 4: Gameplay Interactions Redesign + Animations
+
+Polish all gameplay interactions and add animation choreography.
+
+- Refined tween curves and timing for conquest, token placement, redeployment
+- Particle effects for conquest impacts and coin scoring
+- Camera choreography: smooth auto-focus during key moments
 - Dice roll: 3D tumble effect (sprite sequence or procedural)
+- Token pickup/placement feel: lift, drag, and drop animations
+- Combo card selection animation (slide in, flip, select)
+- Turn transition animations
 
 ---
 
@@ -268,3 +293,4 @@ These are ideas mentioned during design discussions that don't have a phase assi
 | 1.0 | 2026-02-20 | Initial roadmap based on PRD, technical design, and AI opponent design discussions |
 | 1.1 | 2026-02-21 | Reordered phases: Visual Polish → P2, Audio → P3, Online Multiplayer → P4, QoL → P5, MCP Bridge & Hard AI → P6; removed Additional Player Counts |
 | 1.2 | 2026-02-21 | Inserted Phase 2: Post-Phase 1 Fixes & UX Enhancements; renumbered Visual Polish → P3, Audio → P4, Online Multiplayer → P5, QoL → P6, MCP Bridge → P7 |
+| 1.3 | 2026-03-01 | Expanded Phase 3 into 4 explicit tasks: Map Region Redraw, Map Token Replacement, HUD Redesign, Gameplay Interactions + Animations; marked Phase 2 complete |

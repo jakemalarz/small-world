@@ -24,6 +24,7 @@ import {
   getGatherTokensInHand,
   isAbandonDialogActive,
   getAvailableTokens,
+  advanceFromRedeployToScore,
 } from './helpers';
 
 // ── Phase 2 E2E tests ─────────────────────────────────────────────────────────
@@ -328,9 +329,9 @@ test.describe('Phase 2 — Redeployment', () => {
     await advanceToConquest(page);
     await clickActionButton(page); // End Conquest → redeploy
     await waitForPhase(page, 'redeploy');
-    await clickActionButton(page); // Confirm Redeploy → score
+    await clickActionButton(page); // Confirm Redeploy → (optional intermediate) → score
 
-    await waitForPhase(page, 'score');
+    await advanceFromRedeployToScore(page);
     expect(await getPhase(page)).toBe('score');
   });
 });
@@ -609,12 +610,12 @@ test.describe('Phase 2 — Token Gathering', () => {
     });
     await page.waitForTimeout(300);
 
-    // End conquest → redeploy → score → end turn
+    // End conquest → redeploy → (optional: placeFortress/placeEncampments/placeHeroes) → score → end turn
     await waitForPhase(page, 'conquest');
     await clickActionButton(page);
     await waitForPhase(page, 'redeploy');
     await clickActionButton(page);
-    await waitForPhase(page, 'score');
+    await advanceFromRedeployToScore(page);
     await clickActionButton(page);
 
     // Handle optional decline if any

@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Small World — Polygon Editor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      display: flex;
+      height: 100vh;
+      background: #111827;
+      color: #e5e7eb;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    /* ── Canvas area ──────────────────────────────────────────────────────── */
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      min-width: 0;
+    }
+    canvas {
+      display: block;
+      cursor: crosshair;
+    }
+    #coords {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      background: rgba(0,0,0,0.75);
+      color: #fbbf24;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      pointer-events: none;
+      letter-spacing: 0.5px;
+    }
+    #hint {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0,0,0,0.6);
+      color: #9ca3af;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      line-height: 1.7;
+      pointer-events: none;
+    }
+    #hint kbd {
+      background: #374151;
+      color: #f3f4f6;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 10px;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────────────────── */
+    #sidebar {
+      width: 290px;
+      flex-shrink: 0;
+      background: #1f2937;
+      border-left: 1px solid #374151;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    .section {
+      padding: 12px 14px;
+      border-bottom: 1px solid #374151;
+    }
+    .section-title {
+      color: #f59e0b;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    /* ── Fields ───────────────────────────────────────────────────────────── */
+    .field { margin-bottom: 9px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block;
+      color: #9ca3af;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 4px;
+    }
+    .field input[type="text"],
+    .field select {
+      width: 100%;
+      background: #111827;
+      border: 1px solid #374151;
+      color: #e5e7eb;
+      padding: 5px 7px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      outline: none;
+    }
+    .field input[type="text"]:focus,
+    .field select:focus {
+      border-color: #f59e0b;
+    }
+    .checkbox-group { display: flex; flex-direction: column; gap: 4px; }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #d1d5db;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .checkbox-row input[type="checkbox"] { cursor: pointer; accent-color: #f59e0b; }
+    .readonly-info {
+      background: #111827;
+      border: 1px solid #374151;
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 11px;
+      line-height: 1.8;
+    }
+    .readonly-info span { color: #fbbf24; }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .btn:last-child { margin-bottom: 0; }
+    .btn-primary   { background: #d97706; color: #fff; }
+    .btn-primary:hover { background: #b45309; }
+    .btn-secondary { background: #374151; color: #d1d5db; }
+    .btn-secondary:hover { background: #4b5563; }
+    .btn-danger    { background: #7f1d1d; color: #fca5a5; }
+    .btn-danger:hover { background: #991b1b; }
+
+    /* ── No selection placeholder ─────────────────────────────────────────── */
+    #no-selection {
+      color: #6b7280;
+      text-align: center;
+      padding: 18px 8px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    #region-panel { display: none; }
+
+    /* ── Toast ────────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #065f46;
+      color: #a7f3d0;
+      border: 1px solid #10b981;
+      padding: 10px 22px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
+      display: none;
+      z-index: 1000;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<div id="canvas-container">
+  <canvas id="canvas"></canvas>
+  <div id="coords">x: 0  y: 0</div>
+  <div id="hint">
+    <kbd>Click</kbd> region to select &nbsp;·&nbsp; <kbd>Drag</kbd> vertex to move<br>
+    <kbd>Click</kbd> edge midpoint to insert vertex &nbsp;·&nbsp; <kbd>Right-click</kbd> vertex to delete<br>
+    <kbd>Scroll</kbd> zoom &nbsp;·&nbsp; <kbd>Middle-drag</kbd> or <kbd>Space</kbd>+drag to pan<br>
+    <kbd>Z</kbd> undo &nbsp;·&nbsp; <kbd>Y</kbd> redo &nbsp;·&nbsp; <kbd>Esc</kbd> deselect
+  </div>
+</div>
+
+<div id="sidebar">
+  <div class="section">
+    <div class="section-title">Small World — Polygon Editor</div>
+    <div id="no-selection">
+      Click a region on the map<br>to select and edit it.
+    </div>
+    <div id="region-panel">
+      <div class="field">
+        <label>Region ID</label>
+        <div class="readonly-info"><span id="field-id">—</span></div>
+      </div>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="field-name" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Primary Terrain</label>
+        <select id="field-terrain">
+          <option value="mountain">Mountain</option>
+          <option value="farmland">Farmland</option>
+          <option value="sea">Sea</option>
+          <option value="lake">Lake</option>
+          <option value="forest">Forest</option>
+          <option value="hill">Hill</option>
+          <option value="swamp">Swamp</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Secondary Classifications</label>
+        <div class="checkbox-group">
+          <label class="checkbox-row"><input type="checkbox" id="field-mine"> hasMine</label>
+          <label class="checkbox-row"><input type="checkbox" id="field-coastal"> isCoastal</label>
+          <label class="checkbox-row"><input type="checkbox" id="field-magic"> hasMagicSource</label>
+          <label class="checkbox-row"><input type="checkbox" id="field-underworld"> hasUnderworld</label>
+          <label class="checkbox-row"><input type="checkbox" id="field-losttribe"> hasLostTribe</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Auto-computed (read-only)</label>
+        <div class="readonly-info">
+          hasMountain: <span id="computed-mountain">—</span><br>
+          isEdge: <span id="computed-edge">—</span><br>
+          isMountainAdjacent: <span id="computed-mtnadj">—</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Polygon Info</label>
+        <div class="readonly-info">
+          vertices: <span id="vertex-count">—</span><br>
+          center: <span id="center-display">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <button class="btn btn-primary" id="btn-export">Copy Export to Clipboard</button>
+    <button class="btn btn-secondary" id="btn-debug">Show All Fills (debug)</button>
+    <button class="btn btn-danger" id="btn-reset">Reset All to Original</button>
+  </div>
+</div>
+
+<div id="toast">Copied to clipboard!</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Polygon data — copied verbatim from map2p.ts
+// ─────────────────────────────────────────────────────────────────────────────
+const INITIAL_REGIONS = [
+  {
+    id: 1, name: 'Shimmering Shoals', terrain: 'sea',
+    polygon: [[80,0],[370,0],[370,100],[340,160],[280,210],[200,250],[80,260]],
+    center: [200, 120], adjacentRegionIds: [2, 7],
+    isCoastal: true, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 2, name: "Merchant's Rest", terrain: 'farmland',
+    polygon: [[370,0],[640,0],[660,60],[660,180],[620,230],[520,250],[370,240],[340,160],[370,100]],
+    center: [505, 120], adjacentRegionIds: [1, 3, 7, 8],
+    isCoastal: true, hasMine: false, hasMagicSource: true, hasUnderworld: false, hasLostTribe: true,
+  },
+  {
+    id: 3, name: 'Highrock', terrain: 'mountain',
+    polygon: [[640,0],[830,0],[850,40],[870,150],[830,220],[720,250],[620,230],[660,180],[660,60]],
+    center: [740, 120], adjacentRegionIds: [2, 4, 8],
+    isCoastal: false, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 4, name: 'Fertile Plateau', terrain: 'farmland',
+    polygon: [[830,0],[1080,0],[1080,60],[1100,180],[1050,240],[930,260],[830,220],[870,150],[850,40]],
+    center: [960, 120], adjacentRegionIds: [3, 5, 8, 9],
+    isCoastal: true, hasMine: false, hasMagicSource: true, hasUnderworld: false, hasLostTribe: true,
+  },
+  {
+    id: 5, name: 'Storm Peaks', terrain: 'mountain',
+    polygon: [[1080,0],[1300,0],[1310,80],[1290,200],[1250,250],[1100,270],[1050,240],[1100,180],[1080,60]],
+    center: [1180, 130], adjacentRegionIds: [4, 6, 9, 11],
+    isCoastal: true, hasMine: true, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 6, name: 'Eldwood', terrain: 'forest',
+    polygon: [[1300,0],[1600,0],[1600,280],[1420,300],[1300,270],[1250,250],[1290,200],[1310,80]],
+    center: [1440, 140], adjacentRegionIds: [5, 11, 12],
+    isCoastal: false, hasMine: false, hasMagicSource: true, hasUnderworld: false, hasLostTribe: true,
+  },
+  {
+    id: 7, name: 'Barrow Downs', terrain: 'hill',
+    polygon: [[80,260],[200,250],[280,210],[340,160],[370,240],[380,310],[360,420],[280,470],[80,490]],
+    center: [220, 370], adjacentRegionIds: [1, 2, 8, 14],
+    isCoastal: true, hasMine: false, hasMagicSource: false, hasUnderworld: true, hasLostTribe: true,
+  },
+  {
+    id: 8, name: 'Marshwick', terrain: 'swamp',
+    polygon: [[370,240],[520,250],[620,230],[720,250],[750,310],[700,380],[640,440],[530,470],[380,460],[360,420],[380,310]],
+    center: [530, 350], adjacentRegionIds: [2, 3, 4, 7, 9, 14, 15],
+    isCoastal: true, hasMine: false, hasMagicSource: true, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 9, name: 'Lake of Whispers', terrain: 'lake',
+    polygon: [[750,310],[830,220],[930,260],[1050,240],[1100,270],[1060,360],[1000,440],[900,480],[780,460],[700,380]],
+    center: [900, 360], adjacentRegionIds: [4, 5, 8, 10, 11, 15, 16],
+    isCoastal: false, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 10, name: 'Golden Fields', terrain: 'farmland',
+    polygon: [[1060,360],[1100,270],[1150,290],[1200,340],[1190,430],[1140,490],[1050,500],[1000,440]],
+    center: [1100, 400], adjacentRegionIds: [9, 11, 13, 16, 17],
+    isCoastal: true, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 11, name: 'Granite Throne', terrain: 'mountain',
+    polygon: [[1100,270],[1250,250],[1300,270],[1370,310],[1360,420],[1300,480],[1200,490],[1140,490],[1190,430],[1200,340],[1150,290]],
+    center: [1250, 380], adjacentRegionIds: [5, 6, 9, 10, 12, 17],
+    isCoastal: true, hasMine: true, hasMagicSource: false, hasUnderworld: true, hasLostTribe: false,
+  },
+  {
+    id: 12, name: 'Verdant March', terrain: 'forest',
+    polygon: [[1300,270],[1420,300],[1600,280],[1600,520],[1460,530],[1350,500],[1300,480],[1360,420],[1370,310]],
+    center: [1460, 400], adjacentRegionIds: [6, 11, 13, 17, 18, 23],
+    isCoastal: false, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 13, name: 'Coastal Pastures', terrain: 'farmland',
+    polygon: [[1350,500],[1460,530],[1600,520],[1600,640],[1500,650],[1440,640],[1380,550]],
+    center: [1480, 580], adjacentRegionIds: [10, 12, 17, 18, 23],
+    isCoastal: false, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 14, name: 'Bogmoss', terrain: 'swamp',
+    polygon: [[80,490],[280,470],[360,420],[380,460],[400,530],[370,620],[300,680],[180,710],[80,720]],
+    center: [230, 600], adjacentRegionIds: [7, 8, 15, 19],
+    isCoastal: false, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 15, name: 'Mire Pit', terrain: 'swamp',
+    polygon: [[380,460],[530,470],[640,440],[680,500],[660,580],[600,650],[500,700],[370,690],[370,620],[400,530]],
+    center: [520, 580], adjacentRegionIds: [8, 9, 14, 16, 19],
+    isCoastal: true, hasMine: true, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 16, name: 'Rolling Hills', terrain: 'hill',
+    polygon: [[640,440],[780,460],[900,480],[940,530],[920,620],[860,690],[740,720],[620,700],[600,650],[660,580],[680,500]],
+    center: [770, 600], adjacentRegionIds: [9, 10, 15, 17, 19, 20, 22],
+    isCoastal: true, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 17, name: 'Hollow Ridge', terrain: 'hill',
+    polygon: [[940,530],[1000,440],[1050,500],[1140,490],[1200,490],[1250,540],[1220,630],[1140,700],[1020,720],[920,700],[920,620]],
+    center: [1080, 610], adjacentRegionIds: [10, 11, 12, 13, 16, 18, 20, 23],
+    isCoastal: false, hasMine: false, hasMagicSource: false, hasUnderworld: true, hasLostTribe: false,
+  },
+  {
+    id: 18, name: 'Thornwood', terrain: 'forest',
+    polygon: [[1200,490],[1300,480],[1350,500],[1380,550],[1370,650],[1320,720],[1220,740],[1140,700],[1220,630],[1250,540]],
+    center: [1280, 620], adjacentRegionIds: [12, 13, 17, 20, 21, 23],
+    isCoastal: true, hasMine: true, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 19, name: 'Fenwick Bog', terrain: 'swamp',
+    polygon: [[80,720],[180,710],[300,680],[370,690],[500,700],[540,720],[540,900],[80,900]],
+    center: [310, 800], adjacentRegionIds: [14, 15, 16, 22],
+    isCoastal: false, hasMine: false, hasMagicSource: false, hasUnderworld: true, hasLostTribe: true,
+  },
+  {
+    id: 20, name: 'Darkwood Glen', terrain: 'forest',
+    polygon: [[920,700],[1020,720],[1140,700],[1220,740],[1320,720],[1440,740],[1440,810],[1300,850],[1100,860],[920,830],[920,760]],
+    center: [1160, 780], adjacentRegionIds: [16, 17, 18, 21, 22, 23],
+    isCoastal: true, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 21, name: 'Tidal Flats', terrain: 'sea',
+    polygon: [[1440,740],[1600,750],[1600,900],[1100,900],[1100,860],[1300,850],[1440,810]],
+    center: [1380, 830], adjacentRegionIds: [18, 20, 23],
+    isCoastal: true, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 22, name: 'Windswept Rise', terrain: 'hill',
+    polygon: [[540,720],[620,700],[740,720],[860,690],[920,700],[920,760],[850,810],[700,830],[540,810]],
+    center: [730, 760], adjacentRegionIds: [16, 19, 20],
+    isCoastal: false, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: false,
+  },
+  {
+    id: 23, name: 'Granite Pass', terrain: 'mountain',
+    polygon: [[1380,550],[1440,640],[1500,650],[1600,640],[1600,750],[1440,740],[1320,720],[1370,650]],
+    center: [1480, 700], adjacentRegionIds: [12, 13, 17, 18, 20, 21],
+    isCoastal: true, hasMine: false, hasMagicSource: false, hasUnderworld: false, hasLostTribe: true,
+  },
+];
+
+// Deep-clone working copy
+function cloneRegions(src) {
+  return src.map(r => ({
+    ...r,
+    polygon: r.polygon.map(([x, y]) => [x, y]),
+    adjacentRegionIds: [...r.adjacentRegionIds],
+  }));
+}
+let regions = cloneRegions(INITIAL_REGIONS);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Canvas / context
+// ─────────────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const coordsEl = document.getElementById('coords');
+
+const WORLD_W = 1600;
+const WORLD_H = 900;
+
+// View transform: world point (wx,wy) → canvas point (panX + wx*scale, panY + wy*scale)
+let scale = 1;
+let panX  = 0;
+let panY  = 0;
+
+function worldToCanvas(wx, wy) { return [panX + wx * scale, panY + wy * scale]; }
+function canvasToWorld(cx, cy) { return [(cx - panX) / scale, (cy - panY) / scale]; }
+
+// Map image
+const mapImage = new Image();
+mapImage.src = '/assets/images/map-2p.png';
+mapImage.onload = () => { fitToWindow(); };
+
+function resizeCanvas() {
+  const c = document.getElementById('canvas-container');
+  canvas.width  = c.clientWidth;
+  canvas.height = c.clientHeight;
+}
+
+function fitToWindow() {
+  resizeCanvas();
+  const s = Math.min((canvas.width - 40) / WORLD_W, (canvas.height - 40) / WORLD_H);
+  scale = s;
+  panX  = (canvas.width  - WORLD_W * scale) / 2;
+  panY  = (canvas.height - WORLD_H * scale) / 2;
+  render();
+}
+
+window.addEventListener('resize', () => { resizeCanvas(); render(); });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Terrain colours
+// ─────────────────────────────────────────────────────────────────────────────
+const TERRAIN_FILL = {
+  mountain: 'rgba(180, 130,  60, 0.30)',
+  farmland: 'rgba(160, 230,  80, 0.30)',
+  sea:      'rgba( 60, 130, 220, 0.30)',
+  lake:     'rgba( 80, 190, 240, 0.30)',
+  forest:   'rgba( 40, 160,  60, 0.30)',
+  hill:     'rgba(210, 180,  80, 0.30)',
+  swamp:    'rgba( 90, 140,  70, 0.30)',
+};
+const TERRAIN_STROKE = {
+  mountain: 'rgba(200, 160,  80, 0.80)',
+  farmland: 'rgba(180, 240,  80, 0.80)',
+  sea:      'rgba( 80, 160, 240, 0.80)',
+  lake:     'rgba(100, 210, 255, 0.80)',
+  forest:   'rgba( 60, 200,  80, 0.80)',
+  hill:     'rgba(230, 200, 100, 0.80)',
+  swamp:    'rgba(110, 170,  90, 0.80)',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Interaction state
+// ─────────────────────────────────────────────────────────────────────────────
+let selectedRegionId  = null;   // null | number
+let hoveredRegionId   = null;   // null | number
+let dragVertex        = null;   // null | { regionIdx, vertexIdx }
+let isPanning         = false;
+let panStartX = 0, panStartY = 0, panStartPanX = 0, panStartPanY = 0;
+let isSpaceDown       = false;
+let mouseWorldX = 0, mouseWorldY = 0;
+let debugMode         = false;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Undo / redo
+// ─────────────────────────────────────────────────────────────────────────────
+let undoStack = [];
+let redoStack = [];
+
+function saveUndo() {
+  undoStack.push(regions.map(r => r.polygon.map(([x, y]) => [x, y])));
+  redoStack = [];
+  if (undoStack.length > 80) undoStack.shift();
+}
+
+function applyPolyState(state) {
+  state.forEach((poly, i) => { regions[i].polygon = poly.map(([x, y]) => [x, y]); });
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push(regions.map(r => r.polygon.map(([x, y]) => [x, y])));
+  applyPolyState(undoStack.pop());
+  render();
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push(regions.map(r => r.polygon.map(([x, y]) => [x, y])));
+  applyPolyState(redoStack.pop());
+  render();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render
+// ─────────────────────────────────────────────────────────────────────────────
+function drawPolygonPath(polygon) {
+  const pts = polygon.map(([x, y]) => worldToCanvas(x, y));
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath();
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Background
+  ctx.fillStyle = '#111827';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Map image
+  const [mx, my] = worldToCanvas(0, 0);
+  if (mapImage.complete && mapImage.naturalWidth > 0) {
+    ctx.drawImage(mapImage, mx, my, WORLD_W * scale, WORLD_H * scale);
+  } else {
+    ctx.fillStyle = '#1f2937';
+    ctx.fillRect(mx, my, WORLD_W * scale, WORLD_H * scale);
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '16px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Loading map image…', mx + WORLD_W * scale / 2, my + WORLD_H * scale / 2);
+  }
+
+  // Map border
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(mx, my, WORLD_W * scale, WORLD_H * scale);
+
+  // Draw each region
+  for (const region of regions) {
+    const isSel   = region.id === selectedRegionId;
+    const isHover = region.id === hoveredRegionId;
+
+    drawPolygonPath(region.polygon);
+
+    // Fill
+    if (isSel) {
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.30)';
+      ctx.fill();
+    } else if (isHover) {
+      ctx.fillStyle = TERRAIN_FILL[region.terrain] || 'rgba(200,200,200,0.25)';
+      ctx.fill();
+    } else if (debugMode) {
+      ctx.fillStyle = TERRAIN_FILL[region.terrain] || 'rgba(200,200,200,0.20)';
+      ctx.fill();
+    }
+
+    // Stroke
+    drawPolygonPath(region.polygon);
+    ctx.strokeStyle = isSel   ? 'rgba(251,191,36,0.95)'
+                    : isHover ? 'rgba(255,255,255,0.85)'
+                    : debugMode ? (TERRAIN_STROKE[region.terrain] || 'rgba(200,200,200,0.6)')
+                    : 'rgba(255, 80, 80, 0.65)';
+    ctx.lineWidth = isSel ? 2.5 : 1.5;
+    ctx.stroke();
+
+    // Region ID label
+    const [cx, cy] = worldToCanvas(region.center[0], region.center[1]);
+    const fontSize = Math.max(9, Math.round(11 * scale));
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Shadow for readability
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillText(region.id, cx + 1, cy + 1);
+    ctx.fillStyle = isSel ? '#fbbf24' : (isHover || debugMode) ? '#f3f4f6' : 'rgba(255,100,100,0.9)';
+    ctx.fillText(region.id, cx, cy);
+  }
+
+  // ── Selected region: draw vertices and edge-midpoints ────────────────────
+  if (selectedRegionId !== null) {
+    const region = regions.find(r => r.id === selectedRegionId);
+    if (region) {
+      const poly = region.polygon;
+
+      // Edge midpoints (insert hint)
+      for (let i = 0; i < poly.length; i++) {
+        const j = (i + 1) % poly.length;
+        const mx2 = (poly[i][0] + poly[j][0]) / 2;
+        const my2 = (poly[i][1] + poly[j][1]) / 2;
+        const [cx2, cy2] = worldToCanvas(mx2, my2);
+        ctx.beginPath();
+        ctx.arc(cx2, cy2, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(251,191,36,0.35)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(251,191,36,0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Vertices
+      const rIdx = regions.indexOf(region);
+      for (let i = 0; i < poly.length; i++) {
+        const [vx, vy] = worldToCanvas(poly[i][0], poly[i][1]);
+        const isDragging = dragVertex && dragVertex.regionIdx === rIdx && dragVertex.vertexIdx === i;
+        const r = isDragging ? 8 : 5;
+        ctx.beginPath();
+        ctx.arc(vx, vy, r, 0, Math.PI * 2);
+        ctx.fillStyle = isDragging ? '#ef4444' : '#fbbf24';
+        ctx.fill();
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Index label inside vertex dot
+        if (r >= 5) {
+          ctx.font = `bold ${Math.max(7, Math.round(8 * scale))}px monospace`;
+          ctx.fillStyle = '#111827';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(i, vx, vy);
+        }
+      }
+    }
+  }
+
+  updateSidebar();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auto-computed fields
+// ─────────────────────────────────────────────────────────────────────────────
+const EDGE_TOL = 2;
+function computeIsEdge(polygon) {
+  return polygon.some(([x, y]) =>
+    x <= EDGE_TOL || x >= WORLD_W - EDGE_TOL ||
+    y <= EDGE_TOL || y >= WORLD_H - EDGE_TOL
+  );
+}
+
+function computeIsMtnAdj(region) {
+  return region.adjacentRegionIds.some(id => {
+    const r = regions.find(r2 => r2.id === id);
+    return r && r.terrain === 'mountain';
+  });
+}
+
+function computeCenter(polygon) {
+  const n = polygon.length;
+  const cx = Math.round(polygon.reduce((s, [x]) => s + x, 0) / n);
+  const cy = Math.round(polygon.reduce((s, [, y]) => s + y, 0) / n);
+  return [cx, cy];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sidebar
+// ─────────────────────────────────────────────────────────────────────────────
+let _sidebarBound = false;
+
+function bindSidebarEvents() {
+  if (_sidebarBound) return;
+  _sidebarBound = true;
+
+  const get = id => document.getElementById(id);
+
+  get('field-name').addEventListener('input', e => {
+    const r = regions.find(r2 => r2.id === selectedRegionId);
+    if (r) r.name = e.target.value;
+  });
+  get('field-terrain').addEventListener('change', e => {
+    const r = regions.find(r2 => r2.id === selectedRegionId);
+    if (r) { r.terrain = e.target.value; render(); }
+  });
+  ['field-mine','field-coastal','field-magic','field-underworld','field-losttribe'].forEach(id => {
+    const prop = { 'field-mine':'hasMine','field-coastal':'isCoastal','field-magic':'hasMagicSource',
+                   'field-underworld':'hasUnderworld','field-losttribe':'hasLostTribe' }[id];
+    get(id).addEventListener('change', e => {
+      const r = regions.find(r2 => r2.id === selectedRegionId);
+      if (r) r[prop] = e.target.checked;
+    });
+  });
+}
+bindSidebarEvents();
+
+function updateSidebar() {
+  const noSel = document.getElementById('no-selection');
+  const panel = document.getElementById('region-panel');
+
+  if (selectedRegionId === null) {
+    noSel.style.display = 'block';
+    panel.style.display = 'none';
+    return;
+  }
+
+  const region = regions.find(r => r.id === selectedRegionId);
+  if (!region) return;
+
+  noSel.style.display = 'none';
+  panel.style.display = 'block';
+
+  document.getElementById('field-id').textContent   = region.id;
+  document.getElementById('field-name').value        = region.name;
+  document.getElementById('field-terrain').value     = region.terrain;
+  document.getElementById('field-mine').checked       = region.hasMine;
+  document.getElementById('field-coastal').checked    = region.isCoastal;
+  document.getElementById('field-magic').checked      = region.hasMagicSource;
+  document.getElementById('field-underworld').checked = region.hasUnderworld;
+  document.getElementById('field-losttribe').checked  = region.hasLostTribe;
+
+  document.getElementById('computed-mountain').textContent = String(region.terrain === 'mountain');
+  document.getElementById('computed-edge').textContent     = String(computeIsEdge(region.polygon));
+  document.getElementById('computed-mtnadj').textContent   = String(computeIsMtnAdj(region));
+  document.getElementById('vertex-count').textContent      = region.polygon.length;
+  const [cx, cy] = computeCenter(region.polygon);
+  document.getElementById('center-display').textContent = `${cx}, ${cy}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Export
+// ─────────────────────────────────────────────────────────────────────────────
+function buildExportText() {
+  return regions.map(region => {
+    const [cx, cy] = computeCenter(region.polygon);
+    const isEdge   = computeIsEdge(region.polygon);
+    const isMtnAdj = computeIsMtnAdj(region);
+    const hasMtn   = region.terrain === 'mountain';
+
+    const polyStr = region.polygon
+      .map(([x, y]) => `[${Math.round(x)},${Math.round(y)}]`)
+      .join(',');
+    const adjStr = region.adjacentRegionIds.join(', ');
+    const nameStr = region.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+    return [
+      `    {`,
+      `      id: ${region.id},`,
+      `      name: '${nameStr}',`,
+      `      terrain: '${region.terrain}',`,
+      `      polygon: [${polyStr}],`,
+      `      center: [${cx}, ${cy}],`,
+      `      adjacentRegionIds: [${adjStr}],`,
+      `      isEdge: ${isEdge},`,
+      `      isCoastal: ${region.isCoastal},`,
+      `      isMountainAdjacent: ${isMtnAdj},`,
+      `      hasMountain: ${hasMtn}, hasMine: ${region.hasMine}, hasMagicSource: ${region.hasMagicSource},`,
+      `      hasUnderworld: ${region.hasUnderworld}, hasLostTribe: ${region.hasLostTribe},`,
+      `    },`,
+    ].join('\n');
+  }).join('\n');
+}
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  navigator.clipboard.writeText(buildExportText()).then(() => {
+    const toast = document.getElementById('toast');
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 2500);
+  });
+});
+
+document.getElementById('btn-debug').addEventListener('click', () => {
+  debugMode = !debugMode;
+  document.getElementById('btn-debug').textContent =
+    debugMode ? 'Hide All Fills (debug)' : 'Show All Fills (debug)';
+  render();
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (!confirm('Reset ALL polygon vertices to original data? This cannot be undone.')) return;
+  regions = cloneRegions(INITIAL_REGIONS);
+  undoStack = [];
+  redoStack = [];
+  render();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hit testing
+// ─────────────────────────────────────────────────────────────────────────────
+function pointInPolygon(wx, wy, polygon) {
+  let inside = false;
+  const n = polygon.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const [xi, yi] = polygon[i];
+    const [xj, yj] = polygon[j];
+    if (((yi > wy) !== (yj > wy)) &&
+        (wx < (xj - xi) * (wy - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+const VERTEX_HIT_PX   = 9;  // canvas pixels
+const MIDPOINT_HIT_PX = 7;
+
+function vertexAtCanvas(cx, cy, regionIdx) {
+  const poly = regions[regionIdx].polygon;
+  for (let i = 0; i < poly.length; i++) {
+    const [vx, vy] = worldToCanvas(poly[i][0], poly[i][1]);
+    if (Math.hypot(cx - vx, cy - vy) <= VERTEX_HIT_PX) return i;
+  }
+  return -1;
+}
+
+function midpointAtCanvas(cx, cy, regionIdx) {
+  const poly = regions[regionIdx].polygon;
+  for (let i = 0; i < poly.length; i++) {
+    const j = (i + 1) % poly.length;
+    const mx = (poly[i][0] + poly[j][0]) / 2;
+    const my = (poly[i][1] + poly[j][1]) / 2;
+    const [vx, vy] = worldToCanvas(mx, my);
+    if (Math.hypot(cx - vx, cy - vy) <= MIDPOINT_HIT_PX) return i;
+  }
+  return -1;
+}
+
+function regionAtWorld(wx, wy) {
+  // Iterate in reverse so topmost-drawn region wins
+  for (let i = regions.length - 1; i >= 0; i--) {
+    if (pointInPolygon(wx, wy, regions[i].polygon)) return i;
+  }
+  return -1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mouse events
+// ─────────────────────────────────────────────────────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  [mouseWorldX, mouseWorldY] = canvasToWorld(cx, cy);
+  coordsEl.textContent = `x: ${Math.round(mouseWorldX).toString().padStart(4)}  y: ${Math.round(mouseWorldY).toString().padStart(4)}`;
+
+  // Panning
+  if (isPanning) {
+    panX = panStartPanX + (cx - panStartX);
+    panY = panStartPanY + (cy - panStartY);
+    render();
+    return;
+  }
+
+  // Vertex drag
+  if (dragVertex !== null) {
+    const poly = regions[dragVertex.regionIdx].polygon;
+    poly[dragVertex.vertexIdx] = [
+      Math.max(0, Math.min(WORLD_W, Math.round(mouseWorldX))),
+      Math.max(0, Math.min(WORLD_H, Math.round(mouseWorldY))),
+    ];
+    render();
+    return;
+  }
+
+  // Hover region detection
+  const rIdx = regionAtWorld(mouseWorldX, mouseWorldY);
+  const newHover = rIdx >= 0 ? regions[rIdx].id : null;
+  if (newHover !== hoveredRegionId) {
+    hoveredRegionId = newHover;
+    render();
+  }
+
+  // Cursor
+  if (selectedRegionId !== null && !isSpaceDown) {
+    const selIdx = regions.findIndex(r => r.id === selectedRegionId);
+    if (selIdx >= 0) {
+      if (vertexAtCanvas(cx, cy, selIdx) >= 0 || midpointAtCanvas(cx, cy, selIdx) >= 0) {
+        canvas.style.cursor = 'grab';
+        return;
+      }
+    }
+  }
+  canvas.style.cursor = isSpaceDown ? 'grab' : 'crosshair';
+});
+
+canvas.addEventListener('mousedown', e => {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+
+  // Middle-click or Space+left: pan
+  if (e.button === 1 || (e.button === 0 && isSpaceDown)) {
+    isPanning = true;
+    panStartX = cx; panStartY = cy;
+    panStartPanX = panX; panStartPanY = panY;
+    canvas.style.cursor = 'grabbing';
+    e.preventDefault();
+    return;
+  }
+
+  if (e.button === 0) {
+    if (selectedRegionId !== null) {
+      const selIdx = regions.findIndex(r => r.id === selectedRegionId);
+      if (selIdx >= 0) {
+        // Check vertices first
+        const vi = vertexAtCanvas(cx, cy, selIdx);
+        if (vi >= 0) {
+          saveUndo();
+          dragVertex = { regionIdx: selIdx, vertexIdx: vi };
+          canvas.style.cursor = 'grabbing';
+          return;
+        }
+        // Then edge midpoints (insert vertex)
+        const mi = midpointAtCanvas(cx, cy, selIdx);
+        if (mi >= 0) {
+          saveUndo();
+          const poly = regions[selIdx].polygon;
+          const j = (mi + 1) % poly.length;
+          const nx = Math.round((poly[mi][0] + poly[j][0]) / 2);
+          const ny = Math.round((poly[mi][1] + poly[j][1]) / 2);
+          poly.splice(mi + 1, 0, [nx, ny]);
+          dragVertex = { regionIdx: selIdx, vertexIdx: mi + 1 };
+          canvas.style.cursor = 'grabbing';
+          render();
+          return;
+        }
+      }
+    }
+
+    // Click to select region
+    const [wx, wy] = canvasToWorld(cx, cy);
+    const rIdx = regionAtWorld(wx, wy);
+    selectedRegionId = rIdx >= 0 ? regions[rIdx].id : null;
+    render();
+  }
+
+  if (e.button === 2) {
+    // Right-click: delete vertex of selected region
+    if (selectedRegionId !== null) {
+      const selIdx = regions.findIndex(r => r.id === selectedRegionId);
+      if (selIdx >= 0) {
+        const vi = vertexAtCanvas(cx, cy, selIdx);
+        if (vi >= 0 && regions[selIdx].polygon.length > 3) {
+          saveUndo();
+          regions[selIdx].polygon.splice(vi, 1);
+          render();
+        }
+      }
+    }
+    e.preventDefault();
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (isPanning && (e.button === 1 || e.button === 0)) {
+    isPanning = false;
+    canvas.style.cursor = isSpaceDown ? 'grab' : 'crosshair';
+  }
+  if (e.button === 0 && dragVertex !== null) {
+    dragVertex = null;
+    canvas.style.cursor = 'crosshair';
+  }
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const factor = e.deltaY < 0 ? 1.12 : (1 / 1.12);
+  const newScale = Math.max(0.15, Math.min(10, scale * factor));
+  // Zoom toward cursor position
+  panX = cx - (cx - panX) * (newScale / scale);
+  panY = cy - (cy - panY) * (newScale / scale);
+  scale = newScale;
+  render();
+}, { passive: false });
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Keyboard
+// ─────────────────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  // Don't intercept input fields
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+
+  if (e.key === ' ') {
+    isSpaceDown = true;
+    canvas.style.cursor = 'grab';
+    e.preventDefault();
+    return;
+  }
+
+  // Undo: Z (no modifier) or Ctrl/Cmd+Z
+  if ((e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+    undo();
+    e.preventDefault();
+    return;
+  }
+  // Redo: Y or Ctrl+Shift+Z or Ctrl+Y
+  if (e.key === 'y' || e.key === 'Y' || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z')) {
+    redo();
+    e.preventDefault();
+    return;
+  }
+
+  if (e.key === 'Escape') {
+    selectedRegionId = null;
+    dragVertex = null;
+    render();
+  }
+});
+
+document.addEventListener('keyup', e => {
+  if (e.key === ' ') {
+    isSpaceDown = false;
+    if (!dragVertex) canvas.style.cursor = 'crosshair';
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+resizeCanvas();
+fitToWindow();
+render();
+</script>
+</body>
+</html>

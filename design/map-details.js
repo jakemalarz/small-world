@@ -1,70 +1,3 @@
-import type { Terrain } from '@/game/state/types';
-
-// ── Map data types ────────────────────────────────────────────────────────────
-
-export interface MapRegionData {
-  readonly id: number;
-  readonly name: string;
-  readonly terrain: Terrain;
-  /** Clockwise vertex coordinates in map-image pixel space */
-  readonly polygon: readonly (readonly [number, number])[];
-  /** Visual center used for token placement and camera focus */
-  readonly center: readonly [number, number];
-  readonly adjacentRegionIds: readonly number[];
-  /** True if this region touches the edge of the map (valid first-conquest target) */
-  readonly isEdge: boolean;
-  /** True if this region borders a Sea or Lake (valid first-conquest target) */
-  readonly isCoastal: boolean;
-  /** True if any adjacent region has Mountain terrain (computed from adjacency) */
-  readonly isMountainAdjacent: boolean;
-  // ── Initial setup markers ────────────────────────────────────────────────────
-  /** Mountain defense token present at game start (+1 to conquest cost) */
-  readonly hasMountain: boolean;
-  readonly hasMine: boolean;
-  readonly hasMagicSource: boolean;
-  readonly hasUnderworld: boolean;
-  readonly hasLostTribe: boolean;
-}
-
-export interface MapData {
-  /** Phaser asset key for the background map image */
-  readonly imageKey: string;
-  readonly imageWidth: number;
-  readonly imageHeight: number;
-  readonly regions: readonly MapRegionData[];
-}
-
-// ── 2-Player Map ──────────────────────────────────────────────────────────────
-//
-// Coordinate system: pixels relative to the top-left of the map image.
-// Image size: 1600 × 900 px (target render size).
-//
-// Polygon coordinates were traced manually using the polygon-editor tool
-// (public/polygon-editor.html) directly over the rendered map image.
-//
-// Mountain regions: 5 (Mt. Washburn), 7 (Grand Teton), 13 (White Mountains),
-//                   20 (Granite Pass)
-// Water regions: 1 (Shimmering Shoals, sea), 9 (Lake of Whispers, lake),
-//                21 (Tidal Flats, sea)
-//
-// Region layout (rough left→right, top→bottom):
-//
-//   Top row:  1:Sea  2:Farm  3:Forest  4:Swamp  5:Mtn  6:Hill
-//   Mid-left: 7:Mtn  8:Hill  9:Lake
-//   Mid-right: 10:Hill  11:Farm  12:Forest  13:Mtn
-//   Lower:    14:Farm  15:Forest  16:Swamp  17:Farm  18:Swamp  23:Forest
-//   Bottom:   19:Swamp  22:Hill  20:Mtn  21:Sea
-//
-// Adjacency is symmetric. Lake (9) and Seas (1, 21) are not conquerable by
-// default; adjacent land regions are marked isCoastal: true.
-
-export const MAP_2P: MapData = {
-  imageKey: 'map2p',
-  imageWidth: 1600,
-  imageHeight: 900,
-  regions: [
-    // ── Top row ───────────────────────────────────────────────────────────────
-
     {
       id: 1,
       name: 'Shimmering Shoals',
@@ -74,20 +7,20 @@ export const MAP_2P: MapData = {
       adjacentRegionIds: [2, 7],
       isEdge: true,
       isCoastal: false,
-      isMountainAdjacent: true, // borders Grand Teton (7)
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: false,
     },
     {
       id: 2,
-      name: "Merchant's Rest",
+      name: 'Merchant\'s Rest',
       terrain: 'farmland',
       polygon: [[427,0],[651,0],[640,69],[666,154],[644,197],[596,206],[488,251],[451,249],[426,219],[409,179],[424,154]],
       center: [529, 153],
       adjacentRegionIds: [1, 3, 7, 8],
       isEdge: true,
-      isCoastal: true, // borders Sea (1)
-      isMountainAdjacent: true, // borders Grand Teton (7)
+      isCoastal: true,
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: true,
       hasUnderworld: false, hasLostTribe: false,
     },
@@ -97,10 +30,10 @@ export const MAP_2P: MapData = {
       terrain: 'forest',
       polygon: [[651,1],[916,0],[905,17],[917,39],[861,83],[822,138],[872,183],[835,278],[768,287],[702,313],[689,277],[680,237],[644,197],[666,155],[640,69]],
       center: [771, 152],
-      adjacentRegionIds: [2, 4, 5, 8, 9],
+      adjacentRegionIds: [2, 4, , 5, 8, 9],
       isEdge: true,
-      isCoastal: true, // borders Lake of Whispers (9)
-      isMountainAdjacent: true, // borders Mt. Washburn (5)
+      isCoastal: true,
+      isMountainAdjacent: false,
       hasMountain: false, hasMine: true, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: false,
     },
@@ -113,7 +46,7 @@ export const MAP_2P: MapData = {
       adjacentRegionIds: [3, 5, 6, 11],
       isEdge: true,
       isCoastal: false,
-      isMountainAdjacent: true, // borders Mt. Washburn (5)
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: true, hasLostTribe: true,
     },
@@ -125,7 +58,7 @@ export const MAP_2P: MapData = {
       center: [989, 300],
       adjacentRegionIds: [3, 4, 9, 10, 11, 17],
       isEdge: false,
-      isCoastal: true, // borders Lake of Whispers (9)
+      isCoastal: true,
       isMountainAdjacent: false,
       hasMountain: true, hasMine: false, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: false,
@@ -139,13 +72,10 @@ export const MAP_2P: MapData = {
       adjacentRegionIds: [4, 11, 12],
       isEdge: true,
       isCoastal: false,
-      isMountainAdjacent: false,
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: false,
     },
-
-    // ── Mid-left ──────────────────────────────────────────────────────────────
-
     {
       id: 7,
       name: 'Grand Teton',
@@ -154,7 +84,7 @@ export const MAP_2P: MapData = {
       center: [286, 337],
       adjacentRegionIds: [1, 2, 8, 14],
       isEdge: true,
-      isCoastal: true, // borders Sea (1)
+      isCoastal: true,
       isMountainAdjacent: false,
       hasMountain: true, hasMine: true, hasMagicSource: false,
       hasUnderworld: true, hasLostTribe: false,
@@ -167,8 +97,8 @@ export const MAP_2P: MapData = {
       center: [580, 333],
       adjacentRegionIds: [2, 3, 7, 9, 14, 15],
       isEdge: false,
-      isCoastal: true, // borders Lake of Whispers (9)
-      isMountainAdjacent: true, // borders Grand Teton (7)
+      isCoastal: true,
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: true,
     },
@@ -180,14 +110,11 @@ export const MAP_2P: MapData = {
       center: [802, 427],
       adjacentRegionIds: [3, 5, 8, 15, 17],
       isEdge: false,
-      isCoastal: false, // the lake itself is not "coastal"
-      isMountainAdjacent: true, // borders Mt. Washburn (5)
+      isCoastal: false,
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: false,
     },
-
-    // ── Mid-right ─────────────────────────────────────────────────────────────
-
     {
       id: 10,
       name: 'The Shire',
@@ -197,7 +124,7 @@ export const MAP_2P: MapData = {
       adjacentRegionIds: [5, 11, 12, 13, 17, 18, 23],
       isEdge: false,
       isCoastal: false,
-      isMountainAdjacent: true, // borders Mt. Washburn (5) and White Mountains (13)
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: true, hasLostTribe: true,
     },
@@ -210,7 +137,7 @@ export const MAP_2P: MapData = {
       adjacentRegionIds: [4, 5, 6, 10, 12],
       isEdge: false,
       isCoastal: false,
-      isMountainAdjacent: true, // borders Mt. Washburn (5)
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: false,
     },
@@ -223,7 +150,7 @@ export const MAP_2P: MapData = {
       adjacentRegionIds: [6, 10, 11, 13],
       isEdge: true,
       isCoastal: false,
-      isMountainAdjacent: true, // borders White Mountains (13)
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: true,
       hasUnderworld: false, hasLostTribe: true,
     },
@@ -235,14 +162,11 @@ export const MAP_2P: MapData = {
       center: [1485, 491],
       adjacentRegionIds: [10, 12, 21, 23],
       isEdge: true,
-      isCoastal: true, // borders Tidal Flats (21)
+      isCoastal: true,
       isMountainAdjacent: false,
       hasMountain: true, hasMine: true, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: false,
     },
-
-    // ── Lower middle ──────────────────────────────────────────────────────────
-
     {
       id: 14,
       name: 'Gondor',
@@ -252,7 +176,7 @@ export const MAP_2P: MapData = {
       adjacentRegionIds: [7, 8, 15, 19, 22],
       isEdge: true,
       isCoastal: false,
-      isMountainAdjacent: true, // borders Grand Teton (7)
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: true,
     },
@@ -264,7 +188,7 @@ export const MAP_2P: MapData = {
       center: [660, 572],
       adjacentRegionIds: [8, 9, 14, 16, 17, 22],
       isEdge: false,
-      isCoastal: true, // borders Lake of Whispers (9)
+      isCoastal: true,
       isMountainAdjacent: false,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: true,
@@ -278,20 +202,20 @@ export const MAP_2P: MapData = {
       adjacentRegionIds: [15, 17, 20, 22],
       isEdge: true,
       isCoastal: false,
-      isMountainAdjacent: true, // borders Granite Pass (20)
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: true, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: true,
     },
     {
       id: 17,
-      name: "Wizard's Pantry",
+      name: 'Wizard\'s Pantry',
       terrain: 'farmland',
       polygon: [[921,506],[922,449],[915,422],[1014,416],[1047,513],[1108,611],[1105,654],[1080,701],[1039,748],[1013,742],[912,736],[862,703],[860,676],[841,659],[822,622],[830,570]],
       center: [956, 608],
       adjacentRegionIds: [5, 9, 10, 15, 16, 18, 20],
       isEdge: false,
-      isCoastal: true, // borders Lake of Whispers (9)
-      isMountainAdjacent: true, // borders Mt. Washburn (5) and Granite Pass (20)
+      isCoastal: true,
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: true,
       hasUnderworld: false, hasLostTribe: true,
     },
@@ -303,27 +227,11 @@ export const MAP_2P: MapData = {
       center: [1148, 759],
       adjacentRegionIds: [10, 17, 20, 21, 23],
       isEdge: true,
-      isCoastal: true, // borders Tidal Flats (21)
-      isMountainAdjacent: true, // borders Granite Pass (20)
+      isCoastal: true,
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: false,
     },
-    {
-      id: 23,
-      name: 'Darkwood Glen',
-      terrain: 'forest',
-      polygon: [[1392,540],[1463,626],[1489,657],[1484,688],[1440,745],[1387,769],[1296,775],[1257,717],[1226,617],[1265,593],[1347,569]],
-      center: [1368, 663],
-      adjacentRegionIds: [10, 13, 18, 21],
-      isEdge: false,
-      isCoastal: true, // borders Tidal Flats (21)
-      isMountainAdjacent: true, // borders White Mountains (13)
-      hasMountain: false, hasMine: false, hasMagicSource: false,
-      hasUnderworld: false, hasLostTribe: false,
-    },
-
-    // ── Bottom row ────────────────────────────────────────────────────────────
-
     {
       id: 19,
       name: 'Fenwick Bog',
@@ -336,19 +244,6 @@ export const MAP_2P: MapData = {
       isMountainAdjacent: false,
       hasMountain: false, hasMine: false, hasMagicSource: true,
       hasUnderworld: false, hasLostTribe: true,
-    },
-    {
-      id: 22,
-      name: 'Windswept Rise',
-      terrain: 'hill',
-      polygon: [[299,817],[397,685],[344,598],[470,584],[631,696],[653,726],[671,756],[668,807],[647,900],[292,900]],
-      center: [507, 747],
-      adjacentRegionIds: [14, 15, 16, 19],
-      isEdge: true,
-      isCoastal: false,
-      isMountainAdjacent: false,
-      hasMountain: false, hasMine: false, hasMagicSource: false,
-      hasUnderworld: true, hasLostTribe: false,
     },
     {
       id: 20,
@@ -372,21 +267,33 @@ export const MAP_2P: MapData = {
       adjacentRegionIds: [13, 18, 23],
       isEdge: true,
       isCoastal: false,
-      isMountainAdjacent: true, // borders White Mountains (13)
+      isMountainAdjacent: true,
       hasMountain: false, hasMine: false, hasMagicSource: false,
       hasUnderworld: false, hasLostTribe: false,
     },
-  ],
-};
-
-// ── Derived helpers (used by setup.ts and tests) ──────────────────────────────
-
-/** All region IDs in the map */
-export const ALL_REGION_IDS = MAP_2P.regions.map((r) => r.id);
-
-/** Look up a region by ID (throws if not found) */
-export function getRegionData(id: number): MapRegionData {
-  const region = MAP_2P.regions.find((r) => r.id === id);
-  if (!region) throw new Error(`Unknown region id: ${id}`);
-  return region;
-}
+    {
+      id: 22,
+      name: 'Windswept Rise',
+      terrain: 'hill',
+      polygon: [[299,817],[397,685],[344,598],[470,584],[631,696],[653,726],[671,756],[668,807],[647,900],[292,900]],
+      center: [507, 747],
+      adjacentRegionIds: [14, 14, 16, 19],
+      isEdge: true,
+      isCoastal: false,
+      isMountainAdjacent: true,
+      hasMountain: false, hasMine: false, hasMagicSource: false,
+      hasUnderworld: true, hasLostTribe: false,
+    },
+    {
+      id: 23,
+      name: 'Darkwood Glen',
+      terrain: 'forest',
+      polygon: [[1392,540],[1463,626],[1489,657],[1484,688],[1440,745],[1387,769],[1296,775],[1257,717],[1226,617],[1265,593],[1347,569]],
+      center: [1368, 663],
+      adjacentRegionIds: [10, 13, 18, 21],
+      isEdge: false,
+      isCoastal: true,
+      isMountainAdjacent: true,
+      hasMountain: false, hasMine: false, hasMagicSource: false,
+      hasUnderworld: false, hasLostTribe: false,
+    },

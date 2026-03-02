@@ -259,7 +259,7 @@ describe('conquest phase — first conquest', () => {
 
 describe('conquest phase — subsequent conquests', () => {
   it('only allows conquest of regions adjacent to owned active regions', () => {
-    // Player owns region 20 (active, tokens=1). Region 20 is adjacent to 16,17,18,21,22,23.
+    // Player owns region 20 (Granite Pass, active, tokens=1). Region 20 is adjacent to 16,17,18.
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 1 });
     state = patchState(state, { phase: 'conquest' });
@@ -277,27 +277,29 @@ describe('conquest phase — subsequent conquests', () => {
   });
 
   it('cannot conquer own active (non-declined) regions', () => {
+    // Region 20 (Granite Pass) is adjacent to region 17 (Wizard's Pantry)
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 1 });
     state = patchState(state, { phase: 'conquest' });
     state = patchRegion(state, 20, { owner: 0, tokens: 1, isDeclined: false });
-    state = patchRegion(state, 22, { owner: 0, tokens: 1, isDeclined: false });
+    state = patchRegion(state, 17, { owner: 0, tokens: 1, isDeclined: false });
     const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
     // Both own active — neither should appear
     const regionIds = conquests.map((a) => (a as { type: 'conquer'; regionId: number }).regionId);
     expect(regionIds).not.toContain(20);
-    expect(regionIds).not.toContain(22);
+    expect(regionIds).not.toContain(17);
   });
 
   it('can conquer own declined regions', () => {
+    // Region 17 (Wizard's Pantry) is adjacent to region 20 (Granite Pass)
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 'humans', 'alchemist', { tokensOnBoard: 1 });
     state = patchState(state, { phase: 'conquest' });
     state = patchRegion(state, 20, { owner: 0, tokens: 1, isDeclined: false }); // active
-    state = patchRegion(state, 22, { owner: 0, tokens: 1, isDeclined: true });  // declined, adjacent to 20
+    state = patchRegion(state, 17, { owner: 0, tokens: 1, isDeclined: true });  // declined, adjacent to 20
     const conquests = getLegalActions(state).filter((a) => a.type === 'conquer');
     const regionIds = conquests.map((a) => (a as { type: 'conquer'; regionId: number }).regionId);
-    expect(regionIds).toContain(22);
+    expect(regionIds).toContain(17);
   });
 });
 
@@ -629,7 +631,7 @@ describe('conquest — Sorcerer conversion limit', () => {
     // Player 0 owns region 20 (active)
     state = patchRegion(state, 20, { owner: 0, tokens: 3, isDeclined: false });
     // Opponent (player 1) has a lone token adjacent to region 20
-    // Region 22 is adjacent to 20
+    // Region 16 (Mudland) is adjacent to 20
     state = patchPlayer(state, 1, {
       activeRace: {
         raceId: 'humans' as never,
@@ -643,7 +645,7 @@ describe('conquest — Sorcerer conversion limit', () => {
       },
       availableTokens: 4,
     });
-    state = patchRegion(state, 22, { owner: 1, tokens: 1, isDeclined: false });
+    state = patchRegion(state, 16, { owner: 1, tokens: 1, isDeclined: false });
     return state;
   }
 

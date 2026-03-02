@@ -201,13 +201,65 @@ export async function startHvAIGame(
   await waitForPhase(page, 'selectCombo');
 }
 
+/**
+ * After confirming redeployment, click through any optional post-redeploy phases
+ * (placeFortress, placeEncampments, placeHeroes) until the game reaches score.
+ *
+ * These phases appear when the active race/power has special post-battle abilities
+ * (Fortified, Bivouacking, Heroic). Without this, `waitForPhase(page, 'score')`
+ * times out whenever one of those powers is randomly assigned.
+ */
+export async function advanceFromRedeployToScore(page: Page): Promise<void> {
+  // Allow up to 5 intermediate phases (more than the maximum possible chain)
+  for (let i = 0; i < 5; i++) {
+    await page.waitForFunction(
+      () => {
+        const game = (window as any).__phaserGame;
+        const gs = game?.scene.getScene('Game');
+        const c = (gs as any)?.controller;
+        const phase = c?.state?.phase;
+        return (
+          c?.readyForInput === true &&
+          (phase === 'placeFortress' ||
+            phase === 'placeEncampments' ||
+            phase === 'placeHeroes' ||
+            phase === 'score')
+        );
+      },
+      { timeout: 10_000 },
+    );
+    const phase = await getPhase(page);
+    if (phase === 'score') return;
+    // Click End Phase / Skip to advance past the optional placement phase
+    await clickActionButton(page);
+  }
+}
+
+/**
+ * Wait until the game controller signals it is ready to accept input.
+ * All game-action click helpers call this before firing a click, so that
+ * clicks cannot land during an animation and be silently dropped.
+ */
+async function waitForReadyForInput(page: Page, timeout = 10_000): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const game = (window as any).__phaserGame;
+      const gs = game?.scene.getScene('Game');
+      return (gs as any)?.controller?.readyForInput === true;
+    },
+    { timeout },
+  );
+}
+
 /** Click the HUD action button (End Conquest, Roll Die, etc.) */
 export async function clickActionButton(page: Page): Promise<void> {
+  await waitForReadyForInput(page);
   await clickGame(page, HUD.actionButton.x, HUD.actionButton.y);
 }
 
 /** Click a combo shop slot. */
 export async function clickComboSlot(page: Page, slotIndex: number): Promise<void> {
+  await waitForReadyForInput(page);
   const { x, y } = HUD.comboSlot(slotIndex);
   await clickGame(page, x, y);
 }
@@ -306,8 +358,11 @@ export async function completeHumanTurn(
   await waitForPhase(page, 'redeploy');
   await clickActionButton(page);
 
+  // 6. Click through any optional post-redeploy phases (placeFortress, placeEncampments,
+  //    placeHeroes) that appear with Fortified / Bivouacking / Heroic powers.
+  await advanceFromRedeployToScore(page);
+
   // 7. score → End Turn
-  await waitForPhase(page, 'score');
   await clickActionButton(page);
 
   // 8. Stout power may add an optional decline step.
@@ -353,11 +408,13 @@ export async function completeHumanTurn(
 
 /** Click the Decline button in the HUD (FR-22). */
 export async function clickDeclineButton(page: Page): Promise<void> {
+  await waitForReadyForInput(page);
   await clickGame(page, HUD.declineButton.x, HUD.declineButton.y);
 }
 
 /** Click the Final Conquest button in the HUD. */
 export async function clickFinalConquestButton(page: Page): Promise<void> {
+  await waitForReadyForInput(page);
   await clickGame(page, HUD.finalConquestButton.x, HUD.finalConquestButton.y);
 }
 
