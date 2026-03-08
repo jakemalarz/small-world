@@ -5,7 +5,6 @@ import {
   getPhase,
   getTurn,
   getActivePlayer,
-  clickActionButton,
   clickComboSlot,
   completeHumanTurn,
 } from './helpers';

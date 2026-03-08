@@ -76,7 +76,7 @@ function applySelectComboAction(
   const nextPhase = getNextPhase(next, logEntry.action);
   // Replace log tail added by applySelectCombo to avoid double-entry
   const log = [...state.log, logEntry];
-  let result = { ...next, phase: nextPhase, log };
+  let result: GameState = { ...next, phase: nextPhase, log };
   // Amazons: inject conquest-only tokens at the start of the combat turn.
   // On turn 1 the player goes directly to conquest (no tokens on board to gather).
   // On subsequent turns with Ghouls In Decline the tokens are stashed below and

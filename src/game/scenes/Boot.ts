@@ -1,5 +1,35 @@
 import Phaser from 'phaser';
 
+// ── Race token asset definitions ─────────────────────────────────────────────
+// Maps RaceId → image filename (stem). Handles dwarves→dwarfs, ratmen→rats.
+const RACE_ASSETS: readonly [raceId: string, file: string][] = [
+  ['amazons',   'amazons'],
+  ['dwarves',   'dwarfs'],
+  ['elves',     'elves'],
+  ['ghouls',    'ghouls'],
+  ['giants',    'giants'],
+  ['halflings', 'halflings'],
+  ['humans',    'humans'],
+  ['orcs',      'orcs'],
+  ['ratmen',    'rats'],
+  ['skeletons', 'skeletons'],
+  ['sorcerers', 'sorcerers'],
+  ['tritons',   'tritons'],
+  ['trolls',    'trolls'],
+  ['wizards',   'wizards'],
+];
+
+const SPECIAL_ASSETS: readonly [key: string, file: string][] = [
+  ['token-hero',        'hero.png'],
+  ['token-dragon',      'dragon.png'],
+  ['token-lair',        'lair.png'],
+  ['token-fortress',    'fortress.png'],
+  ['token-encampment',  'encampment.png'],
+  ['token-hole',        'hole-in-the-ground.png'],
+  ['token-lost-tribe',  'lost_tribe.png'],
+  ['token-turn-marker', 'turn-marker.png'],
+];
+
 export class Boot extends Phaser.Scene {
   constructor() {
     super('Boot');
@@ -21,8 +51,20 @@ export class Boot extends Phaser.Scene {
       fill.destroy();
     });
 
-    // Preload game assets
+    // ── Map ──────────────────────────────────────────────────────────────────
     this.load.image('map-2p', 'assets/images/map-2p.png');
+
+    // ── Race tokens (active + declined) ──────────────────────────────────────
+    const base = 'assets/images/board-tokens/';
+    for (const [raceId, file] of RACE_ASSETS) {
+      this.load.image(`token-${raceId}`,   `${base}${file}.png`);
+      this.load.image(`token-${raceId}-d`, `${base}${file}_d.png`);
+    }
+
+    // ── Special tokens ────────────────────────────────────────────────────────
+    for (const [key, file] of SPECIAL_ASSETS) {
+      this.load.image(key, `${base}${file}`);
+    }
   }
 
   create(): void {

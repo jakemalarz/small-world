@@ -1,4 +1,4 @@
-import type { GameState, RegionState, DeclinedRaceState } from '@/game/state/types';
+import type { GameState, RegionState } from '@/game/state/types';
 import { getActiveModifiers } from '@/game/abilities/modifiers';
 import { RACES } from '@/game/data/races';
 import { POWERS } from '@/game/data/powers';

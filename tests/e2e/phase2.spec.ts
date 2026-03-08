@@ -23,7 +23,6 @@ import {
   getGatherMap,
   getGatherTokensInHand,
   isAbandonDialogActive,
-  getAvailableTokens,
   advanceFromRedeployToScore,
 } from './helpers';
 

@@ -2,55 +2,94 @@ import Phaser from 'phaser';
 import type { GameState, RegionState } from '@/game/state/types';
 import { MAP_2P } from '@/game/data/map2p';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Layout constants ──────────────────────────────────────────────────────────
 
-/** Player colors: blue for P0, red for P1 */
-const PLAYER_FILL:   readonly [number, number] = [0x3b82f6, 0xef4444];
-const PLAYER_STROKE: readonly [number, number] = [0x1d4ed8, 0xb91c1c];
-const DECLINE_FILL   = 0x6b7280; // gray
-const DECLINE_STROKE = 0x4b5563;
-const DECLINE_ALPHA  = 0.6;
+/** Display size (width & height) for every token image, in canvas pixels. */
+const TOKEN_SIZE = 112;
 
-const TOKEN_RADIUS = 12;
-const SPECIAL_RADIUS = 8;
+// Stacking offsets expressed as fractions of TOKEN_SIZE.
+// Vertical stack (special on top behind, race on bottom in front):
+const V_OFFSET = 0.28;
+// Horizontal stack (encampment on left behind, race on right in front):
+const H_OFFSET = 0.28;
+// Three-token layout (encampment left, other right, race centred below — in front):
+const THREE_H  = 0.40;   // horizontal spread from centre for each background token
+const THREE_VT = 0.25;   // upward offset for the two background tokens
+const THREE_VB = 0.28;   // downward offset for the foreground race token
 
-/** Marker colors for special tokens */
-const MARKER_COLORS: Record<string, number> = {
-  troll:      0x8b5cf6, // purple
-  fortress:   0x6b7280, // gray
-  encampment: 0xf59e0b, // amber
-  hole:       0x1f2937, // dark
-  hero:       0xfcd34d, // gold
-  dragon:     0xdc2626, // crimson
-};
+// ── Orange-circle overlay positions ──────────────────────────────────────────
+//
+// Active race token images are ≈179 × 183 px.  The 80-px-diameter orange
+// circle sits bottom-right, centred at ≈(139, 143) from the top-left corner.
+// → offset from image centre: (+0.277 × w, +0.282 × h).
+//
+// Encampment image is ≈183 × 165 px.  Its orange circle is bottom-left,
+// centred at ≈(40, 125) → offset from image centre: (−0.282 × w, +0.258 × h).
+//
+// ghouls_d.png (176 × 171 px) uses the same bottom-right position as active
+// race tokens.
+//
+// All values below are relative to the displayed TOKEN_SIZE square.
+
+const RACE_CX = TOKEN_SIZE * 0.277;    // right of image centre
+const RACE_CY = TOKEN_SIZE * 0.282;    // below  image centre
+const ENC_CX  = -TOKEN_SIZE * 0.282;   // left   of image centre
+const ENC_CY  = TOKEN_SIZE * 0.258;    // below  image centre
+
+/** Font size for the count number drawn over the orange circle. */
+const COUNT_FONT_SIZE = Math.round(TOKEN_SIZE * 0.27); // ≈ 15 px
+
+// ── Internal types ────────────────────────────────────────────────────────────
+
+interface RaceInfo {
+  key: string;
+  count: number;
+  showCount: boolean; // true for active races and declined ghouls
+}
+
+interface SpecialToken {
+  key: string;
+  isEncampment: boolean;
+  count: number; // encampment count; 0 = no overlay
+}
 
 // ── Token Renderer ────────────────────────────────────────────────────────────
 
 /**
- * PlaceholderTokenRenderer — draws colored circles on a Phaser.GameObjects.Graphics
- * layer to represent race tokens and special markers on each region.
+ * PlaceholderTokenRenderer — renders race and special-power token images on
+ * each board region, with dynamic count labels over the orange circles.
+ *
+ * Stacking rules:
+ *   • Race only                  → centred on the region
+ *   • Race + non-encampment      → vertical stack, race at bottom (in front)
+ *   • Race + encampment          → horizontal stack, race on right (in front)
+ *   • Race + encampment + other  → encampment left, other right (both behind),
+ *                                   race centred-bottom (in front)
+ *
+ * Count overlays (bold white text on the orange circle):
+ *   • Active race tokens and declined ghouls → bottom-right circle
+ *   • Encampment token                       → bottom-left circle
  *
  * Usage:
  *   const renderer = new PlaceholderTokenRenderer(scene);
  *   renderer.render(state);
- *
- * The renderer clears and redraws on every call to render().
  */
 export class PlaceholderTokenRenderer {
-  private readonly gfx: Phaser.GameObjects.Graphics;
-  private readonly labels: Phaser.GameObjects.Text[] = [];
   private readonly scene: Phaser.Scene;
+  private readonly baseDepth: number;
+  private readonly images: Phaser.GameObjects.Image[] = [];
+  private readonly labels: Phaser.GameObjects.Text[] = [];
 
   constructor(scene: Phaser.Scene, depth = 5) {
     this.scene = scene;
-    this.gfx = scene.add.graphics().setDepth(depth);
+    this.baseDepth = depth;
   }
 
   /** Redraw all tokens to reflect the current game state. */
   render(state: GameState): void {
-    this.gfx.clear();
-    // Remove old labels
-    for (const label of this.labels) label.destroy();
+    for (const img of this.images) img.destroy();
+    for (const lbl of this.labels) lbl.destroy();
+    this.images.length = 0;
     this.labels.length = 0;
 
     for (const region of state.board.regions) {
@@ -58,135 +97,151 @@ export class PlaceholderTokenRenderer {
     }
   }
 
-  /** Destroy all graphics objects (called when scene shuts down). */
+  /** Destroy all Phaser objects (call when the scene shuts down). */
   destroy(): void {
-    this.gfx.destroy();
-    for (const label of this.labels) label.destroy();
+    for (const img of this.images) img.destroy();
+    for (const lbl of this.labels) lbl.destroy();
   }
 
   // ── Private ─────────────────────────────────────────────────────────────────
 
-  private _renderRegion(_state: GameState, region: RegionState): void {
-    if (region.tokens === 0 && !this._hasSpecialMarkers(region)) return;
-
+  private _renderRegion(state: GameState, region: RegionState): void {
     const mapRegion = MAP_2P.regions.find((r) => r.id === region.id);
     if (!mapRegion) return;
-
     const [cx, cy] = mapRegion.center;
 
-    // ── Race tokens ────────────────────────────────────────────────────────
-    if (region.tokens > 0 && region.owner !== null) {
-      this._drawTokenCluster(region, cx, cy - 8);
+    // Unoccupied region with a Lost Tribe token
+    if (region.hasLostTribe && region.tokens === 0 && region.owner === null) {
+      this._placeImage('token-lost-tribe', cx, cy, this.baseDepth);
+      return;
     }
 
-    // ── Special markers ────────────────────────────────────────────────────
-    this._drawSpecialMarkers(region, cx, cy + (region.tokens > 0 ? 16 : 0));
+    const race     = this._getRaceInfo(state, region);
+    const specials = this._getSpecials(region);
+
+    if (!race && specials.length === 0) return;
+
+    this._renderLayout(race, specials, cx, cy);
   }
 
-  /** Draw a cluster of token circles for the region. */
-  private _drawTokenCluster(region: RegionState, cx: number, cy: number): void {
-    const isDeclined = region.isDeclined;
-    const owner = region.owner!;
-    const fill   = isDeclined ? DECLINE_FILL   : PLAYER_FILL[owner];
-    const stroke = isDeclined ? DECLINE_STROKE : PLAYER_STROKE[owner];
-    const alpha  = isDeclined ? DECLINE_ALPHA  : 1;
+  private _getRaceInfo(state: GameState, region: RegionState): RaceInfo | null {
+    if (region.tokens === 0 || region.owner === null) return null;
 
-    const count = region.tokens;
-
-    if (count === 1) {
-      this._drawCircle(cx, cy, TOKEN_RADIUS, fill, stroke, alpha);
-      this._drawLabel(cx, cy, '1', alpha);
-    } else if (count <= 3) {
-      // Triangular arrangement
-      const offsets = this._triangleOffsets(count);
-      for (const [ox, oy] of offsets) {
-        this._drawCircle(cx + ox, cy + oy, TOKEN_RADIUS - 2, fill, stroke, alpha);
-      }
-      this._drawLabel(cx, cy, String(count), alpha);
-    } else {
-      // 4+ tokens: single larger circle with count
-      this._drawCircle(cx, cy, TOKEN_RADIUS + 4, fill, stroke, alpha);
-      this._drawLabel(cx, cy, String(count), alpha, 13);
+    if (region.isDeclined) {
+      const raceId = region.declinedRaceId;
+      if (!raceId) return null;
+      return {
+        key:       `token-${raceId}-d`,
+        count:     region.tokens,
+        showCount: raceId === 'ghouls',
+      };
     }
+
+    const activeRace = state.players[region.owner].activeRace;
+    if (!activeRace) return null;
+    return {
+      key:       `token-${activeRace.raceId}`,
+      count:     region.tokens,
+      showCount: true,
+    };
   }
 
-  /** Draw icons for special markers (troll lair, fortress, etc.). */
-  private _drawSpecialMarkers(region: RegionState, cx: number, cy: number): void {
-    let offsetX = 0;
-    const step = SPECIAL_RADIUS * 2 + 3;
-
-    if (region.hasTrollLair) {
-      this._drawMarker(cx + offsetX, cy, MARKER_COLORS['troll'], 'T');
-      offsetX += step;
-    }
-    if (region.hasFortress) {
-      this._drawMarker(cx + offsetX, cy, MARKER_COLORS['fortress'], 'F');
-      offsetX += step;
-    }
+  private _getSpecials(region: RegionState): SpecialToken[] {
+    const s: SpecialToken[] = [];
+    // Encampment always first so it reliably ends up on the left
     if (region.encampmentCount > 0) {
-      const label = region.encampmentCount > 1 ? `E${region.encampmentCount}` : 'E';
-      this._drawMarker(cx + offsetX, cy, MARKER_COLORS['encampment'], label);
-      offsetX += step;
+      s.push({ key: 'token-encampment', isEncampment: true, count: region.encampmentCount });
     }
-    if (region.hasHoleInTheGround) {
-      this._drawMarker(cx + offsetX, cy, MARKER_COLORS['hole'], 'H');
-      offsetX += step;
-    }
-    if (region.hasHero) {
-      this._drawMarker(cx + offsetX, cy, MARKER_COLORS['hero'], '★');
-      offsetX += step;
-    }
-    if (region.hasDragon) {
-      this._drawMarker(cx + offsetX, cy, MARKER_COLORS['dragon'], 'D');
-    }
+    if (region.hasTrollLair)       s.push({ key: 'token-lair',     isEncampment: false, count: 0 });
+    if (region.hasFortress)        s.push({ key: 'token-fortress', isEncampment: false, count: 0 });
+    if (region.hasHoleInTheGround) s.push({ key: 'token-hole',     isEncampment: false, count: 0 });
+    if (region.hasHero)            s.push({ key: 'token-hero',     isEncampment: false, count: 0 });
+    if (region.hasDragon)          s.push({ key: 'token-dragon',   isEncampment: false, count: 0 });
+    return s;
   }
 
-  private _drawCircle(
-    x: number, y: number, r: number,
-    fill: number, stroke: number, alpha: number,
+  private _renderLayout(
+    race: RaceInfo | null,
+    specials: SpecialToken[],
+    cx: number,
+    cy: number,
   ): void {
-    this.gfx.fillStyle(fill, alpha);
-    this.gfx.fillCircle(x, y, r);
-    this.gfx.lineStyle(2, stroke, Math.min(alpha + 0.2, 1));
-    this.gfx.strokeCircle(x, y, r);
+    const encampment = specials.find((s) =>  s.isEncampment) ?? null;
+    const others     = specials.filter((s) => !s.isEncampment);
+
+    if (!race) {
+      // No race token: render up to two specials side-by-side
+      for (let i = 0; i < Math.min(specials.length, 2); i++) {
+        const ox = specials.length === 1 ? 0 : (i === 0 ? -TOKEN_SIZE * 0.25 : TOKEN_SIZE * 0.25);
+        this._placeSpecial(specials[i], cx + ox, cy, this.baseDepth + i);
+      }
+      return;
+    }
+
+    if (specials.length === 0) {
+      // ── Race only ─────────────────────────────────────────────────────────
+      this._placeRace(race, cx, cy, this.baseDepth);
+
+    } else if (!encampment && others.length >= 2) {
+      // ── Race + 2 non-encampment specials → three-token layout ─────────────
+      // (e.g. hero + troll lair + troll race)
+      this._placeSpecial(others[0], cx - TOKEN_SIZE * THREE_H, cy - TOKEN_SIZE * THREE_VT, this.baseDepth);
+      this._placeSpecial(others[1], cx + TOKEN_SIZE * THREE_H, cy - TOKEN_SIZE * THREE_VT, this.baseDepth);
+      this._placeRace(race,         cx,                        cy + TOKEN_SIZE * THREE_VB, this.baseDepth + 1);
+
+    } else if (!encampment) {
+      // ── Race + 1 non-encampment special → vertical stack ──────────────────
+      this._placeSpecial(others[0], cx, cy - TOKEN_SIZE * V_OFFSET, this.baseDepth);
+      this._placeRace(race,         cx, cy + TOKEN_SIZE * V_OFFSET, this.baseDepth + 1);
+
+    } else if (others.length === 0) {
+      // ── Race + encampment only → horizontal stack ─────────────────────────
+      this._placeSpecial(encampment, cx - TOKEN_SIZE * H_OFFSET, cy, this.baseDepth);
+      this._placeRace(race,          cx + TOKEN_SIZE * H_OFFSET, cy, this.baseDepth + 1);
+
+    } else {
+      // ── Race + encampment + other → three-token layout ────────────────────
+      this._placeSpecial(encampment, cx - TOKEN_SIZE * THREE_H, cy - TOKEN_SIZE * THREE_VT, this.baseDepth);
+      this._placeSpecial(others[0],  cx + TOKEN_SIZE * THREE_H, cy - TOKEN_SIZE * THREE_VT, this.baseDepth);
+      this._placeRace(race,          cx,                        cy + TOKEN_SIZE * THREE_VB, this.baseDepth + 1);
+    }
   }
 
-  private _drawMarker(x: number, y: number, color: number, letter: string): void {
-    this._drawCircle(x, y, SPECIAL_RADIUS, color, 0x000000, 0.9);
-    const label = this.scene.add.text(x, y, letter, {
-      fontSize: '8px',
-      fontFamily: 'Arial',
-      color: '#ffffff',
-      fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setDepth(6);
-    this.labels.push(label);
+  // ── Token placement helpers ─────────────────────────────────────────────────
+
+  private _placeRace(race: RaceInfo, x: number, y: number, depth: number): void {
+    this._placeImage(race.key, x, y, depth);
+    if (race.showCount) {
+      this._placeCount(String(race.count), x + RACE_CX, y + RACE_CY, depth + 1);
+    }
   }
 
-  private _drawLabel(
-    x: number, y: number, text: string, alpha: number, size = 11,
-  ): void {
-    const label = this.scene.add.text(x, y, text, {
-      fontSize: `${size}px`,
-      fontFamily: 'Arial',
-      color: '#ffffff',
-      fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5).setDepth(6).setAlpha(alpha);
-    this.labels.push(label);
+  private _placeSpecial(special: SpecialToken, x: number, y: number, depth: number): void {
+    this._placeImage(special.key, x, y, depth);
+    if (special.isEncampment) {
+      this._placeCount(String(special.count), x + ENC_CX, y + ENC_CY, depth + 1);
+    }
   }
 
-  private _triangleOffsets(count: number): [number, number][] {
-    if (count === 2) return [[-8, 0], [8, 0]];
-    return [[-8, 6], [8, 6], [0, -8]]; // 3 tokens
+  private _placeImage(key: string, x: number, y: number, depth: number): void {
+    const img = this.scene.add
+      .image(x, y, key)
+      .setDisplaySize(TOKEN_SIZE, TOKEN_SIZE)
+      .setOrigin(0.5, 0.5)
+      .setDepth(depth);
+    this.images.push(img);
   }
 
-  private _hasSpecialMarkers(region: RegionState): boolean {
-    return (
-      region.hasTrollLair ||
-      region.hasFortress ||
-      region.encampmentCount > 0 ||
-      region.hasHoleInTheGround ||
-      region.hasHero ||
-      region.hasDragon
-    );
+  private _placeCount(text: string, x: number, y: number, depth: number): void {
+    const lbl = this.scene.add
+      .text(x, y, text, {
+        fontSize:   `${COUNT_FONT_SIZE}px`,
+        fontFamily: 'Arial',
+        fontStyle:  'bold',
+        color:      '#ffffff',
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(depth);
+    this.labels.push(lbl);
   }
 }
