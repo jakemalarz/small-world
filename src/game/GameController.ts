@@ -13,6 +13,8 @@ import { AnimationChoreographer } from '@/game/presentation/AnimationChoreograph
 import { PlaceholderTokenRenderer } from '@/game/presentation/TokenRenderer';
 import { RegionRenderer } from '@/game/presentation/RegionRenderer';
 import { TooltipRenderer } from '@/game/presentation/TooltipRenderer';
+import { CursorTokenThumbnail } from '@/game/presentation/CursorTokenThumbnail';
+import type { CursorTokenInfo } from '@/game/presentation/CursorTokenThumbnail';
 import { StubAudioManager } from '@/game/presentation/AudioManager';
 
 // ── GameController ─────────────────────────────────────────────────────────────
@@ -52,6 +54,7 @@ export class GameController {
   private readonly tokenRenderer: PlaceholderTokenRenderer;
   private readonly regionRenderer: RegionRenderer;
   private readonly tooltip: TooltipRenderer;
+  private readonly cursorThumbnail: CursorTokenThumbnail;
 
   // ── Event routing ────────────────────────────────────────────────────────
 
@@ -125,6 +128,7 @@ export class GameController {
     this.tokenRenderer = new PlaceholderTokenRenderer(boardScene);
     this.regionRenderer = new RegionRenderer(boardScene);
     this.tooltip = new TooltipRenderer(boardScene);
+    this.cursorThumbnail = new CursorTokenThumbnail(boardScene);
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -252,6 +256,8 @@ export class GameController {
     this.regionRenderer.update(time);
     const p = this.boardScene.input.activePointer;
     this.tooltip.updatePosition(p.worldX, p.worldY);
+    this.cursorThumbnail.updatePosition(p.worldX, p.worldY);
+    this.cursorThumbnail.update(this._getCursorTokenInfo());
   }
 
   // ── Private game loop ────────────────────────────────────────────────────
@@ -419,6 +425,63 @@ export class GameController {
       this._encampmentMap.clear();
       this._encampmentsInHand = 0;
       this._encampmentSubmitted = false;
+    }
+  }
+
+  /**
+   * Returns what token thumbnail to show next to the cursor, or null if none.
+   * Uses the live interactive counts (gatherTokensInHand, redeployTokensInHand,
+   * etc.) so the badge updates immediately with every click.
+   * Only shows when the active player is human.
+   */
+  private _getCursorTokenInfo(): CursorTokenInfo | null {
+    if (this.players[this.state.activePlayerIndex].type !== 'human') return null;
+
+    const player = this.state.players[this.state.activePlayerIndex];
+    const race   = player.activeRace;
+
+    switch (this.state.phase) {
+      // ── Active-race deployment ──────────────────────────────────────────
+      case 'conquest':
+      case 'reinforcementDie':
+        if (!race || player.availableTokens <= 0) return null;
+        return { key: `token-${race.raceId}`, count: player.availableTokens };
+
+      case 'readyTroops':
+        if (!race || this._gatherTokensInHand <= 0) return null;
+        return { key: `token-${race.raceId}`, count: this._gatherTokensInHand };
+
+      case 'redeploy':
+        if (!race || this._redeployTokensInHand <= 0) return null;
+        return { key: `token-${race.raceId}`, count: this._redeployTokensInHand };
+
+      // ── Ghoul (declined) deployment ────────────────────────────────────
+      case 'ghoulConquest':
+      case 'ghoulReinforcementDie':
+        if (player.availableTokens <= 0) return null;
+        return { key: 'token-ghouls-d', count: player.availableTokens };
+
+      case 'ghoulReadyTroops':
+        if (this._ghoulGatherTokensInHand <= 0) return null;
+        return { key: 'token-ghouls-d', count: this._ghoulGatherTokensInHand };
+
+      case 'ghoulRedeploy':
+        if (this._ghoulRedeployTokensInHand <= 0) return null;
+        return { key: 'token-ghouls-d', count: this._ghoulRedeployTokensInHand };
+
+      // ── Special-token placement ────────────────────────────────────────
+      case 'placeEncampments':
+        if (this._encampmentsInHand <= 0) return null;
+        return { key: 'token-encampment', count: this._encampmentsInHand, circleOnLeft: true };
+
+      case 'placeFortress':
+        return { key: 'token-fortress', count: 1 };
+
+      case 'placeHeroes':
+        return { key: 'token-hero', count: this._heroFirstRegion === null ? 2 : 1 };
+
+      default:
+        return null;
     }
   }
 
