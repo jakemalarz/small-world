@@ -42,6 +42,14 @@ async function runMediumAIGame(firstPlayerIndex: 0 | 1 = 0): Promise<GameState> 
 }
 
 function _actionsEqual(a: GameAction, b: GameAction): boolean {
+  // pickUpTokens/ghoulPickUpTokens: AI may reduce count to leave 1 token,
+  // so match by type + regionId only (engine validates count range)
+  if (
+    (a.type === 'pickUpTokens' && b.type === 'pickUpTokens') ||
+    (a.type === 'ghoulPickUpTokens' && b.type === 'ghoulPickUpTokens')
+  ) {
+    return a.regionId === b.regionId;
+  }
   return JSON.stringify(a) === JSON.stringify(b);
 }
 

@@ -77,18 +77,18 @@ function _pickAction(state: GameState, actions: readonly GameAction[]): GameActi
     return _cheapestConquest(state, ghoulActions);
   }
 
-  // --- pickUpTokens: 40% chance (same as easy AI) ----------------------------
-  const pickUpActions = actions.filter((a) => a.type === 'pickUpTokens' || a.type === 'ghoulPickUpTokens');
-  if (pickUpActions.length > 0 && Math.random() < 0.4) {
-    return _randomFrom(pickUpActions);
+  // --- Decline: check BEFORE pickUpTokens so AI doesn't skip decline ------
+  const declineAction = actions.find((a) => a.type === 'decline');
+  if (declineAction && _shouldDecline(state)) {
+    return declineAction;
   }
 
-  // --- Decline heuristic -----------------------------------------------------
-  const declineAction = actions.find((a) => a.type === 'decline');
-  if (declineAction) {
-    if (_shouldDecline(state)) {
-      return declineAction;
-    }
+  // --- pickUpTokens: gather excess tokens, leaving 1 to avoid re-conquest ---
+  const pickUpActions = actions.filter((a) =>
+    (a.type === 'pickUpTokens' || a.type === 'ghoulPickUpTokens') && a.count > 1,
+  );
+  if (pickUpActions.length > 0 && Math.random() < 0.4) {
+    return _cheapestPickUp(state, pickUpActions);
   }
 
   // --- placeHeroes: pick the first valid pair --------------------------------
@@ -193,11 +193,9 @@ function _cheapestConquest(state: GameState, actions: readonly GameAction[]): Ga
 /**
  * Decide whether to go into decline.
  *
- * Decline eagerly when:
- *   - The active race made 0 conquests this turn (unproductive), AND
- *   - There are combos in the shop with more tokens than the current race
- *
- * Otherwise decline with a 25% base chance (same as medium aggression).
+ * Evaluates how many effective tokens the race has for conquest (in hand +
+ * gatherable excess from owned regions). If too few to make meaningful
+ * conquests, and a decent combo is available, decline.
  */
 function _shouldDecline(state: GameState): boolean {
   const player = state.players[state.activePlayerIndex];
@@ -205,22 +203,70 @@ function _shouldDecline(state: GameState): boolean {
 
   if (!active) return true; // no active race — decline is clearly better
 
-  // If the race made 0 conquests this turn it's unproductive
-  if (active.conquestsThisTurn === 0) {
-    const currentTokens = active.totalTokens;
-    const { visible } = state.comboShop;
-    const betterComboExists = visible.some((slot) => {
-      const score = _comboScore(slot.raceId, slot.powerId);
-      return score > currentTokens;
-    });
-    if (betterComboExists) return true;
+  // Never decline on last turn — no time to benefit from a new race
+  if (state.turn >= 10) return false;
+
+  // Count effective available tokens: in hand + excess on board
+  const ownedRegions = state.board.regions.filter(
+    (r) => r.owner === state.activePlayerIndex && !r.isDeclined,
+  );
+  let gatherable = 0;
+  for (const r of ownedRegions) {
+    gatherable += Math.max(0, r.tokens - 1);
+  }
+  const effectiveAvailable = player.availableTokens + gatherable;
+
+  // Check if a decent combo is available in the shop
+  const bestComboTokens = Math.max(
+    ...state.comboShop.visible.map((slot) => _comboScore(slot.raceId, slot.powerId)),
+  );
+
+  // Race is spent — can barely conquer anything
+  if (effectiveAvailable < 4) return true;
+
+  // Race is running low — decline if a better combo is available
+  if (effectiveAvailable < 6 && bestComboTokens >= 6) return true;
+
+  // Race has some gas but a much better combo exists
+  if (effectiveAvailable < 8 && bestComboTokens > effectiveAvailable + 3) {
+    return Math.random() < 0.5;
   }
 
-  // 25% chance to decline even for productive races
-  return Math.random() < 0.25;
+  // Small random chance for productive races
+  return Math.random() < 0.1;
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+
+/**
+ * Pick up excess tokens (leaving 1) from the cheapest-to-conquer region,
+ * so the AI gathers from places it can easily retake if lost.
+ */
+function _cheapestPickUp(state: GameState, pickUpActions: readonly GameAction[]): GameAction {
+  let bestAction = pickUpActions[0];
+  let bestCost = Infinity;
+
+  for (const action of pickUpActions) {
+    let regionId: number | undefined;
+    if (action.type === 'pickUpTokens') regionId = action.regionId;
+    else if (action.type === 'ghoulPickUpTokens') regionId = action.regionId;
+    else continue;
+
+    let cost: number;
+    try {
+      cost = calculateConquestCost(state, regionId);
+    } catch {
+      cost = Infinity;
+    }
+    if (cost < bestCost) {
+      bestCost = cost;
+      bestAction = action;
+    }
+  }
+
+  // Leave 1 token — pick up count - 1
+  return { ...bestAction, count: (bestAction as { count: number }).count - 1 } as GameAction;
+}
 
 function _randomFrom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];

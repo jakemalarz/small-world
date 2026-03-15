@@ -597,6 +597,28 @@ describe('applyAction — Skeletons token generation', () => {
     const next = applyAction(state, { type: 'endPhase' });
     expect(next.players[0].availableTokens).toBe(before);
   });
+
+  it('grants skeleton tokens when final conquest die fails (endPhase from reinforcementDie)', () => {
+    // Skeletons conquered 4 non-empty regions, then attempted final conquest
+    // but the die failed. endPhase from reinforcementDie phase should still
+    // grant the earned skeleton tokens (floor(4/2) * 1 = 2 extra tokens).
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'skeletons', 'bivouacking', {
+      totalTokens: 6,
+      maxSupply: 20,
+      tokensOnBoard: 0,
+      conquestsThisTurn: 4,
+    });
+    state = patchState(state, {
+      phase: 'reinforcementDie' as GameState['phase'],
+      reinforcementDie: { result: 0, targetRegionId: null },
+    });
+    const before = state.players[0].availableTokens;
+    const next = applyAction(state, { type: 'endPhase' });
+    expect(next.phase).toBe('redeploy');
+    expect(next.players[0].availableTokens).toBe(before + 2);
+    expect(next.players[0].activeRace!.totalTokens).toBe(6 + 2);
+  });
 });
 
 // ── immutability ──────────────────────────────────────────────────────────────

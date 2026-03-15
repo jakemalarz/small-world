@@ -20,14 +20,14 @@ export class AIPlayer implements IPlayer {
   }
 
   async chooseAction(
-    _state: GameState,
+    state: GameState,
     legalActions: readonly GameAction[],
   ): Promise<GameAction> {
     if (this.delayMs > 0) {
       await _sleep(this.delayMs);
     }
 
-    return _pickAction(legalActions);
+    return _pickAction(state, legalActions);
   }
 }
 
@@ -42,7 +42,7 @@ export class AIPlayer implements IPlayer {
  *   3. decline  (only if explicitly listed as legal)
  *   4. endPhase / any other action (random pick)
  */
-function _pickAction(actions: readonly GameAction[]): GameAction {
+function _pickAction(state: GameState, actions: readonly GameAction[]): GameAction {
   // --- Conquest targets: prefer empty regions (lower cost = empty) ----------
   const conquestActions = actions.filter(
     (a) => a.type === 'conquer' || a.type === 'useReinforcement' || a.type === 'ghoulUseReinforcement' ||
@@ -74,16 +74,20 @@ function _pickAction(actions: readonly GameAction[]): GameAction {
     return _randomFrom(ghoulActions);
   }
 
-  // --- pickUpTokens during readyTroops: sometimes pick up tokens to attack --
-  const pickUpActions = actions.filter((a) => a.type === 'pickUpTokens' || a.type === 'ghoulPickUpTokens');
-  if (pickUpActions.length > 0 && Math.random() < 0.4) {
-    return _randomFrom(pickUpActions);
+  // --- Decline: check BEFORE pickUpTokens so AI doesn't skip decline ------
+  const declineAction = actions.find((a) => a.type === 'decline');
+  if (declineAction && _shouldDecline(state)) {
+    return declineAction;
   }
 
-  // --- Decline: only 15% chance per turn if it's offered -------------------
-  const declineAction = actions.find((a) => a.type === 'decline');
-  if (declineAction && Math.random() < 0.15) {
-    return declineAction;
+  // --- pickUpTokens during readyTroops: sometimes pick up excess tokens -----
+  // Leave 1 token on each region to avoid abandoning and having to re-conquer
+  const pickUpActions = actions.filter((a) =>
+    (a.type === 'pickUpTokens' || a.type === 'ghoulPickUpTokens') && a.count > 1,
+  );
+  if (pickUpActions.length > 0 && Math.random() < 0.4) {
+    const action = _randomFrom(pickUpActions);
+    return { ...action, count: action.count - 1 } as GameAction;
   }
 
   // --- placeHeroes: pick the first valid pair --------------------------------
@@ -110,6 +114,39 @@ function _pickAction(actions: readonly GameAction[]): GameAction {
     a.type !== 'placeEncampments',
   );
   return _randomFrom(fallback);
+}
+
+/**
+ * Decline when the race can't make meaningful conquests.
+ * Estimates how many tokens are available (in hand + gatherable excess from
+ * regions). If too few to conquer anything, it's time for a new race.
+ */
+function _shouldDecline(state: GameState): boolean {
+  const player = state.players[state.activePlayerIndex];
+  const active = player.activeRace;
+  if (!active) return true;
+
+  // Never decline on last turn — no time to benefit from a new race
+  if (state.turn >= 10) return false;
+
+  // Count effective available tokens: in hand + excess on board (tokens - 1 per region)
+  const ownedRegions = state.board.regions.filter(
+    (r) => r.owner === state.activePlayerIndex && !r.isDeclined,
+  );
+  let gatherable = 0;
+  for (const r of ownedRegions) {
+    gatherable += Math.max(0, r.tokens - 1);
+  }
+  const effectiveAvailable = player.availableTokens + gatherable;
+
+  // If the race can barely conquer (need ≥ 2 for an empty region), decline
+  if (effectiveAvailable < 4) return true;
+
+  // If running low, decline with some probability
+  if (effectiveAvailable < 6) return Math.random() < 0.4;
+
+  // Otherwise small random chance
+  return Math.random() < 0.1;
 }
 
 function _randomFrom<T>(arr: readonly T[]): T {

@@ -3,6 +3,7 @@ import { GameController } from '@/game/GameController';
 import { HumanPlayer } from '@/game/players/HumanPlayer';
 import { AIPlayer } from '@/game/players/AIPlayer';
 import { MediumAIPlayer } from '@/game/players/MediumAIPlayer';
+import { HardAIPlayer } from '@/game/players/HardAIPlayer';
 import type { IPlayer } from '@/game/players/IPlayer';
 import type { Board } from '@/game/scenes/Board';
 import type { HUD } from '@/game/scenes/HUD';
@@ -74,15 +75,19 @@ export class Game extends Phaser.Scene {
       case 'hvai':
         players = [
           new HumanPlayer('Player 1', eventBus),
-          difficulty === 'medium'
-            ? new MediumAIPlayer('Medium AI', aiDelay)
-            : new AIPlayer('Easy AI', aiDelay),
+          difficulty === 'hard'
+            ? new HardAIPlayer('Hard AI', aiDelay)
+            : difficulty === 'medium'
+              ? new MediumAIPlayer('Medium AI', aiDelay)
+              : new AIPlayer('Easy AI', aiDelay),
         ];
         break;
       case 'aivai':
-        players = difficulty === 'medium'
-          ? [new MediumAIPlayer('AI-1', aiDelay), new MediumAIPlayer('AI-2', aiDelay)]
-          : [new AIPlayer('AI-1', aiDelay), new AIPlayer('AI-2', aiDelay)];
+        players = difficulty === 'hard'
+          ? [new HardAIPlayer('AI-1', aiDelay), new HardAIPlayer('AI-2', aiDelay)]
+          : difficulty === 'medium'
+            ? [new MediumAIPlayer('AI-1', aiDelay), new MediumAIPlayer('AI-2', aiDelay)]
+            : [new AIPlayer('AI-1', aiDelay), new AIPlayer('AI-2', aiDelay)];
         break;
       default:
         players = [

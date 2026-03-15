@@ -1037,8 +1037,10 @@ function applyEndPhase(state: GameState, logEntry: GameLogEntry): GameState {
     scored = restoreTokensFromGhouls(scored);
   }
 
-  // Skeletons: grant tokens earned from conquests at the start of redeployment
-  if (state.phase === 'conquest') {
+  // Skeletons: grant tokens earned from conquests at the start of redeployment.
+  // Must check both 'conquest' (normal endPhase) and 'reinforcementDie' (failed
+  // final conquest die roll — useReinforcement handles the success path).
+  if (state.phase === 'conquest' || state.phase === 'reinforcementDie') {
     scored = addSkeletonTokensForRedeploy(scored);
   }
 

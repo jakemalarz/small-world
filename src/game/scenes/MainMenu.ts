@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 // ── Game Mode Types ───────────────────────────────────────────────────────────
 
 export type GameMode = 'hvh' | 'hvai' | 'aivai';
-export type AIDifficulty = 'easy' | 'medium';
+export type AIDifficulty = 'easy' | 'medium' | 'hard';
 export type AISpeed = 1.0 | 2.0 | 4.0;
 
 export interface GameModeConfig {
@@ -142,10 +142,11 @@ export class MainMenu extends Phaser.Scene {
     const diffs: Array<[AIDifficulty, string]> = [
       ['easy',   'Easy'],
       ['medium', 'Medium'],
+      ['hard',   'Hard'],
     ];
 
     const btnObjs: Phaser.GameObjects.GameObject[] = [label];
-    const startX = W / 2 - (120 + 10);
+    const startX = W / 2 - (120 + 20 + 60);
     diffs.forEach(([diff, lbl], i) => {
       const x = startX + i * (120 + 20);
       const rect = this.add.rectangle(x, y, 120, 38, COLOR_IDLE)
