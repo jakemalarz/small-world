@@ -63,11 +63,13 @@ describe('redeployment phase', () => {
     expect(next.board.regions.find((r) => r.id === 20)!.tokens).toBeGreaterThanOrEqual(1);
   });
 
-  it('enforces minimum of 1 token per occupied region', () => {
+  it('allows abandoning a region by deploying 0 tokens', () => {
     const state = redeployState();
-    const deployment = new Map([[19, 7], [20, 0]]); // 0 on region 20 → should become 1
+    const deployment = new Map([[19, 7], [20, 0]]); // 0 on region 20 → abandon
     const next = applyAction(state, { type: 'redeploy', deployment });
-    expect(next.board.regions.find((r) => r.id === 20)!.tokens).toBeGreaterThanOrEqual(1);
+    const r20 = next.board.regions.find((r) => r.id === 20)!;
+    expect(r20.tokens).toBe(0);
+    expect(r20.owner).toBeNull();
   });
 
   it('stays in redeploy phase after deployment (endPhase commits)', () => {

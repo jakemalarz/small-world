@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { GameState, TurnPhase } from '@/game/state/types';
 import { RACES } from '@/game/data/races';
 import { POWERS } from '@/game/data/powers';
+import { getActiveModifiers } from '@/game/abilities/modifiers';
 import { ComboShopRenderer } from '@/game/presentation/ComboShopRenderer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -137,7 +138,18 @@ export class HUD extends Phaser.Scene {
     // Update action button (hide during selectCombo — combo shop handles input)
     const label = ACTION_BUTTONS[state.phase];
     if (label && state.phase !== 'selectCombo') {
-      this.actionBtnLabel.setText(label);
+      // Amazons: show required tokens remaining during redeploy
+      const mods = getActiveModifiers(activePlayer);
+      const amazonTokensNeeded = (state.phase === 'redeploy' && mods.conquestOnlyTokens > 0)
+        ? Math.max(0, mods.conquestOnlyTokens - activePlayer.availableTokens)
+        : 0;
+      if (amazonTokensNeeded > 0) {
+        this.actionBtnLabel.setText(`Need ${amazonTokensNeeded} more in hand`);
+        this.actionBtnBg.setFillStyle(0x555555);
+      } else {
+        this.actionBtnLabel.setText(label);
+        this.actionBtnBg.setFillStyle(PLAYER_COLORS[0]);
+      }
       this.actionButton.setVisible(true);
     } else {
       this.actionButton.setVisible(false);

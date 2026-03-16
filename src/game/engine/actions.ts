@@ -670,8 +670,17 @@ function applyRedeploy(
     if (region.owner !== state.activePlayerIndex || region.isDeclined) continue;
     const count = deployment.get(region.id) ?? 1; // default 1 if not specified
     const idx = newRegions.indexOf(region);
-    newRegions[idx] = { ...region, tokens: Math.max(1, count) };
-    totalDeployed += Math.max(1, count);
+    if (count <= 0) {
+      // Abandon region — clear ownership and all markers
+      newRegions[idx] = {
+        ...region, tokens: 0, owner: null,
+        hasTrollLair: false, hasFortress: false, encampmentCount: 0,
+        hasHero: false, hasDragon: false, hasHoleInTheGround: false,
+      };
+    } else {
+      newRegions[idx] = { ...region, tokens: count };
+      totalDeployed += count;
+    }
   }
 
   // Tokens not deployed are returned to hand (extra go back to box in score phase)
@@ -688,39 +697,52 @@ function applyRedeploy(
     }),
   };
 
-  // Amazons: remove conquestOnlyTokens from the board after redeployment.
-  // The tokens are removed from regions (largest stacks first, leaving min 1).
+  // Amazons: remove conquestOnlyTokens after redeployment.
+  // Player chooses which regions to pull tokens from during redeployment;
+  // those tokens stay in hand and are discarded here. If not enough tokens
+  // are in hand (AI fallback), remove remainder from board (largest stacks first).
   const redeployedPlayer = s.players[s.activePlayerIndex];
   const redeployedRace = redeployedPlayer.activeRace!;
   const redeployMods = getActiveModifiers(redeployedPlayer);
   if (redeployMods.conquestOnlyTokens > 0) {
     let tokensToRemove = redeployMods.conquestOnlyTokens;
-    // Build list of active owned regions sorted by descending token count
-    const ownedActive = s.board.regions
-      .filter((r) => r.owner === s.activePlayerIndex && !r.isDeclined)
-      .sort((a, b) => b.tokens - a.tokens);
-    const removals = new Map<number, number>(); // regionId → tokens to remove
-    for (const region of ownedActive) {
-      if (tokensToRemove <= 0) break;
-      const removable = region.tokens - 1; // must leave at least 1
-      if (removable <= 0) continue;
-      const take = Math.min(removable, tokensToRemove);
-      removals.set(region.id, take);
-      tokensToRemove -= take;
+
+    // 1) Deduct from tokens in hand first (player chose to hold them back)
+    const fromHand = Math.min(tokensToRemove, redeployedPlayer.availableTokens);
+    tokensToRemove -= fromHand;
+
+    // 2) Fallback: remove remainder from board (largest stacks first, leave min 1)
+    let boardRemoved = 0;
+    let afterRemoval = s.board.regions;
+    if (tokensToRemove > 0) {
+      const ownedActive = s.board.regions
+        .filter((r) => r.owner === s.activePlayerIndex && !r.isDeclined)
+        .sort((a, b) => b.tokens - a.tokens);
+      const removals = new Map<number, number>();
+      for (const region of ownedActive) {
+        if (tokensToRemove <= 0) break;
+        const removable = region.tokens - 1;
+        if (removable <= 0) continue;
+        const take = Math.min(removable, tokensToRemove);
+        removals.set(region.id, take);
+        tokensToRemove -= take;
+      }
+      afterRemoval = s.board.regions.map((r) => {
+        const rem = removals.get(r.id);
+        return rem ? { ...r, tokens: r.tokens - rem } : r;
+      });
+      boardRemoved = redeployMods.conquestOnlyTokens - fromHand - tokensToRemove;
     }
-    // Apply removals to board
-    const afterRemoval = s.board.regions.map((r) => {
-      const rem = removals.get(r.id);
-      return rem ? { ...r, tokens: r.tokens - rem } : r;
-    });
-    const totalRemoved = redeployMods.conquestOnlyTokens - tokensToRemove;
+
+    const totalRemoved = fromHand + boardRemoved;
     s = {
       ...s,
       board: { regions: afterRemoval },
       players: patchPlayer(s, s.activePlayerIndex, {
+        availableTokens: redeployedPlayer.availableTokens - fromHand,
         activeRace: {
           ...redeployedRace,
-          tokensOnBoard: redeployedRace.tokensOnBoard - totalRemoved,
+          tokensOnBoard: redeployedRace.tokensOnBoard - boardRemoved,
           totalTokens: redeployedRace.totalTokens - totalRemoved,
         },
       }),

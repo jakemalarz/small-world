@@ -452,6 +452,56 @@ describe('applyAction — Amazons conquestOnlyTokens', () => {
     expect(next.players[0].activeRace!.totalTokens).toBe(6); // back to base
   });
 
+  it('deducts conquestOnlyTokens from hand when player has tokens in hand', () => {
+    // Amazon player has 4 tokens in hand and 6 on board — tokens in hand are discarded
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'amazons', 'bivouacking', {
+      tokensOnBoard: 6,
+      totalTokens: 10,
+    });
+    state = patchPlayer(state, 0, { availableTokens: 4 });
+    state = patchState(state, { phase: 'redeploy' });
+    state = patchRegion(state, 19, { owner: 0, tokens: 3, isDeclined: false });
+    state = patchRegion(state, 20, { owner: 0, tokens: 3, isDeclined: false });
+
+    const deployment = new Map([[19, 3], [20, 3]]);
+    const next = applyAction(state, { type: 'redeploy', deployment });
+
+    // 4 tokens deducted from hand, board unchanged
+    const totalOnBoard = next.board.regions
+      .filter((r) => r.owner === 0 && !r.isDeclined)
+      .reduce((sum, r) => sum + r.tokens, 0);
+    expect(totalOnBoard).toBe(6); // board untouched
+    expect(next.players[0].availableTokens).toBe(0); // 4 - 4 = 0
+    expect(next.players[0].activeRace!.tokensOnBoard).toBe(6);
+    expect(next.players[0].activeRace!.totalTokens).toBe(6); // 10 - 4 = 6
+  });
+
+  it('deducts from hand first, then board for remainder', () => {
+    // Amazon player has 2 tokens in hand and 8 on board — 2 from hand + 2 from board
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    state = withRace(state, 0, 'amazons', 'bivouacking', {
+      tokensOnBoard: 8,
+      totalTokens: 10,
+    });
+    state = patchPlayer(state, 0, { availableTokens: 2 });
+    state = patchState(state, { phase: 'redeploy' });
+    state = patchRegion(state, 19, { owner: 0, tokens: 5, isDeclined: false });
+    state = patchRegion(state, 20, { owner: 0, tokens: 3, isDeclined: false });
+
+    const deployment = new Map([[19, 5], [20, 3]]);
+    const next = applyAction(state, { type: 'redeploy', deployment });
+
+    // 2 from hand + 2 from board = 4 removed total
+    expect(next.players[0].availableTokens).toBe(0); // 2 - 2 = 0
+    expect(next.players[0].activeRace!.totalTokens).toBe(6); // 10 - 4 = 6
+    // Board: 2 removed from region 19 (largest), leaving 3
+    const totalOnBoard = next.board.regions
+      .filter((r) => r.owner === 0 && !r.isDeclined)
+      .reduce((sum, r) => sum + r.tokens, 0);
+    expect(totalOnBoard).toBe(6); // 8 - 2 = 6
+  });
+
   it('non-Amazon races are not affected by conquestOnlyTokens removal', () => {
     let state = createInitialState({ firstPlayerIndex: 0 });
     state = withRace(state, 0, 'ratmen', 'bivouacking', {
@@ -468,6 +518,37 @@ describe('applyAction — Amazons conquestOnlyTokens', () => {
 
     expect(next.players[0].activeRace!.tokensOnBoard).toBe(8);
     expect(next.players[0].activeRace!.totalTokens).toBe(8);
+  });
+});
+
+// ── Amazons — defender loses 1 token permanently ─────────────────────────────
+
+describe('applyAction — Amazon defender token loss', () => {
+  it('Amazon defender loses 1 token permanently when region is conquered', () => {
+    let state = createInitialState({ firstPlayerIndex: 0 });
+    // Player 0 (Amazon) owns region 19 with 3 tokens
+    state = withRace(state, 0, 'amazons', 'bivouacking', {
+      tokensOnBoard: 3,
+      totalTokens: 6, // base tokens only (conquest-only already removed after redeploy)
+    });
+    state = patchPlayer(state, 0, { availableTokens: 3 });
+    // Player 1 is active and will conquer region 19
+    state = withRace(state, 1, 'ratmen', 'commando', {
+      tokensOnBoard: 0,
+      totalTokens: 8,
+    });
+    state = patchPlayer(state, 1, { availableTokens: 8 });
+    state = patchState(state, { phase: 'conquest', activePlayerIndex: 1 });
+    state = patchRegion(state, 19, { owner: 0, tokens: 3, isDeclined: false });
+    // Make region 19 adjacent to player 1's territory
+    state = patchRegion(state, 20, { owner: 1, tokens: 1, isDeclined: false });
+
+    const next = applyAction(state, { type: 'conquer', regionId: 19 });
+
+    // Amazon defender should lose 1 token permanently
+    expect(next.players[0].activeRace!.totalTokens).toBe(5); // 6 - 1 = 5
+    expect(next.players[0].availableTokens).toBe(5); // 3 in hand + 2 survivors = 5
+    expect(next.players[0].activeRace!.tokensOnBoard).toBe(0); // region lost
   });
 });
 
