@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Small World — HUD Mockup</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; display: flex; flex-direction: column; align-items: center; padding-top: 40px; font-family: sans-serif; }
+
+  .canvas-frame {
+    width: 1280px;
+    height: 720px;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid #333;
+  }
+
+  /* ── HUD Bar ─────────────────────────────────────────────────── */
+  .hud {
+    width: 1280px;
+    height: 48px;
+    background: url('../src/assets/images/hud/hud-background.png') center/cover no-repeat;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    position: relative;
+    z-index: 10;
+    border-bottom: 1px solid #2a2a3e;
+  }
+
+  /* ── Map area below HUD ──────────────────────────────────────── */
+  .map-area {
+    width: 1280px;
+    height: 672px;
+    background: url('../src/assets/images/hud/game_background.png') center/cover no-repeat;
+    position: relative;
+  }
+  .map-area::after {
+    content: 'Map Area — 1280 × 672px';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #555;
+    font-size: 20px;
+    letter-spacing: 2px;
+  }
+
+  /* ── Three HUD sections ──────────────────────────────────────── */
+  .player-section {
+    width: 480px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .player-section.p2 {
+  }
+
+  .center-section {
+    flex: 1;
+    height: 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .center-section .title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #e8d5b7;
+    line-height: 1;
+  }
+  .center-section .subtitle {
+    font-size: 13px;
+    color: #888;
+    margin-top: 3px;
+    line-height: 1;
+  }
+
+  /* ── Player label + coins ────────────────────────────────────── */
+  .player-id {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 90px;
+    flex-shrink: 0;
+  }
+  .player-id.right { justify-content: flex-end; }
+  .player-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #e8d5b7;
+  }
+  .coin-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    object-fit: contain;
+  }
+  .coin-count {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fbbf24;
+  }
+
+  /* ── Vertical separator ──────────────────────────────────────── */
+  .sep {
+    width: 2px;
+    height: 24px;
+    background: #2a2a3e;
+    margin: 0 10px;
+    flex-shrink: 0;
+  }
+
+  /* ── Stat groups (Active Race / In Decline) ──────────────────── */
+  .stat-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .stat-group-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  /* ── Single icon + count pair ────────────────────────────────── */
+  .stat-pair {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .stat-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+  .stat-count {
+    font-size: 16px;
+    font-weight: 700;
+    color: #e8d5b7;
+    min-width: 14px;
+  }
+
+  /* ── Regions icon ────────────────────────────────────────────── */
+
+  /* ── Dimension labels (annotation layer) ─────────────────────── */
+  .annotations {
+    width: 1280px;
+    margin-top: 20px;
+    padding: 16px;
+    background: #111;
+    border-radius: 8px;
+    color: #aaa;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .annotations h3 { color: #e8d5b7; margin-bottom: 8px; }
+  .annotations code { color: #fbbf24; background: #1e1e2e; padding: 1px 5px; border-radius: 3px; }
+
+  /* Player color accents */
+  .p1-accent { border-left: 3px solid #3b82f6; padding-left: 6px; }
+  .p2-accent { border-right: 3px solid #ef4444; padding-right: 6px; }
+</style>
+</head>
+<body>
+
+<div class="canvas-frame">
+
+  <!-- ══════════════════ HUD BAR (48px) ══════════════════ -->
+  <div class="hud">
+
+    <!-- ── Player 1 Section (480px) ── -->
+    <div class="player-section p1">
+      <div class="player-id p1-accent">
+        <span class="player-label" style="color:#3b82f6">P1</span>
+        <img class="coin-icon" src="../src/assets/images/hud/hud-coin.png" alt="Coins">
+        <span class="coin-count">5</span>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- Active Race -->
+      <div class="stat-group">
+        <span class="stat-group-label">ACTIVE</span>
+        <div class="stat-pair" title="Race tokens in hand + on board">
+          <img class="stat-icon" src="../src/assets/images/board-tokens/amazons.png" alt="Race token">
+          <span class="stat-count">8</span>
+        </div>
+        <div class="stat-pair" title="Special power tokens">
+          <img class="stat-icon" src="../src/assets/images/board-tokens/encampment.png" alt="Power token">
+          <span class="stat-count">5</span>
+        </div>
+        <div class="stat-pair" title="Regions occupied by active race">
+          <img class="stat-icon" src="../src/assets/images/hud/hud-occupied-region.png" alt="Regions">
+          <span class="stat-count">4</span>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- In Decline -->
+      <div class="stat-group">
+        <span class="stat-group-label">DECLINE</span>
+        <div class="stat-pair" title="Declined race tokens on board">
+          <img class="stat-icon" src="../src/assets/images/board-tokens/elves_d.png" alt="Decline token">
+          <span class="stat-count">3</span>
+        </div>
+        <div class="stat-pair" title="Regions occupied by declined race">
+          <img class="stat-icon" src="../src/assets/images/hud/hud-occupied-region.png" alt="Regions">
+          <span class="stat-count">2</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Center Section (304px) ── -->
+    <div class="center-section">
+      <span class="title">Small World</span>
+      <span class="subtitle">Turn 3 / 10 · Conquest</span>
+    </div>
+
+    <!-- ── Player 2 Section (480px, same L→R order as P1) ── -->
+    <div class="player-section p2">
+      <div class="player-id p2-accent" style="border-left:3px solid #ef4444; border-right:none;">
+        <span class="player-label" style="color:#ef4444">P2</span>
+        <img class="coin-icon" src="../src/assets/images/hud/hud-coin.png" alt="Coins">
+        <span class="coin-count" style="color:#ef4444;">3</span>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- Active Race -->
+      <div class="stat-group">
+        <span class="stat-group-label">ACTIVE</span>
+        <div class="stat-pair">
+          <img class="stat-icon" src="../src/assets/images/board-tokens/orcs.png" alt="Race token">
+          <span class="stat-count">6</span>
+        </div>
+        <div class="stat-pair">
+          <img class="stat-icon" src="../src/assets/images/board-tokens/fortress.png" alt="Power token">
+          <span class="stat-count">2</span>
+        </div>
+        <div class="stat-pair">
+          <img class="stat-icon" src="../src/assets/images/hud/hud-occupied-region.png" alt="Regions">
+          <span class="stat-count">3</span>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- In Decline -->
+      <div class="stat-group">
+        <span class="stat-group-label">DECLINE</span>
+        <div class="stat-pair">
+          <img class="stat-icon" src="../src/assets/images/board-tokens/trolls_d.png" alt="Decline token">
+          <span class="stat-count">2</span>
+        </div>
+        <div class="stat-pair">
+          <img class="stat-icon" src="../src/assets/images/hud/hud-occupied-region.png" alt="Regions">
+          <span class="stat-count">1</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.hud -->
+
+  <!-- ══════════════════ MAP AREA (672px) ══════════════════ -->
+  <div class="map-area"></div>
+
+</div><!-- /.canvas-frame -->
+
+<!-- ── Dimension Annotations ── -->
+<div class="annotations">
+  <h3>Dimension Reference</h3>
+  <p>Canvas: <code>1280 × 720</code> · HUD bar: <code>1280 × 48</code> · Map area: <code>1280 × 672</code></p>
+  <p>Player sections: <code>480px</code> each · Center section: <code>304px</code> · Margins: <code>8px</code> L/R</p>
+  <p>Token icons: <code>28 × 28px</code> (25% of board's 112px) · Count font: <code>16px bold</code></p>
+  <p>Separators: <code>2 × 24px</code> · Icon→count gap: <code>4px</code> · Pair→pair gap: <code>10px</code></p>
+  <p>Title: <code>16px bold</code> · Subtitle: <code>13px</code> · Player label: <code>14px bold</code></p>
+</div>
+
+</body>
+</html>
