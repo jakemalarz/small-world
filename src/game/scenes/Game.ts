@@ -109,6 +109,9 @@ export class Game extends Phaser.Scene {
     this.controller.start()
       .then(() => {
         const finalState = this.controller!.state;
+        // Clean up controller event listeners before stopping scenes
+        this.controller!.stop();
+        this.controller = null;
         // Stop Board + HUD, launch GameOver screen
         this.scene.stop('Board');
         this.scene.stop('HUD');

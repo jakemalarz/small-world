@@ -12,14 +12,34 @@ import { POWERS } from '@/game/data/powers';
 // opponent denial, decline timing, and multi-turn strategy. Key improvements
 // over MediumAIPlayer:
 //
-//   - Combo selection: scores by token count + map synergy + income projection
-//     + opponent denial - slot cost
+//   - Combo selection: god-tier auto-select, race/power tier bonuses,
+//     map synergy + income projection + opponent denial - slot cost
 //   - Conquest targeting: per-region value/cost efficiency scoring with
-//     opponent denial bonuses (+1.5 for declined tokens)
+//     zero-sum opponent denial (active > declined > lost tribe > empty)
 //   - Decline: economic comparison of current vs new race projected income
-//   - Redeployment: defense priority scoring with sorcerer counter-play
-//   - Game-end rush: turn 10 gather-all + spread-1-per-region strategy
+//   - Redeployment: border stacking, equalized defense, new-race anticipation
+//   - Game-end rush: spread-1-per-region, ignore defense on final turn
 //   - Special placements: strategic fortress/encampment/hero/dragon selection
+
+// ── Tier Tables ──────────────────────────────────────────────────────────────
+
+const GOD_TIER_COMBOS: ReadonlyArray<{ raceId: RaceId; powerId: PowerId }> = [
+  { raceId: 'amazons', powerId: 'commando' },
+  { raceId: 'sorcerers', powerId: 'flying' },
+  { raceId: 'skeletons', powerId: 'merchant' },
+];
+
+const RACE_TIER_BONUS: Partial<Record<RaceId, number>> = {
+  amazons: 4.0, ghouls: 4.0, ratmen: 4.0, tritons: 4.0, giants: 4.0, skeletons: 4.0,
+  humans: 2.0, wizards: 2.0, halflings: 2.0,
+  // elves, dwarves, sorcerers: 0 (Tier 3)
+};
+
+const POWER_TIER_BONUS: Partial<Record<PowerId, number>> = {
+  commando: 4.0, berserk: 4.0, pillaging: 4.0,
+  merchant: 2.0, flying: 2.0, stout: 2.0,
+  // wealthy: 0 (Tier 3)
+};
 
 export class HardAIPlayer implements IPlayer {
   readonly type = 'ai' as const;
@@ -177,6 +197,18 @@ function _pickAction(state: GameState, actions: readonly GameAction[], deployedT
 
 function _chooseCombo(state: GameState, comboActions: readonly GameAction[]): GameAction {
   const playerIdx = state.activePlayerIndex;
+
+  // God-tier auto-select: take these combos regardless of slot cost
+  for (const action of comboActions) {
+    if (action.type !== 'selectCombo') continue;
+    const slot = state.comboShop.visible[action.comboIndex];
+    if (!slot) continue;
+    const isGodTier = GOD_TIER_COMBOS.some(
+      (gt) => gt.raceId === slot.raceId && gt.powerId === slot.powerId,
+    );
+    if (isGodTier) return action;
+  }
+
   let bestAction = comboActions[0];
   let bestScore = -Infinity;
 
@@ -326,6 +358,10 @@ export function evaluateCombo(
   // --- Free coins on slot ---
   score += slotCoins * 1.0;
 
+  // --- Race & power tier bonuses ---
+  score += RACE_TIER_BONUS[raceId] ?? 0;
+  score += POWER_TIER_BONUS[powerId] ?? 0;
+
   return score;
 }
 
@@ -423,14 +459,27 @@ export function evaluateRegionForConquest(
     }
   }
 
-  // --- Opponent denial (zero-sum strategy) ---
+  // --- Occupation type priority (opponent active > declined > lost tribe > empty) ---
   if (region.owner === opIdx) {
     if (region.isDeclined) {
-      // High value: wiping declined tokens starves opponent economy
-      value += 1.5;
+      value += 0.5; // Declined: still worth denying passive income
     } else {
-      // Active race displacement
-      value += 0.5;
+      value += 1.0; // Active: higher priority — removes future threat
+    }
+  } else if (region.hasLostTribe) {
+    // Lost tribe: baseline (no bonus)
+  } else if (region.owner === null) {
+    value -= 0.3; // Empty: least valuable target
+  }
+
+  // --- Opponent denial (zero-sum: denying opponent income = gaining your own) ---
+  if (region.owner === opIdx) {
+    if (region.isDeclined) {
+      // Wiping declined tokens starves opponent economy
+      value += 0.8;
+    } else {
+      // Active race displacement — disrupts opponent's plans
+      value += 2.0;
     }
 
     // Deny terrain bonuses the opponent gets from this region
@@ -438,11 +487,25 @@ export function evaluateRegionForConquest(
     if (opponent.activeRace && !region.isDeclined) {
       const oppMods = getActiveModifiers(opponent);
       for (const tb of oppMods.terrainBonuses) {
-        if (region.terrain === tb.terrain) value += 0.5;
+        if (region.terrain === tb.terrain) value += 1.0;
       }
       for (const fb of oppMods.featureBonuses) {
-        if (_regionHasFeature(region, fb.feature)) value += 0.5;
+        if (_regionHasFeature(region, fb.feature)) value += 1.0;
       }
+    }
+  }
+
+  // --- Giants strategy: conquer mountains first, then expand to adjacent ---
+  if (player.activeRace?.raceId === 'giants') {
+    if (region.terrain === 'mountain') {
+      value += 3.0; // Take mountains first for the adjacency discount
+    } else {
+      // Bonus for regions adjacent to own mountains (leverage -1 cost)
+      const adjToOwnMountain = region.adjacentRegionIds.some((adjId) => {
+        const adj = state.board.regions.find((r) => r.id === adjId);
+        return adj && adj.owner === playerIndex && !adj.isDeclined && adj.terrain === 'mountain';
+      });
+      if (adjToOwnMountain) value += 1.5;
     }
   }
 
@@ -545,27 +608,19 @@ function _chooseReadyTroops(
 ): GameAction {
   const playerIdx = state.activePlayerIndex;
   const isGhoulPhase = allActions.some((a) => a.type === 'ghoulReadyTroopsDeploy');
-  const isFinalTurn = state.turn >= 10;
 
   const ownedRegions = state.board.regions.filter((r) => {
     if (isGhoulPhase) return r.owner === playerIdx && r.isDeclined;
     return r.owner === playerIdx && !r.isDeclined;
   });
 
-  // Build deployment map: decide how many tokens to leave in each region
-  // Default: keep 1 token on all regions to avoid costly re-conquest (2 tokens
-  // to conquer an empty region vs 1 token to hold it). Only abandon on final
-  // turn where we gather everything for max spread.
+  // Build deployment map: keep 1 token on all regions to avoid costly
+  // re-conquest (2 tokens to conquer an empty region vs 1 token to hold it).
+  // Never abandon regions — even on the final turn.
   const deployment = new Map<number, number>();
 
   for (const region of ownedRegions) {
-    if (isFinalTurn) {
-      // Final turn: gather everything to maximize conquests
-      deployment.set(region.id, 0);
-    } else {
-      // Keep 1 token on every region — re-conquering costs more than holding
-      deployment.set(region.id, 1);
-    }
+    deployment.set(region.id, 1);
   }
 
   const actionType = isGhoulPhase ? 'ghoulReadyTroopsDeploy' : 'readyTroopsDeploy';
@@ -585,12 +640,6 @@ function _choosePickUp(
   pickUpActions: readonly GameAction[],
 ): GameAction {
   const playerIdx = state.activePlayerIndex;
-  const isFinalTurn = state.turn >= 10;
-
-  if (isFinalTurn) {
-    // Final turn: pick up everything we can
-    return pickUpActions[0];
-  }
 
   // Only consider regions with excess tokens (more than 1) — leave 1 to hold
   const excessActions = pickUpActions.filter((a) => a.count > 1);
@@ -764,29 +813,76 @@ export function computeRedeployment(state: GameState, playerIndex: 0 | 1): Map<n
   const deployment = new Map<number, number>();
 
   if (isFinalTurn) {
-    // Final turn: spread exactly 1 per region for max territory
+    // Final turn: spread exactly 1 per region for max territory.
+    // Ignore all defense — there is no next turn.
     for (const r of ownedRegions) deployment.set(r.id, 1);
     return deployment;
   }
 
-  // Calculate defense priority for each region
-  const priorities = ownedRegions.map((r) => ({
-    id: r.id,
-    priority: _regionDefensePriority(state, r, playerIndex),
-  })).sort((a, b) => b.priority - a.priority);
+  const opIdx = (1 - playerIndex) as 0 | 1;
+  const opponent = state.players[opIdx];
 
-  // Assign minimum 1 to each region
-  for (const p of priorities) deployment.set(p.id, 1);
-  let remaining = totalTokens - priorities.length;
+  // Classify regions as border (adjacent to enemy) or interior
+  const borderRegions: RegionState[] = [];
+  const interiorRegions: RegionState[] = [];
+  for (const r of ownedRegions) {
+    const isBorder = r.adjacentRegionIds.some((adjId) => {
+      const adj = state.board.regions.find((a) => a.id === adjId);
+      return adj && adj.owner === opIdx;
+    });
+    if (isBorder) {
+      borderRegions.push(r);
+    } else {
+      interiorRegions.push(r);
+    }
+  }
 
-  // Distribute remaining tokens to highest-priority regions
-  while (remaining > 0) {
-    for (const p of priorities) {
-      if (remaining <= 0) break;
-      const current = deployment.get(p.id)!;
-      const extra = Math.min(remaining, 2); // Max 2 extra per pass
-      deployment.set(p.id, current + extra);
-      remaining -= extra;
+  // Assign minimum 1 to every region
+  for (const r of ownedRegions) deployment.set(r.id, 1);
+  let remaining = totalTokens - ownedRegions.length;
+
+  if (borderRegions.length > 0) {
+    // --- Border stacking: pile all remaining tokens onto border regions ---
+    const priorities = borderRegions.map((r) => ({
+      id: r.id,
+      priority: _regionDefensePriority(state, r, playerIndex),
+    })).sort((a, b) => b.priority - a.priority);
+
+    // Anticipate new race entry: if opponent has no active race (just declined),
+    // boost edge regions since the new race must enter from the edge
+    if (!opponent.activeRace) {
+      for (const p of priorities) {
+        const region = borderRegions.find((r) => r.id === p.id);
+        if (region?.isEdge) p.priority += 4.0;
+      }
+      // Also boost edge interior regions
+      for (const r of interiorRegions) {
+        if (r.isEdge && remaining > 0) {
+          const current = deployment.get(r.id)!;
+          deployment.set(r.id, current + 1);
+          remaining--;
+        }
+      }
+      priorities.sort((a, b) => b.priority - a.priority);
+    }
+
+    // Distribute remaining to border regions by priority
+    while (remaining > 0) {
+      for (const p of priorities) {
+        if (remaining <= 0) break;
+        const current = deployment.get(p.id)!;
+        deployment.set(p.id, current + 1);
+        remaining--;
+      }
+    }
+  } else {
+    // --- No borders: equalize defense across all regions ---
+    // Spread tokens so each region has roughly equal defense
+    const tokensPerRegion = Math.floor(totalTokens / ownedRegions.length);
+    const extraTokens = totalTokens % ownedRegions.length;
+
+    for (let i = 0; i < ownedRegions.length; i++) {
+      deployment.set(ownedRegions[i].id, tokensPerRegion + (i < extraTokens ? 1 : 0));
     }
   }
 

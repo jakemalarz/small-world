@@ -110,6 +110,12 @@ export class HUD extends Phaser.Scene {
     this._drawDieResult();
     this._drawModeToggle();
     this.comboShop = new ComboShopRenderer(this);
+
+    // Clean up all game objects when the scene is stopped so UI elements
+    // from a previous game don't persist when the scene is relaunched.
+    this.events.once('shutdown', () => {
+      this.children.removeAll(true);
+    });
   }
 
   // ── Public API (called by GameController) ──────────────────────────────────

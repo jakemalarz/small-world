@@ -71,6 +71,14 @@ export class Board extends Phaser.Scene {
     if (new URLSearchParams(window.location.search).has('debug')) {
       this._createDebugOverlay();
     }
+
+    // Clean up all game objects when the scene is stopped so tokens/graphics
+    // from a previous game don't persist when the scene is relaunched.
+    this.events.once('shutdown', () => {
+      this.regionGraphics.clear();
+      this.selectedRegionId = null;
+      this.children.removeAll(true);
+    });
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
