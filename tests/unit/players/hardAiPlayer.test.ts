@@ -198,6 +198,103 @@ describe('shouldDecline', () => {
     };
     expect(shouldDecline(noRaceState, 0)).toBe(true);
   });
+
+  it('does NOT decline when scoring well with few tokens', () => {
+    // Simulate: player holds 5 regions, scoring 7+ pts/turn, but only 3 tokens in hand
+    // Old logic would auto-decline (effectiveAvailable < 4), new logic should NOT
+    const state = createInitialState({ firstPlayerIndex: 0 });
+    // Give player 0 a race and put them on 5 regions
+    let setupState = { ...state, turn: 4 };
+    const activeRace = {
+      raceId: 'ratmen' as const,
+      powerId: 'merchant' as const,
+      maxSupply: 10,
+      totalTokens: 10,
+      tokensOnBoard: 7,
+      conquestsThisTurn: 0,
+      hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
+    };
+    const regions = setupState.board.regions.map((r, i) => {
+      if (i < 5 && r.terrain !== 'sea' && r.terrain !== 'lake') {
+        return { ...r, owner: 0, isDeclined: false, tokens: i < 4 ? 1 : 3, hasLostTribe: false };
+      }
+      return r;
+    });
+    setupState = {
+      ...setupState,
+      board: { ...setupState.board, regions },
+      players: [
+        { ...setupState.players[0], activeRace, availableTokens: 0 },
+        setupState.players[1],
+      ] as typeof setupState.players,
+    };
+    // With 5 regions + Merchant (scoring ~10 pts), should NOT decline
+    expect(shouldDecline(setupState, 0)).toBe(false);
+  });
+
+  it('declines when race is completely spent and income is low', () => {
+    const state = createInitialState({ firstPlayerIndex: 0 });
+    // Player holds 2 regions with 1 token each, no tokens in hand → can't conquer
+    const activeRace = {
+      raceId: 'elves' as const,
+      powerId: 'wealthy' as const,
+      maxSupply: 6,
+      totalTokens: 6,
+      tokensOnBoard: 2,
+      conquestsThisTurn: 0,
+      hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
+      wealthyBonusApplied: true,
+    };
+    const regions = state.board.regions.map((r, i) => {
+      if (i < 2 && r.terrain !== 'sea' && r.terrain !== 'lake') {
+        return { ...r, owner: 0, isDeclined: false, tokens: 1, hasLostTribe: false };
+      }
+      return r;
+    });
+    const spentState = {
+      ...state,
+      turn: 5,
+      board: { ...state.board, regions },
+      players: [
+        { ...state.players[0], activeRace, availableTokens: 0 },
+        state.players[1],
+      ] as typeof state.players,
+    };
+    // 2 regions, no gatherable tokens, no new conquests, income ~2 → should decline
+    expect(shouldDecline(spentState, 0)).toBe(true);
+  });
+
+  it('returns false on turn 9 when current income is decent', () => {
+    const state = createInitialState({ firstPlayerIndex: 0 });
+    const activeRace = {
+      raceId: 'ratmen' as const,
+      powerId: 'merchant' as const,
+      maxSupply: 10,
+      totalTokens: 10,
+      tokensOnBoard: 6,
+      conquestsThisTurn: 0,
+      hasDeclinedThisTurn: false,
+      sorcererConversionsThisTurn: 0,
+    };
+    const regions = state.board.regions.map((r, i) => {
+      if (i < 6 && r.terrain !== 'sea' && r.terrain !== 'lake') {
+        return { ...r, owner: 0, isDeclined: false, tokens: 1, hasLostTribe: false };
+      }
+      return r;
+    });
+    const turn9State = {
+      ...state,
+      turn: 9,
+      board: { ...state.board, regions },
+      players: [
+        { ...state.players[0], activeRace, availableTokens: 4 },
+        state.players[1],
+      ] as typeof state.players,
+    };
+    expect(shouldDecline(turn9State, 0)).toBe(false);
+  });
 });
 
 describe('computeRedeployment', () => {

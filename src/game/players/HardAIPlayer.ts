@@ -240,6 +240,8 @@ export function evaluateCombo(
 
   const tokenCount = race.baseTokens + power.bonusTokens;
   const remainingTurns = Math.max(1, 10 - state.turn + 1);
+  // Expected active turns before next decline (typically 2-3 turns)
+  const expectedActiveTurns = Math.min(remainingTurns, 3);
   const landRegions = state.board.regions.filter(
     (r) => r.terrain !== 'sea' && r.terrain !== 'lake',
   );
@@ -255,11 +257,13 @@ export function evaluateCombo(
   const rMods = race.modifiers;
   const pMods = power.modifiers;
 
-  // Terrain bonuses
+  // Terrain bonuses — scale by how many matching regions are AVAILABLE to conquer
   for (const mods of [rMods, pMods]) {
     if (mods.bonusPerTerrain) {
       const matching = landRegions.filter((r) => r.terrain === mods.bonusPerTerrain!.terrain).length;
-      score += (matching / totalLand) * 5 * mods.bonusPerTerrain.bonus;
+      // Available matching regions we could realistically hold
+      const conquerable = Math.min(matching, Math.floor(tokenCount / 2));
+      score += conquerable * mods.bonusPerTerrain.bonus * 0.8;
     }
   }
 
@@ -268,14 +272,17 @@ export function evaluateCombo(
     if (mods.bonusPerRegionFeature) {
       const feat = mods.bonusPerRegionFeature.feature;
       const matching = landRegions.filter((r) => _regionHasFeature(r, feat)).length;
-      score += matching * 1.5 * mods.bonusPerRegionFeature.bonus;
+      const conquerable = Math.min(matching, Math.floor(tokenCount / 2));
+      score += conquerable * mods.bonusPerRegionFeature.bonus * 0.8;
     }
   }
 
   // Conquest cost reducers (how many regions benefit)
   for (const mods of [rMods, pMods]) {
     if (mods.conquestCostModifier) {
-      score += 3.0; // Commando: universal discount
+      // Commando: -1 on ALL conquests = effectively +1 extra token per conquest
+      // More tokens means more regions, which compounds with per-region scoring
+      score += 3.5;
     }
     if (mods.conquestCostCoastalModifier) {
       const coastal = landRegions.filter((r) => r.isCoastal).length;
@@ -303,22 +310,26 @@ export function evaluateCombo(
     if (mods.underworldAreAdjacent) score += 1.0;
   }
 
-  // Per-region bonus (Merchant)
+  // Per-region bonus (Merchant) — scales with expected regions held
   const bonusPerRegion = (rMods.bonusPerRegion ?? 0) + (pMods.bonusPerRegion ?? 0);
-  if (bonusPerRegion > 0) score += 2.5;
+  if (bonusPerRegion > 0) {
+    const estimatedRegions = Math.floor(tokenCount / 3);
+    score += estimatedRegions * bonusPerRegion * 0.7;
+  }
 
-  // Per-conquest bonus (Orcs/Pillaging)
+  // Per-conquest bonus (Orcs/Pillaging) — scales with opponent presence
   const bonusPerConquest = (rMods.bonusPerNonEmptyConquest ?? 0) + (pMods.bonusPerNonEmptyConquest ?? 0);
   if (bonusPerConquest > 0) {
     const opponentRegions = state.board.regions.filter(
       (r) => r.owner !== null && r.owner !== playerIndex,
     ).length;
-    score += opponentRegions * 0.3 * bonusPerConquest;
+    // More valuable when opponent has lots of regions to attack
+    score += Math.min(opponentRegions, Math.floor(tokenCount / 3)) * 0.5 * bonusPerConquest;
   }
 
-  // Flat bonus per turn (Alchemist)
+  // Flat bonus per turn (Alchemist) — scales with expected active turns
   const flatBonus = (rMods.flatBonusPerTurn ?? 0) + (pMods.flatBonusPerTurn ?? 0);
-  if (flatBonus > 0) score += flatBonus * Math.min(remainingTurns, 3) * 0.5;
+  if (flatBonus > 0) score += flatBonus * expectedActiveTurns * 0.5;
 
   // First turn bonus (Wealthy) — decays with game progress
   const firstTurnBonus = (rMods.firstTurnBonus ?? 0) + (pMods.firstTurnBonus ?? 0);
@@ -326,22 +337,44 @@ export function evaluateCombo(
 
   // Decline-relevant abilities
   for (const mods of [rMods, pMods]) {
-    if (mods.keepAllTokensInDecline) score += 2.0; // Ghouls: strong late persistence
+    if (mods.keepAllTokensInDecline) {
+      // Ghouls: all tokens persist in decline AND can still conquer — very strong
+      score += 3.0;
+    }
     if (mods.placesLair) score += 1.5; // Trolls: passive defense in decline
     if (mods.noDefeatCasualties) score += 1.0; // Elves: defensive value
-    if (mods.canDeclineAfterConquest) score += 2.0; // Stout: tempo advantage
+    if (mods.canDeclineAfterConquest) {
+      // Stout: free decline saves an entire turn — more valuable with more turns left
+      score += remainingTurns >= 4 ? 3.0 : 1.5;
+    }
     if (mods.conquestOnlyTokens) score += mods.conquestOnlyTokens * 0.3; // Amazons
     if (mods.berserkDie) score += 1.5; // Expected +1 per conquest
   }
 
-  // Token generation (Skeletons)
+  // Token generation (Skeletons) — scales with opponent presence (non-empty conquests)
   for (const mods of [rMods, pMods]) {
-    if (mods.tokensPerNonEmptyConquests) score += 2.0;
+    if (mods.tokensPerNonEmptyConquests) {
+      const opponentRegions = state.board.regions.filter(
+        (r) => r.owner !== null && r.owner !== playerIndex,
+      ).length;
+      score += Math.min(opponentRegions, 4) * 0.5;
+    }
   }
 
-  // --- Opponent denial bonus ---
+  // --- Opponent denial: hate-draft combos that would be great for opponent ---
   const opIdx = (1 - playerIndex) as 0 | 1;
   const opponent = state.players[opIdx];
+
+  // If opponent just declined or has no race, they'll pick next turn — deny strong combos
+  if (!opponent.activeRace) {
+    // Opponent will pick from this same shop next turn. If this combo is strong,
+    // taking it denies them a powerful option.
+    const isGodTier = GOD_TIER_COMBOS.some(
+      (gt) => gt.raceId === raceId && gt.powerId === powerId,
+    );
+    if (isGodTier) score += 3.0; // Extra incentive to deny
+  }
+
   if (opponent.activeRace) {
     const oppMods = getActiveModifiers(opponent);
     // If this combo would synergize with what the opponent needs, it's worth denying
@@ -353,14 +386,21 @@ export function evaluateCombo(
   }
 
   // --- Cost penalty: higher index = more expensive (coins spent to skip) ---
-  score -= comboIndex * 0.5;
+  // Also factor in actual coin balance — paying 4 coins when you have 6 hurts more
+  const player = state.players[playerIndex];
+  const netCoinCost = comboIndex - slotCoins;
+  if (netCoinCost > 0 && player.coins < 10) {
+    score -= netCoinCost * 0.7;
+  } else {
+    score -= comboIndex * 0.5;
+    score += slotCoins * 1.0;
+  }
 
-  // --- Free coins on slot ---
-  score += slotCoins * 1.0;
-
-  // --- Race & power tier bonuses ---
-  score += RACE_TIER_BONUS[raceId] ?? 0;
-  score += POWER_TIER_BONUS[powerId] ?? 0;
+  // --- Race & power tier bonuses — scaled by remaining turns ---
+  // Tier 1 races/powers are less impactful if picked on turn 9 (only 2 active turns)
+  const turnScale = Math.min(1.0, remainingTurns / 5);
+  score += (RACE_TIER_BONUS[raceId] ?? 0) * turnScale;
+  score += (POWER_TIER_BONUS[powerId] ?? 0) * turnScale;
 
   return score;
 }
@@ -432,6 +472,7 @@ export function evaluateRegionForConquest(
 
   const player = state.players[playerIndex];
   const opIdx = (1 - playerIndex) as 0 | 1;
+  const opponent = state.players[opIdx];
   const isFinalTurn = state.turn >= 10;
 
   let value = 1.0; // Base: 1 coin for owning a region
@@ -459,40 +500,46 @@ export function evaluateRegionForConquest(
     }
   }
 
-  // --- Occupation type priority (opponent active > declined > lost tribe > empty) ---
-  if (region.owner === opIdx) {
-    if (region.isDeclined) {
-      value += 0.5; // Declined: still worth denying passive income
-    } else {
-      value += 1.0; // Active: higher priority — removes future threat
-    }
-  } else if (region.hasLostTribe) {
-    // Lost tribe: baseline (no bonus)
-  } else if (region.owner === null) {
-    value -= 0.3; // Empty: least valuable target
-  }
-
   // --- Opponent denial (zero-sum: denying opponent income = gaining your own) ---
   if (region.owner === opIdx) {
     if (region.isDeclined) {
-      // Wiping declined tokens starves opponent economy
-      value += 0.8;
+      // Wiping declined tokens is a TOP PRIORITY in 2-player.
+      // Each declined region you wipe is a -1 swing (they lose 1 income, you gain 1).
+      // That's a 2-point swing per region, compounding every remaining turn.
+      const remainingTurns = Math.max(1, 10 - state.turn + 1);
+      const swingPerTurn = 2.0; // -1 opponent income + 1 your income
+      // Value over remaining turns, discounted (tokens may be reconquered)
+      value += swingPerTurn * Math.min(remainingTurns, 3) * 0.4;
+
+      // Extra bonus if we can wipe ALL their declined regions (eliminates passive income)
+      const totalDeclinedRegions = state.board.regions.filter(
+        (r) => r.owner === opIdx && r.isDeclined,
+      ).length;
+      if (totalDeclinedRegions <= 3) {
+        // Few declined regions left — high incentive to finish them off
+        value += 1.5;
+      }
     } else {
       // Active race displacement — disrupts opponent's plans
       value += 2.0;
-    }
 
-    // Deny terrain bonuses the opponent gets from this region
-    const opponent = state.players[opIdx];
-    if (opponent.activeRace && !region.isDeclined) {
-      const oppMods = getActiveModifiers(opponent);
-      for (const tb of oppMods.terrainBonuses) {
-        if (region.terrain === tb.terrain) value += 1.0;
-      }
-      for (const fb of oppMods.featureBonuses) {
-        if (_regionHasFeature(region, fb.feature)) value += 1.0;
+      // Deny terrain/feature bonuses the opponent earns from this region
+      if (opponent.activeRace) {
+        const oppMods = getActiveModifiers(opponent);
+        for (const tb of oppMods.terrainBonuses) {
+          if (region.terrain === tb.terrain) value += tb.bonus;
+        }
+        for (const fb of oppMods.featureBonuses) {
+          if (_regionHasFeature(region, fb.feature)) value += fb.bonus;
+        }
+        // Deny Merchant bonus
+        if (oppMods.bonusPerRegion > 0) value += oppMods.bonusPerRegion;
       }
     }
+  } else if (region.hasLostTribe) {
+    // Lost tribe: baseline (no bonus beyond the base 1.0)
+  } else if (region.owner === null) {
+    value -= 0.3; // Empty: least valuable target
   }
 
   // --- Giants strategy: conquer mountains first, then expand to adjacent ---
@@ -509,13 +556,43 @@ export function evaluateRegionForConquest(
     }
   }
 
-  // --- Expansion potential ---
+  // --- Conquest chain bonus: how many valuable targets does this region unlock? ---
+  if (!isFinalTurn) {
+    let chainValue = 0;
+    for (const adjId of region.adjacentRegionIds) {
+      const adj = state.board.regions.find((r) => r.id === adjId);
+      if (!adj || adj.terrain === 'sea' || adj.terrain === 'lake') continue;
+      if (adj.owner === playerIndex) continue; // Already ours
+
+      // Check if this adjacent region is ONLY reachable through the target region
+      // (i.e., we don't already border it from another owned region)
+      const alreadyAdjacent = adj.adjacentRegionIds.some((id) => {
+        if (id === regionId) return false; // Don't count the region we're evaluating
+        const r2 = state.board.regions.find((r) => r.id === id);
+        return r2 && r2.owner === playerIndex && !r2.isDeclined;
+      });
+
+      if (!alreadyAdjacent) {
+        // This region opens up a new target — value based on what's there
+        if (adj.owner === opIdx && adj.isDeclined) {
+          chainValue += 0.6; // Opens up declined token wiping
+        } else if (adj.owner === opIdx) {
+          chainValue += 0.4; // Opens up active opponent displacement
+        } else {
+          chainValue += 0.15; // Opens up generic expansion
+        }
+      }
+    }
+    value += chainValue;
+  }
+
+  // --- Expansion potential (unconquered adjacent for future turns) ---
   if (!isFinalTurn) {
     const unconqueredAdj = region.adjacentRegionIds.filter((adjId) => {
       const adj = state.board.regions.find((r) => r.id === adjId);
       return adj && adj.owner !== playerIndex && adj.terrain !== 'sea' && adj.terrain !== 'lake';
     }).length;
-    value += unconqueredAdj * 0.15;
+    value += unconqueredAdj * 0.1;
   }
 
   // --- Defensibility ---
@@ -533,7 +610,6 @@ export function evaluateRegionForConquest(
 
   // --- Sorcerer risk: avoid leaving 1 token if opponent has Sorcerers ---
   if (!isFinalTurn) {
-    const opponent = state.players[opIdx];
     if (opponent.activeRace?.raceId === 'sorcerers') {
       const oppRegions = state.board.regions.filter(
         (r) => r.owner === opIdx && !r.isDeclined,
@@ -718,24 +794,30 @@ function _regionRetainValue(state: GameState, region: RegionState, playerIdx: 0 
 export function shouldDecline(state: GameState, playerIndex: 0 | 1): boolean {
   const player = state.players[playerIndex];
 
-  // Never decline on last turn
+  // Never decline on last turn — maximize active conquest income
   if (state.turn >= 10) return false;
 
-  // No active race — decline is clearly better
+  // No active race — must pick a new combo
   if (!player.activeRace) return true;
 
-  // Turn 9: only decline if current income is very low
   const currentIncome = calculateScore(state, playerIndex);
-  if (state.turn === 9 && currentIncome > 3) return false;
-
   const remainingTurns = 10 - state.turn + 1;
 
-  // Evaluate best available combo
-  const bestComboScore = _evaluateBestNewCombo(state, playerIndex);
-  const estimatedRegionsPerCombo = bestComboScore / 3.5; // rough regions from a fresh combo
-  const estimatedNewIncome = estimatedRegionsPerCombo * 1.5; // regions * avg value
+  // Stout power check — declining is FREE (no tempo cost, happens after scoring)
+  if (state.phase === 'optionalDecline') {
+    // Since there's no tempo loss, just check if best available combo tokens
+    // are worth more than our current race's remaining potential
+    const bestCombo = _getBestNewCombo(state, playerIndex);
+    if (!bestCombo) return false;
+    const newTokens = RACES[bestCombo.raceId].baseTokens + POWERS[bestCombo.powerId].bonusTokens;
+    // Free decline: take it if the new combo has enough tokens to conquer well
+    return newTokens >= 8;
+  }
 
-  // Effective conquest potential: tokens in hand + gatherable excess from regions
+  // Turn 9: declining costs our only remaining active turn — only if income is terrible
+  if (state.turn === 9 && currentIncome > 3) return false;
+
+  // ── Effective conquest potential ────────────────────────────────────────────
   const ownedRegions = state.board.regions.filter(
     (r) => r.owner === playerIndex && !r.isDeclined,
   );
@@ -745,30 +827,77 @@ export function shouldDecline(state: GameState, playerIndex: 0 | 1): boolean {
   }
   const effectiveAvailable = player.availableTokens + gatherable;
 
-  // Declined residual: regions on mountains/hard-to-crack spots survive longer
-  const declinedResidual = ownedRegions.filter(
+  // Estimate new conquests possible with current race (avg cost ~3 tokens)
+  const estimatedNewConquests = Math.floor(effectiveAvailable / 3);
+
+  // Race is completely spent AND income is low — decline
+  if (estimatedNewConquests === 0 && currentIncome < 5) return true;
+
+  // If we're still scoring well (7+ per turn), don't decline just because
+  // tokens are low — holding territory has value
+  if (currentIncome >= 7 && estimatedNewConquests >= 1) return false;
+
+  // ── Economic projection: STAY vs DECLINE ───────────────────────────────────
+  // Use actual token counts from best combo to estimate new race income,
+  // not the abstract evaluation score (which includes tier bonuses, synergies, etc.)
+  const bestCombo = _getBestNewCombo(state, playerIndex);
+  if (!bestCombo) return false; // no combo available, can't decline
+
+  const newRaceTokens = RACES[bestCombo.raceId].baseTokens + POWERS[bestCombo.powerId].bonusTokens;
+  // New race conquests: tokens / avg cost of ~3 (mix of empty=2 and occupied=3-4)
+  const estimatedNewRegions = Math.floor(newRaceTokens / 3);
+  // New race per-turn income: 1 per region + some bonus (avg ~1.3x for abilities)
+  const estimatedNewIncome = estimatedNewRegions * 1.3;
+
+  // Declined residual: how many current regions survive in decline
+  const regionCount = ownedRegions.length;
+  // Mountains and troll lairs are expensive to retake — they persist longer
+  const durableRegions = ownedRegions.filter(
     (r) => r.terrain === 'mountain' || r.hasTrollLair,
-  ).length * 0.5;
+  ).length;
+  // Rough estimate: durable regions persist, others get wiped within 1-2 turns
+  const declinedResidualPerTurn = durableRegions * 1.0 + (regionCount - durableRegions) * 0.4;
 
-  // Economic comparison
-  const projectedCurrent = currentIncome * Math.min(remainingTurns, 3) * 0.8;
-  const projectedNew = (estimatedNewIncome * (Math.min(remainingTurns, 3) - 1)) + declinedResidual * remainingTurns;
+  // Projection horizon: min(remaining, 4) turns to avoid wild extrapolation
+  const horizon = Math.min(remainingTurns, 4);
 
-  // Stout power check — if this is optionalDecline phase, it's free
-  const isStoutDecline = state.phase === 'optionalDecline';
-  if (isStoutDecline) {
-    // Free decline: take it if new combo is decent
-    return bestComboScore > 6;
+  // STAY path: current income with gradual attrition as opponent conquers our regions
+  let stayProjection = 0;
+  for (let t = 0; t < horizon; t++) {
+    // ~10% attrition per turn as opponent picks off our spread-thin regions
+    const decay = Math.max(0.5, 1.0 - t * 0.10);
+    stayProjection += currentIncome * decay;
   }
 
-  // Race is spent — can barely conquer anything meaningful
-  if (effectiveAvailable < 4) return true;
+  // DECLINE path: lose THIS turn (only earn from declined residual),
+  // then new race income + declining residual starting next turn
+  let declineProjection = declinedResidualPerTurn; // turn 0: decline, only residual
+  for (let t = 1; t < horizon; t++) {
+    // New race active income + residual (residual decays as opponent wipes declined tokens)
+    const residualDecay = Math.pow(0.65, t);
+    declineProjection += estimatedNewIncome + declinedResidualPerTurn * residualDecay;
+  }
 
-  // Race is running low on conquest potential — decline if better combo exists
-  if (effectiveAvailable < 6 && bestComboScore > currentIncome) return true;
+  // Decline must be CLEARLY better to justify the tempo loss (25% threshold).
+  // This is deliberately conservative — the cost of premature decline is high
+  // because you waste an entire turn not conquering.
+  return declineProjection > stayProjection * 1.25;
+}
 
-  // General threshold: new path must be significantly better (15%)
-  return projectedNew > projectedCurrent * 1.15;
+/** Return the best new combo's race/power IDs (for token count estimation). */
+function _getBestNewCombo(state: GameState, playerIndex: 0 | 1): { raceId: RaceId; powerId: PowerId } | null {
+  let bestScore = -Infinity;
+  let bestCombo: { raceId: RaceId; powerId: PowerId } | null = null;
+  for (let i = 0; i < state.comboShop.visible.length; i++) {
+    const slot = state.comboShop.visible[i];
+    if (!slot) continue;
+    const score = evaluateCombo(state, slot.raceId, slot.powerId, i, playerIndex);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCombo = { raceId: slot.raceId, powerId: slot.powerId };
+    }
+  }
+  return bestCombo;
 }
 
 function _evaluateBestNewCombo(state: GameState, playerIndex: 0 | 1): number {
