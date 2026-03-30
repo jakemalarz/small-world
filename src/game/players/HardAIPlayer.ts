@@ -445,17 +445,43 @@ function _chooseConquest(
 
   // Decide whether to stop conquering
   const hasEndPhase = allActions.some((a) => a.type === 'endPhase');
-  if (hasEndPhase && bestEfficiency < 0.4 && player.availableTokens <= 1) {
-    // Check if final conquest is available — that's often better than stopping
+  if (hasEndPhase) {
     const hasFinalConquest = allActions.some(
       (a) => a.type === 'startFinalConquest' || a.type === 'startGhoulFinalConquest',
     );
-    if (hasFinalConquest) {
-      return allActions.find(
-        (a) => a.type === 'startFinalConquest' || a.type === 'startGhoulFinalConquest',
-      )!;
+    const isFinalTurn = state.turn >= 10;
+
+    // Count how many regions we own (for defense token budget)
+    const ownedRegions = state.board.regions.filter(
+      (r) => r.owner === playerIdx && !r.isDeclined,
+    ).length;
+
+    // Estimate tokens remaining after this conquest
+    let conquestCostEstimate = 3;
+    if (bestAction.type === 'conquer') {
+      try { conquestCostEstimate = calculateConquestCost(state, (bestAction as { regionId: number }).regionId); } catch { /* use default */ }
     }
-    return allActions.find((a) => a.type === 'endPhase')!;
+    const tokensAfterConquest = player.availableTokens - conquestCostEstimate;
+
+    // Stop if: low efficiency AND we'd be dipping into defense reserves
+    if (bestEfficiency < 0.4 && (player.availableTokens <= 1 || tokensAfterConquest < 0)) {
+      if (hasFinalConquest) {
+        return allActions.find(
+          (a) => a.type === 'startFinalConquest' || a.type === 'startGhoulFinalConquest',
+        )!;
+      }
+      return allActions.find((a) => a.type === 'endPhase')!;
+    }
+
+    // Also stop if we have many regions to defend and efficiency is marginal
+    if (!isFinalTurn && bestEfficiency < 0.6 && player.availableTokens <= 2 && ownedRegions >= 4) {
+      if (hasFinalConquest) {
+        return allActions.find(
+          (a) => a.type === 'startFinalConquest' || a.type === 'startGhoulFinalConquest',
+        )!;
+      }
+      return allActions.find((a) => a.type === 'endPhase')!;
+    }
   }
 
   return bestAction;
@@ -498,6 +524,16 @@ export function evaluateRegionForConquest(
     if (mods.bonusPerNonEmptyConquest > 0 && region.tokens > 0) {
       value += mods.bonusPerNonEmptyConquest;
     }
+  }
+
+  // --- Own declined tokens: almost never conquer your own passive income ---
+  if (region.owner === playerIndex && region.isDeclined) {
+    // Conquering our own declined region destroys passive income (net 0 gain:
+    // we lose 1 declined income but gain 1 active income). It also costs tokens.
+    // Only worth it if the active race earns significantly MORE from this region
+    // (e.g., terrain/feature bonuses) or it unlocks critical expansion paths.
+    // Apply a heavy penalty so this only happens in exceptional cases.
+    value -= 5.0;
   }
 
   // --- Opponent denial (zero-sum: denying opponent income = gaining your own) ---
@@ -746,7 +782,14 @@ function _choosePickUp(
 
   // Pick up excess (leave 1 token), or end if regions are too valuable
   const player = state.players[playerIdx];
-  if (bestAction && (lowestValue < 1.5 || player.availableTokens < 3)) {
+
+  // Be more aggressive about gathering when we have few tokens in hand
+  // (we need them for conquests), but more conservative about stripping
+  // high-value or threatened regions
+  const desperateForTokens = player.availableTokens < 3;
+  const threshold = desperateForTokens ? 2.0 : 1.5;
+
+  if (bestAction && (lowestValue < threshold || player.availableTokens < 2)) {
     // Leave 1 token — pick up count - 1
     return { ...bestAction, count: (bestAction as { count: number }).count - 1 } as GameAction;
   }
@@ -758,32 +801,57 @@ function _choosePickUp(
 /** How valuable is it to keep tokens in this region vs gathering them? */
 function _regionRetainValue(state: GameState, region: RegionState, playerIdx: 0 | 1): number {
   const opIdx = (1 - playerIdx) as 0 | 1;
+  const player = state.players[playerIdx];
+  const opponent = state.players[opIdx];
   let value = 0;
 
-  // Mountain: hard to retake
-  if (region.terrain === 'mountain') value += 1.0;
+  // Mountain: hard to retake (costs +1 to conquer)
+  if (region.terrain === 'mountain') value += 1.5;
 
   // Scoring bonus region
-  const player = state.players[playerIdx];
   if (player.activeRace) {
     const mods = getActiveModifiers(player);
     for (const tb of mods.terrainBonuses) {
-      if (region.terrain === tb.terrain) value += 1.0;
+      if (region.terrain === tb.terrain) value += tb.bonus;
     }
     for (const fb of mods.featureBonuses) {
-      if (_regionHasFeature(region, fb.feature)) value += 1.0;
+      if (_regionHasFeature(region, fb.feature)) value += fb.bonus;
+    }
+    // Merchant: every region counts
+    if (mods.bonusPerRegion > 0) value += mods.bonusPerRegion * 0.5;
+  }
+
+  // Border threat: count adjacent opponent regions and tokens
+  let oppAdjCount = 0;
+  let oppAdjTokens = 0;
+  for (const adjId of region.adjacentRegionIds) {
+    const adj = state.board.regions.find((r) => r.id === adjId);
+    if (adj && adj.owner === opIdx && !adj.isDeclined) {
+      oppAdjCount++;
+      oppAdjTokens += adj.tokens;
     }
   }
 
-  // Border threat: adjacent to opponent
-  const oppAdjCount = region.adjacentRegionIds.filter((adjId) => {
-    const adj = state.board.regions.find((r) => r.id === adjId);
-    return adj && adj.owner === opIdx;
-  }).length;
   if (oppAdjCount === 0) {
     // Interior region — safe to gather from
     value -= 0.5;
+  } else {
+    // Threatened region — more tokens nearby = more danger = more value in keeping
+    value += oppAdjCount * 0.3 + oppAdjTokens * 0.1;
   }
+
+  // If opponent just declined (no active race), border regions are safer to strip
+  if (!opponent.activeRace) {
+    value -= 0.3;
+  }
+
+  // Isolated region (no adjacent owned regions) — less valuable to hold,
+  // since it doesn't connect our territory
+  const ownAdj = region.adjacentRegionIds.filter((adjId) => {
+    const adj = state.board.regions.find((r) => r.id === adjId);
+    return adj && adj.owner === playerIdx && !adj.isDeclined;
+  }).length;
+  if (ownAdj === 0) value -= 0.3;
 
   return value;
 }
@@ -970,7 +1038,38 @@ export function computeRedeployment(state: GameState, playerIndex: 0 | 1): Map<n
   for (const r of ownedRegions) deployment.set(r.id, 1);
   let remaining = totalTokens - ownedRegions.length;
 
-  if (borderRegions.length > 0) {
+  // Pre-decline positioning: if we're likely to decline next turn,
+  // prioritize mountains and troll-lair regions (they persist longer in decline)
+  const likelyToDecllineSoon = _isLikelyToDeclineSoon(state, playerIndex, totalTokens, ownedRegions.length);
+
+  if (likelyToDecllineSoon) {
+    // Pre-decline mode: stack tokens on durable regions (mountains, troll lairs)
+    // and spread 1 per region elsewhere to maximize decline coverage
+    const durableRegions = ownedRegions.filter(
+      (r) => r.terrain === 'mountain' || r.hasTrollLair,
+    );
+    const otherRegions = ownedRegions.filter(
+      (r) => r.terrain !== 'mountain' && !r.hasTrollLair,
+    );
+
+    // 1 per non-durable region
+    for (const r of otherRegions) deployment.set(r.id, 1);
+    let afterMinimum = remaining - otherRegions.length; // remaining after initial 1-per-region above
+    // Actually we already set 1 per region above, so remaining is already totalTokens - ownedRegions.length
+    // Distribute remaining to durable regions
+    if (durableRegions.length > 0) {
+      const perDurable = Math.floor(remaining / durableRegions.length);
+      const extraDurable = remaining % durableRegions.length;
+      for (let i = 0; i < durableRegions.length; i++) {
+        const current = deployment.get(durableRegions[i].id)!;
+        deployment.set(durableRegions[i].id, current + perDurable + (i < extraDurable ? 1 : 0));
+      }
+      remaining = 0;
+    }
+    // If no durable regions, fall through to normal border stacking
+  }
+
+  if (remaining > 0 && borderRegions.length > 0) {
     // --- Border stacking: pile all remaining tokens onto border regions ---
     const priorities = borderRegions.map((r) => ({
       id: r.id,
@@ -995,23 +1094,46 @@ export function computeRedeployment(state: GameState, playerIndex: 0 | 1): Map<n
       priorities.sort((a, b) => b.priority - a.priority);
     }
 
-    // Distribute remaining to border regions by priority
-    while (remaining > 0) {
+    // Predict if opponent is likely to decline — if so, border defense is less critical
+    if (opponent.activeRace && _isOpponentLikelyToDecline(state, opIdx)) {
+      // Opponent is weak — spread more evenly instead of heavy border stacking
+      // Give border regions a modest +1 instead of dumping all tokens there
       for (const p of priorities) {
         if (remaining <= 0) break;
         const current = deployment.get(p.id)!;
         deployment.set(p.id, current + 1);
         remaining--;
       }
+      // Distribute leftovers evenly across all regions
+      while (remaining > 0) {
+        for (const r of ownedRegions) {
+          if (remaining <= 0) break;
+          const current = deployment.get(r.id)!;
+          deployment.set(r.id, current + 1);
+          remaining--;
+        }
+      }
+    } else {
+      // Normal border stacking by priority
+      while (remaining > 0) {
+        for (const p of priorities) {
+          if (remaining <= 0) break;
+          const current = deployment.get(p.id)!;
+          deployment.set(p.id, current + 1);
+          remaining--;
+        }
+      }
     }
-  } else {
+  } else if (remaining > 0) {
     // --- No borders: equalize defense across all regions ---
     // Spread tokens so each region has roughly equal defense
-    const tokensPerRegion = Math.floor(totalTokens / ownedRegions.length);
-    const extraTokens = totalTokens % ownedRegions.length;
-
-    for (let i = 0; i < ownedRegions.length; i++) {
-      deployment.set(ownedRegions[i].id, tokensPerRegion + (i < extraTokens ? 1 : 0));
+    while (remaining > 0) {
+      for (const r of ownedRegions) {
+        if (remaining <= 0) break;
+        const current = deployment.get(r.id)!;
+        deployment.set(r.id, current + 1);
+        remaining--;
+      }
     }
   }
 
@@ -1064,6 +1186,55 @@ function _regionDefensePriority(
   }
 
   return priority;
+}
+
+/** Predict whether we're likely to decline on our next turn. */
+function _isLikelyToDeclineSoon(
+  state: GameState,
+  playerIndex: 0 | 1,
+  totalTokens: number,
+  regionCount: number,
+): boolean {
+  // Never pre-position for decline on the last two turns
+  if (state.turn >= 9) return false;
+
+  const player = state.players[playerIndex];
+  if (!player.activeRace) return false;
+
+  // Estimate tokens available next turn (roughly: totalTokens - regionCount = excess)
+  const excessTokens = totalTokens - regionCount;
+
+  // If we have very few excess tokens, we're likely to decline
+  if (excessTokens <= 2) return true;
+
+  // If we're scoring poorly relative to our token investment, likely to decline
+  const currentIncome = calculateScore(state, playerIndex);
+  if (currentIncome <= 4 && excessTokens <= 4) return true;
+
+  return false;
+}
+
+/** Predict whether the opponent is likely to decline on their next turn. */
+function _isOpponentLikelyToDecline(state: GameState, opIdx: 0 | 1): boolean {
+  const opponent = state.players[opIdx];
+  if (!opponent.activeRace) return false; // Already declined
+
+  // Count opponent's active regions and tokens
+  const oppRegions = state.board.regions.filter(
+    (r) => r.owner === opIdx && !r.isDeclined,
+  );
+  let oppTotalTokens = opponent.availableTokens;
+  for (const r of oppRegions) oppTotalTokens += r.tokens;
+
+  const excessTokens = oppTotalTokens - oppRegions.length;
+
+  // Opponent has very few excess tokens — likely to decline
+  if (excessTokens <= 2) return true;
+
+  // Opponent has few regions left — likely to decline
+  if (oppRegions.length <= 2 && excessTokens <= 4) return true;
+
+  return false;
 }
 
 function _chooseRedeploy(state: GameState, _allActions: readonly GameAction[]): GameAction {
