@@ -74,7 +74,7 @@ export class Board extends Phaser.Scene {
 
     // Clean up all game objects when the scene is stopped so tokens/graphics
     // from a previous game don't persist when the scene is relaunched.
-    this.events.once('shutdown', () => {
+    this.events.on('shutdown', () => {
       this.regionGraphics.clear();
       this.selectedRegionId = null;
       this.children.removeAll(true);
