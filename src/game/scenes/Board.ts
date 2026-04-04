@@ -6,6 +6,9 @@ import { MAP_2P } from '@/game/data/map2p';
 const MAP_W = MAP_2P.imageWidth;   // 1600
 const MAP_H = MAP_2P.imageHeight;  // 900
 
+/** Height of the HUD bar — the Board viewport starts below this. */
+const HUD_BAR_H = 48;
+
 /** Camera zoom limits */
 const ZOOM_MIN = 0.6;
 const ZOOM_MAX = 2.0;
@@ -35,6 +38,14 @@ export interface RegionEvent {
  * hit-polygon zones for each region. Supports pointer-drag panning and
  * scroll-wheel zooming via Phaser's built-in camera system.
  *
+ * Layout (top → bottom):
+ *   - HUD bar (0 → 48px) — rendered by HUD scene
+ *   - Game background + map (48px → bottom) — rendered here
+ *
+ * The background image uses scrollFactor(0) so it stays fixed regardless of
+ * camera scroll. Its scale is adjusted every frame to counteract camera zoom,
+ * keeping it a constant full-viewport fill behind the zoomable map.
+ *
  * Region interaction events are emitted on the scene's own event emitter so
  * that the HUD scene and GameController can respond without tight coupling:
  *
@@ -56,6 +67,12 @@ export class Board extends Phaser.Scene {
   /** Currently selected region id (null = none) */
   private selectedRegionId: number | null = null;
 
+  /** Fixed background image (scrollFactor 0, zoom-compensated in update) */
+  private bgImage!: Phaser.GameObjects.Image;
+  /** Base scale values for the background (at zoom=1) */
+  private bgBaseScaleX = 1;
+  private bgBaseScaleY = 1;
+
   constructor() {
     super('Board');
   }
@@ -63,6 +80,7 @@ export class Board extends Phaser.Scene {
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   create(): void {
+    this._createBackground();
     this._createMapImage();
     this._createRegionZones();
     this._setupCamera();
@@ -81,7 +99,34 @@ export class Board extends Phaser.Scene {
     });
   }
 
+  update(): void {
+    // Keep the background filling the viewport regardless of camera zoom.
+    // scrollFactor(0) handles scroll, but zoom still applies — we counteract
+    // it by scaling the image inversely.
+    const cam = this.cameras.main;
+    const invZoom = 1 / cam.zoom;
+    this.bgImage.setScale(this.bgBaseScaleX * invZoom, this.bgBaseScaleY * invZoom);
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  /** Create a fixed (non-zoomable) background that fills the area below the HUD. */
+  private _createBackground(): void {
+    const sw = this.scale.width;
+    const viewH = this.scale.height - HUD_BAR_H;
+
+    // Place at the center of the viewport. scrollFactor(0) keeps it fixed
+    // regardless of camera scroll. Depth -1 ensures it renders behind the map.
+    this.bgImage = this.add.image(sw / 2, viewH / 2, 'game-background')
+      .setScrollFactor(0)
+      .setDepth(-1);
+
+    // Calculate base scale to fill the viewport at zoom=1
+    const tex = this.bgImage.texture.getSourceImage();
+    this.bgBaseScaleX = sw / tex.width;
+    this.bgBaseScaleY = viewH / tex.height;
+    this.bgImage.setScale(this.bgBaseScaleX, this.bgBaseScaleY);
+  }
 
   /** Place the map image at (0,0); scale to match polygon coordinate space. */
   private _createMapImage(): void {
@@ -239,23 +284,59 @@ export class Board extends Phaser.Scene {
   // ── Camera ─────────────────────────────────────────────────────────────────
 
   private _setupCamera(): void {
+    const sw = this.scale.width;
+    const viewH = this.scale.height - HUD_BAR_H;
     const cam = this.cameras.main;
-    // World bounds: map size + padding so the map can't be scrolled off-screen
-    this.cameras.main.setBounds(
-      -PAN_PADDING,
-      -PAN_PADDING,
-      MAP_W + PAN_PADDING * 2,
-      MAP_H + PAN_PADDING * 2,
-    );
+
+    // Viewport starts below the HUD bar
+    cam.setViewport(0, HUD_BAR_H, sw, viewH);
+
     // Start at max zoom-out so the entire map is visible (FR-58)
-    const fitZoom = Math.min(
-      this.scale.width / MAP_W,
-      this.scale.height / MAP_H,
-    );
+    const fitZoom = Math.min(sw / MAP_W, viewH / MAP_H);
     const initialZoom = Math.max(fitZoom, ZOOM_MIN);
     cam.setZoom(initialZoom);
-    // Centre the camera on the map
+
+    // Set bounds and centre for the initial zoom
+    this._updateCameraBounds(cam);
     cam.centerOn(MAP_W / 2, MAP_H / 2);
+  }
+
+  /**
+   * Recalculate camera bounds so the map stays centered when the visible area
+   * is larger than the map (i.e. at low zoom). When zoomed in, normal bounds
+   * with padding apply. When zoomed out, the bounds shrink so the camera
+   * cannot scroll the map away from center.
+   */
+  private _updateCameraBounds(cam: Phaser.Cameras.Scene2D.Camera): void {
+    const viewW = cam.width / cam.zoom;
+    const viewH = cam.height / cam.zoom;
+
+    // If the visible area is wider/taller than the map+padding, center-lock
+    // that axis by making the bounds equal to the map center point.
+    const mapCX = MAP_W / 2;
+    const mapCY = MAP_H / 2;
+
+    let bx: number, bw: number;
+    if (viewW >= MAP_W + PAN_PADDING * 2) {
+      // Viewport wider than map — lock horizontal center
+      bx = mapCX - viewW / 2;
+      bw = viewW;
+    } else {
+      bx = -PAN_PADDING;
+      bw = MAP_W + PAN_PADDING * 2;
+    }
+
+    let by: number, bh: number;
+    if (viewH >= MAP_H + PAN_PADDING * 2) {
+      // Viewport taller than map — lock vertical center
+      by = mapCY - viewH / 2;
+      bh = viewH;
+    } else {
+      by = -PAN_PADDING;
+      bh = MAP_H + PAN_PADDING * 2;
+    }
+
+    cam.setBounds(bx, by, bw, bh);
   }
 
   // ── Zoom (scroll wheel) ────────────────────────────────────────────────────
@@ -274,6 +355,7 @@ export class Board extends Phaser.Scene {
         ZOOM_MAX,
       );
       cam.setZoom(newZoom);
+      this._updateCameraBounds(cam);
     });
   }
 

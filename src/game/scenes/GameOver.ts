@@ -6,9 +6,6 @@ import type { GameState } from '@/game/state/types';
 // Displayed when the game reaches phase 'gameOver'. Receives the final
 // GameState as scene data, shows winner + scores, and offers navigation.
 
-const W = 1280;
-const H = 720;
-
 const TEXT_GOLD   = '#fbbf24';
 const TEXT_LIGHT  = '#e8d5b7';
 const TEXT_MUTED  = '#9999bb';
@@ -43,15 +40,18 @@ export class GameOver extends Phaser.Scene {
   // ── Private builders ───────────────────────────────────────────────────────
 
   private _drawBackground(): void {
-    this.add.rectangle(W / 2, H / 2, W, H, DARK_BG);
+    const sw = this.scale.width;
+    const sh = this.scale.height;
+    this.add.rectangle(sw / 2, sh / 2, sw, sh, DARK_BG);
 
     const gfx = this.add.graphics();
     gfx.lineStyle(1, 0x1a1a3a, 0.5);
-    for (let x = 0; x <= W; x += 80) gfx.lineBetween(x, 0, x, H);
-    for (let y = 0; y <= H; y += 80) gfx.lineBetween(0, y, W, y);
+    for (let x = 0; x <= sw; x += 80) gfx.lineBetween(x, 0, x, sh);
+    for (let y = 0; y <= sh; y += 80) gfx.lineBetween(0, y, sw, y);
   }
 
   private _drawTitle(winner: 0 | 1 | 'tie'): void {
+    const sw = this.scale.width;
     const titleText = winner === 'tie'
       ? 'DRAW!'
       : `PLAYER ${winner + 1} WINS!`;
@@ -60,14 +60,14 @@ export class GameOver extends Phaser.Scene {
       ? TEXT_GOLD
       : PLAYER_COLORS[winner];
 
-    this.add.text(W / 2, 80, 'GAME OVER', {
+    this.add.text(sw / 2, 80, 'GAME OVER', {
       fontSize: '22px',
       fontFamily: 'Arial',
       color: TEXT_MUTED,
       letterSpacing: 6,
     }).setOrigin(0.5);
 
-    this.add.text(W / 2, 140, titleText, {
+    this.add.text(sw / 2, 140, titleText, {
       fontSize: '64px',
       fontFamily: 'Georgia, serif',
       color: titleColor,
@@ -77,9 +77,10 @@ export class GameOver extends Phaser.Scene {
   }
 
   private _drawScores(p0Coins: number, p1Coins: number): void {
+    const sw = this.scale.width;
     const panels: Array<{ label: string; coins: number; x: number; color: string }> = [
-      { label: 'PLAYER 1', coins: p0Coins, x: W / 2 - 200, color: TEXT_BLUE },
-      { label: 'PLAYER 2', coins: p1Coins, x: W / 2 + 200, color: TEXT_RED },
+      { label: 'PLAYER 1', coins: p0Coins, x: sw / 2 - 200, color: TEXT_BLUE },
+      { label: 'PLAYER 2', coins: p1Coins, x: sw / 2 + 200, color: TEXT_RED },
     ];
 
     for (const { label, coins, x, color } of panels) {
@@ -115,7 +116,8 @@ export class GameOver extends Phaser.Scene {
 
     if (coinsByTurn.length === 0) return;
 
-    this.add.text(W / 2, 360, 'COINS EARNED PER TURN', {
+    const sw = this.scale.width;
+    this.add.text(sw / 2, 360, 'COINS EARNED PER TURN', {
       fontSize: '12px',
       fontFamily: 'Arial',
       color: TEXT_MUTED,
@@ -126,7 +128,7 @@ export class GameOver extends Phaser.Scene {
     const barMaxH = 60;
     const barW = 16;
     const spacing = 24;
-    const startX = W / 2 - (coinsByTurn.length * (barW * 2 + spacing + 4)) / 2 + barW;
+    const startX = sw / 2 - (coinsByTurn.length * (barW * 2 + spacing + 4)) / 2 + barW;
     const baseY = 450;
 
     coinsByTurn.forEach((entry, i) => {
@@ -153,13 +155,13 @@ export class GameOver extends Phaser.Scene {
     });
 
     // Legend
-    this.add.rectangle(W / 2 - 56, 490, 10, 10, 0x3b82f6);
-    this.add.text(W / 2 - 48, 490, 'Player 1', {
+    this.add.rectangle(sw / 2 - 56, 490, 10, 10, 0x3b82f6);
+    this.add.text(sw / 2 - 48, 490, 'Player 1', {
       fontSize: '11px', fontFamily: 'Arial', color: TEXT_BLUE,
     }).setOrigin(0, 0.5);
 
-    this.add.rectangle(W / 2 + 30, 490, 10, 10, 0xef4444);
-    this.add.text(W / 2 + 38, 490, 'Player 2', {
+    this.add.rectangle(sw / 2 + 30, 490, 10, 10, 0xef4444);
+    this.add.text(sw / 2 + 38, 490, 'Player 2', {
       fontSize: '11px', fontFamily: 'Arial', color: TEXT_RED,
     }).setOrigin(0, 0.5);
   }
@@ -167,11 +169,12 @@ export class GameOver extends Phaser.Scene {
   private _drawButtons(): void {
     const y = 580;
 
+    const sw = this.scale.width;
     // Play Again
-    const playBg = this.add.rectangle(W / 2 - 130, y, 220, 46, 0x6c63ff)
+    const playBg = this.add.rectangle(sw / 2 - 130, y, 220, 46, 0x6c63ff)
       .setStrokeStyle(1, 0xffffff, 0.2)
       .setInteractive({ useHandCursor: true });
-    this.add.text(W / 2 - 130, y, 'PLAY AGAIN', {
+    this.add.text(sw / 2 - 130, y, 'PLAY AGAIN', {
       fontSize: '15px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     playBg.on('pointerover', () => playBg.setFillStyle(0x8b83ff));
@@ -182,10 +185,10 @@ export class GameOver extends Phaser.Scene {
     });
 
     // Main Menu
-    const menuBg = this.add.rectangle(W / 2 + 130, y, 220, 46, 0x2a2a42)
+    const menuBg = this.add.rectangle(sw / 2 + 130, y, 220, 46, 0x2a2a42)
       .setStrokeStyle(1, 0x6c63ff, 0.6)
       .setInteractive({ useHandCursor: true });
-    this.add.text(W / 2 + 130, y, 'MAIN MENU', {
+    this.add.text(sw / 2 + 130, y, 'MAIN MENU', {
       fontSize: '15px', fontFamily: 'Arial', color: TEXT_LIGHT, fontStyle: 'bold',
     }).setOrigin(0.5);
     menuBg.on('pointerover', () => menuBg.setFillStyle(0x3a3a5f));

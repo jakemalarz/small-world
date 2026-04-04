@@ -14,8 +14,6 @@ const DARK_BG     = 0x0f0f1a;
 const PANEL_BG    = 0x1e1e2e;
 const TEXT_COLOR  = '#e8d5b7';
 const DIM_COLOR   = '#888888';
-const W = 1280;
-const H = 720;
 
 const PHASE_LABELS: Record<TurnPhase, string> = {
   selectCombo:            'Select Race & Power',
@@ -69,6 +67,7 @@ export class HUD extends Phaser.Scene {
   // ── Text / graphics refs for live updates ─────────────────────────────────
   private phaseText!: Phaser.GameObjects.Text;
   private turnText!: Phaser.GameObjects.Text;
+  private hudBar!: HudBar;
   private playerDashboards: PlayerDashboard[] = [];
   private declinedDashboards: DeclinedDashboard[] = [];
   private actionButton!: Phaser.GameObjects.Container;
@@ -102,6 +101,7 @@ export class HUD extends Phaser.Scene {
     this.cameras.main.setScroll(0, 0);
 
     this._drawTopBar();
+    this._drawHudBar();
     this._drawPlayerDashboards();
     this._drawActionButton();
     this._drawDeclineButton();
@@ -134,6 +134,9 @@ export class HUD extends Phaser.Scene {
     }
     this.phaseText.setText(phaseLabel);
     this.turnText.setText(`Turn ${state.turn} / 10`);
+
+    // Update HUD bar
+    this.hudBar.update(state);
 
     // Update player dashboards
     for (let i = 0; i < 2; i++) {
@@ -225,8 +228,9 @@ export class HUD extends Phaser.Scene {
 
   /** Top bar: turn track left, phase indicator center. */
   private _drawTopBar(): void {
+    const sw = this.scale.width;
     // Background strip
-    this.add.rectangle(W / 2, 20, W, 40, DARK_BG, 0.9).setDepth(10);
+    this.add.rectangle(sw / 2, 20, sw, 40, DARK_BG, 0.9).setDepth(10);
 
     // Turn track (top-left)
     this.turnText = this.add.text(12, 20, 'Turn 1 / 10', {
@@ -236,7 +240,7 @@ export class HUD extends Phaser.Scene {
     }).setOrigin(0, 0.5).setDepth(11);
 
     // Phase (top-center)
-    this.phaseText = this.add.text(W / 2, 20, 'Select Race & Power', {
+    this.phaseText = this.add.text(sw / 2, 20, 'Select Race & Power', {
       fontSize: '15px',
       fontFamily: 'Arial',
       color: '#fbbf24',
@@ -244,23 +248,30 @@ export class HUD extends Phaser.Scene {
     }).setOrigin(0.5, 0.5).setDepth(11);
   }
 
+  /** New HUD bar across the top (from mockup). */
+  private _drawHudBar(): void {
+    this.hudBar = new HudBar(this);
+  }
+
   /** Two player dashboard panels (bottom-left and bottom-right). */
   private _drawPlayerDashboards(): void {
+    const sw = this.scale.width;
+    const sh = this.scale.height;
     // Player 0 — bottom left
     this.playerDashboards[0] = new PlayerDashboard(
-      this, 0, 8, H - 100, 280, 92,
+      this, 0, 8, sh - 100, 280, 92,
     );
     // Player 1 — bottom right
     this.playerDashboards[1] = new PlayerDashboard(
-      this, 1, W - 288, H - 100, 280, 92,
+      this, 1, sw - 288, sh - 100, 280, 92,
     );
 
     // Declined race boxes (above main boxes, only visible when player has declined races)
     this.declinedDashboards[0] = new DeclinedDashboard(
-      this, 0, 8, H - 196, 280, 88,
+      this, 0, 8, sh - 196, 280, 88,
     );
     this.declinedDashboards[1] = new DeclinedDashboard(
-      this, 1, W - 288, H - 196, 280, 88,
+      this, 1, sw - 288, sh - 196, 280, 88,
     );
   }
 
@@ -276,7 +287,7 @@ export class HUD extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
-    this.actionButton = this.add.container(W / 2, H - 24, [
+    this.actionButton = this.add.container(this.scale.width / 2, this.scale.height - 24, [
       this.actionBtnBg,
       this.actionBtnLabel,
     ]).setDepth(12);
@@ -308,7 +319,7 @@ export class HUD extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
-    this.declineButton = this.add.container(W / 2 - 160, H - 24, [
+    this.declineButton = this.add.container(this.scale.width / 2 - 160, this.scale.height - 24, [
       this.declineBtnBg,
       this.declineBtnLabel,
     ]).setDepth(12);
@@ -340,7 +351,7 @@ export class HUD extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
-    this.finalConquestButton = this.add.container(W / 2 + 160, H - 24, [
+    this.finalConquestButton = this.add.container(this.scale.width / 2 + 160, this.scale.height - 24, [
       this.finalConquestBtnBg,
       finalConquestLabel,
     ]).setDepth(12);
@@ -367,7 +378,7 @@ export class HUD extends Phaser.Scene {
       fontSize: '12px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
-    this.dragonButton = this.add.container(W / 2 + 160, H - 58, [
+    this.dragonButton = this.add.container(this.scale.width / 2 + 160, this.scale.height - 58, [
       this.dragonBtnBg, this.dragonBtnLabel,
     ]).setDepth(12);
 
@@ -399,7 +410,7 @@ export class HUD extends Phaser.Scene {
       fontSize: '11px', fontFamily: 'Arial', color: '#93c5fd',
     }).setOrigin(0.5, 0.5);
 
-    this.add.container(W - 200, 20, [
+    this.add.container(this.scale.width - 200, 20, [
       this.modeToggleBg, this.modeToggleLabel,
     ]).setDepth(12);
 
@@ -417,7 +428,7 @@ export class HUD extends Phaser.Scene {
 
   /** Die result indicator (shown during reinforcementDie phase). */
   private _drawDieResult(): void {
-    this.dieResultText = this.add.text(W / 2 + 130, H - 24, '', {
+    this.dieResultText = this.add.text(this.scale.width / 2 + 130, this.scale.height - 24, '', {
       fontSize: '16px',
       fontFamily: 'Georgia, serif',
       fontStyle: 'bold',
@@ -436,7 +447,7 @@ export class HUD extends Phaser.Scene {
       color: '#93c5fd',
     }).setOrigin(0.5, 0.5);
 
-    this.browseButton = this.add.container(W - 80, 20, [
+    this.browseButton = this.add.container(this.scale.width - 80, 20, [
       this.browseBtnBg,
       browseBtnLabel,
     ]).setDepth(12);
@@ -650,6 +661,293 @@ class PlayerDashboard {
     }
 
     this.coinsText.setText(`Coins: ${player.coins}`);
+  }
+}
+
+// ── HudBar helper class ─────────────────────────────────────────────────────────
+//
+// Implements the new top HUD bar from the mockup: a 1280×48 image-backed bar with
+// player sections on each side and a center section showing title + turn/phase.
+//
+// Each player section shows:
+//   - Player label + coin icon + coin count
+//   - Active race: race token icon + count, power token icon + count, region icon + count
+//   - Declined race: declined token icon + count, region icon + count
+
+const HUD_BAR_H = 48;
+const HUD_ICON_SIZE = 28;
+const HUD_DEPTH = 15;    // Above the old top bar
+const HUD_TEXT_DEPTH = 16;
+const PLAYER_SECTION_W = 480;
+
+/** Single icon + count pair in the HUD bar. */
+class HudStatPair {
+  readonly icon: Phaser.GameObjects.Image;
+  readonly label: Phaser.GameObjects.Text;
+
+  constructor(scene: Phaser.Scene, x: number, y: number, textureKey: string, depth: number) {
+    this.icon = scene.add.image(x, y, textureKey)
+      .setDisplaySize(HUD_ICON_SIZE, HUD_ICON_SIZE)
+      .setDepth(depth);
+    this.label = scene.add.text(x + HUD_ICON_SIZE / 2 + 4, y, '0', {
+      fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: TEXT_COLOR,
+    }).setOrigin(0, 0.5).setDepth(depth);
+  }
+
+  setCount(n: number): void {
+    this.label.setText(String(n));
+  }
+
+  setTexture(key: string): void {
+    this.icon.setTexture(key);
+  }
+
+  setVisible(v: boolean): void {
+    this.icon.setVisible(v);
+    this.label.setVisible(v);
+  }
+
+  /** Returns the right edge x of the label text for layout chaining. */
+  get rightX(): number {
+    return this.label.x + this.label.width;
+  }
+}
+
+/** One player's section in the HUD bar. */
+class HudPlayerSection {
+  private readonly playerIndex: 0 | 1;
+  // Coins
+  private coinCount!: Phaser.GameObjects.Text;
+  // Active race group
+  private activeRaceTokens!: HudStatPair;
+  private activePowerTokens!: HudStatPair;
+  private activeRegions!: HudStatPair;
+  // Decline group
+  private declineGroupLabel!: Phaser.GameObjects.Text;
+  private declineTokens!: HudStatPair;
+  private declineRegions!: HudStatPair;
+  // Separator (between active and decline)
+  private sep2!: Phaser.GameObjects.Rectangle;
+
+  constructor(scene: Phaser.Scene, playerIndex: 0 | 1, baseX: number) {
+    this.playerIndex = playerIndex;
+    this._build(scene, baseX);
+  }
+
+  private _build(scene: Phaser.Scene, baseX: number): void {
+    const color = PLAYER_COLORS[this.playerIndex];
+    const hexColor = PLAYER_HEX[this.playerIndex];
+    const cy = HUD_BAR_H / 2; // vertical center of bar
+    let x = baseX;
+
+    // Accent bar (left edge)
+    scene.add.rectangle(x, cy, 3, 24, color)
+      .setOrigin(0, 0.5).setDepth(HUD_TEXT_DEPTH);
+    x += 9;
+
+    // Player label
+    scene.add.text(x, cy, `P${this.playerIndex + 1}`, {
+      fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: hexColor,
+    }).setOrigin(0, 0.5).setDepth(HUD_TEXT_DEPTH);
+    x += 28;
+
+    // Coin icon + count
+    scene.add.image(x + HUD_ICON_SIZE / 2, cy, 'hud-coin')
+      .setDisplaySize(HUD_ICON_SIZE, HUD_ICON_SIZE)
+      .setDepth(HUD_TEXT_DEPTH);
+    x += HUD_ICON_SIZE + 4;
+    this.coinCount = scene.add.text(x, cy, '0', {
+      fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: '#fbbf24',
+    }).setOrigin(0, 0.5).setDepth(HUD_TEXT_DEPTH);
+    x += 26;
+
+    // Separator 1
+    scene.add.rectangle(x, cy, 2, 24, 0x2a2a3e)
+      .setDepth(HUD_TEXT_DEPTH);
+    x += 12;
+
+    // "ACTIVE" vertical label
+    scene.add.text(x, cy, 'A\nC\nT\nI\nV\nE', {
+      fontSize: '7px', fontFamily: 'Arial', color: '#666666',
+      lineSpacing: -4, align: 'center',
+    }).setOrigin(0.5, 0.5).setDepth(HUD_TEXT_DEPTH);
+    x += 12;
+
+    // Active race token + count
+    this.activeRaceTokens = new HudStatPair(scene, x + HUD_ICON_SIZE / 2, cy, 'hud-race-amazons', HUD_TEXT_DEPTH);
+    x += HUD_ICON_SIZE + 24;
+
+    // Active power token + count
+    this.activePowerTokens = new HudStatPair(scene, x + HUD_ICON_SIZE / 2, cy, 'token-encampment', HUD_TEXT_DEPTH);
+    x += HUD_ICON_SIZE + 24;
+
+    // Active regions count
+    this.activeRegions = new HudStatPair(scene, x + HUD_ICON_SIZE / 2, cy, 'hud-occupied-region', HUD_TEXT_DEPTH);
+    x += HUD_ICON_SIZE + 24;
+
+    // Separator 2
+    this.sep2 = scene.add.rectangle(x, cy, 2, 24, 0x2a2a3e)
+      .setDepth(HUD_TEXT_DEPTH);
+    x += 12;
+
+    // "DECLINE" vertical label
+    this.declineGroupLabel = scene.add.text(x, cy, 'D\nE\nC\nL\nI\nN\nE', {
+      fontSize: '7px', fontFamily: 'Arial', color: '#666666',
+      lineSpacing: -4, align: 'center',
+    }).setOrigin(0.5, 0.5).setDepth(HUD_TEXT_DEPTH);
+    x += 12;
+
+    // Declined race token + count
+    this.declineTokens = new HudStatPair(scene, x + HUD_ICON_SIZE / 2, cy, 'token-amazons-d', HUD_TEXT_DEPTH);
+    x += HUD_ICON_SIZE + 24;
+
+    // Declined regions count
+    this.declineRegions = new HudStatPair(scene, x + HUD_ICON_SIZE / 2, cy, 'hud-occupied-region', HUD_TEXT_DEPTH);
+  }
+
+  update(state: GameState): void {
+    const player = state.players[this.playerIndex];
+
+    // Coins
+    this.coinCount.setText(String(player.coins));
+
+    // Active race section
+    const active = player.activeRace;
+    if (active) {
+      this.activeRaceTokens.setTexture(`hud-race-${active.raceId}`);
+      this.activeRaceTokens.setCount(active.totalTokens);
+      this.activeRaceTokens.setVisible(true);
+
+      // Power token icon — show the power-specific token if applicable
+      const powerTokenKey = this._getPowerTokenKey(active.powerId);
+      if (powerTokenKey) {
+        this.activePowerTokens.setTexture(powerTokenKey);
+        this.activePowerTokens.setCount(this._getPowerTokenCount(state, active));
+        this.activePowerTokens.setVisible(true);
+      } else {
+        this.activePowerTokens.setVisible(false);
+      }
+
+      // Regions occupied by active race
+      const activeRegions = state.board.regions.filter(
+        r => r.owner === this.playerIndex && !r.isDeclined,
+      ).length;
+      this.activeRegions.setCount(activeRegions);
+      this.activeRegions.setVisible(true);
+    } else {
+      this.activeRaceTokens.setVisible(false);
+      this.activePowerTokens.setVisible(false);
+      this.activeRegions.setVisible(false);
+    }
+
+    // Declined race section
+    if (player.declinedRaces.length > 0) {
+      const declined = player.declinedRaces[0]; // Most recent
+      this.declineTokens.setTexture(`token-${declined.raceId}-d`);
+      const declinedBoardTokens = state.board.regions
+        .filter(r => r.owner === this.playerIndex && r.isDeclined)
+        .reduce((sum, r) => sum + r.tokens, 0);
+      this.declineTokens.setCount(declinedBoardTokens);
+      this.declineTokens.setVisible(true);
+
+      const declinedRegions = state.board.regions.filter(
+        r => r.owner === this.playerIndex && r.isDeclined,
+      ).length;
+      this.declineRegions.setCount(declinedRegions);
+      this.declineRegions.setVisible(true);
+
+      this.declineGroupLabel.setVisible(true);
+      this.sep2.setVisible(true);
+    } else {
+      this.declineTokens.setVisible(false);
+      this.declineRegions.setVisible(false);
+      this.declineGroupLabel.setVisible(false);
+      this.sep2.setVisible(false);
+    }
+  }
+
+  private _getPowerTokenKey(powerId: string): string | null {
+    switch (powerId) {
+      case 'bivouacking':  return 'token-encampment';
+      case 'fortified':    return 'token-fortress';
+      case 'heroic':       return 'token-hero';
+      case 'dragonMaster': return 'token-dragon';
+      default:             return null;
+    }
+  }
+
+  private _getPowerTokenCount(state: GameState, active: { powerId: string; raceId: string; fortressesPlaced?: number; fortressesLost?: number; trollLairsOnBoard?: number; dragonUsedThisTurn?: boolean }): number {
+    switch (active.powerId) {
+      case 'bivouacking': {
+        return state.board.regions
+          .filter(r => r.owner === this.playerIndex && !r.isDeclined)
+          .reduce((sum, r) => sum + r.encampmentCount, 0);
+      }
+      case 'fortified': {
+        const placed = active.fortressesPlaced ?? 0;
+        const lost = active.fortressesLost ?? 0;
+        return 6 - placed - lost;
+      }
+      case 'heroic': {
+        return state.board.regions
+          .filter(r => r.owner === this.playerIndex && !r.isDeclined && r.hasHero)
+          .length;
+      }
+      case 'dragonMaster':
+        return active.dragonUsedThisTurn ? 0 : 1;
+      default:
+        return 0;
+    }
+  }
+}
+
+class HudBar {
+  private readonly p1Section: HudPlayerSection;
+  private readonly p2Section: HudPlayerSection;
+  private readonly subtitleText: Phaser.GameObjects.Text;
+
+  constructor(scene: Phaser.Scene) {
+    const sw = scene.scale.width;
+
+    // HUD background image — full width
+    scene.add.image(sw / 2, HUD_BAR_H / 2, 'hud-background')
+      .setDisplaySize(sw, HUD_BAR_H)
+      .setDepth(HUD_DEPTH);
+
+    // Subtle border at the bottom of the HUD bar
+    scene.add.rectangle(sw / 2, HUD_BAR_H, sw, 1, 0x2a2a3e)
+      .setDepth(HUD_DEPTH);
+
+    // Player sections
+    this.p1Section = new HudPlayerSection(scene, 0, 8);
+    this.p2Section = new HudPlayerSection(scene, 1, sw - PLAYER_SECTION_W + 8);
+
+    // Center section
+    scene.add.text(sw / 2, HUD_BAR_H / 2 - 3, 'Small World', {
+      fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: TEXT_COLOR,
+    }).setOrigin(0.5, 0.5).setDepth(HUD_TEXT_DEPTH);
+
+    this.subtitleText = scene.add.text(sw / 2, HUD_BAR_H / 2 + 14, 'Turn 1 / 10 · Select Race & Power', {
+      fontSize: '13px', fontFamily: 'Arial', color: DIM_COLOR,
+    }).setOrigin(0.5, 0.5).setDepth(HUD_TEXT_DEPTH);
+  }
+
+  update(state: GameState): void {
+    // Center section
+    const activePlayer = state.players[state.activePlayerIndex];
+    const hasGhoulsInDecline = activePlayer.declinedRaces.some(d => d.raceId === 'ghouls');
+    let phaseLabel = PHASE_LABELS[state.phase];
+    if (hasGhoulsInDecline && activePlayer.activeRace &&
+        (state.phase === 'readyTroops' || state.phase === 'conquest' ||
+         state.phase === 'redeploy' || state.phase === 'reinforcementDie')) {
+      const raceName = RACES[activePlayer.activeRace.raceId as keyof typeof RACES]?.name ?? activePlayer.activeRace.raceId;
+      phaseLabel = `${raceName}: ${phaseLabel}`;
+    }
+    this.subtitleText.setText(`Turn ${state.turn} / 10 · ${phaseLabel}`);
+
+    // Player sections
+    this.p1Section.update(state);
+    this.p2Section.update(state);
   }
 }
 

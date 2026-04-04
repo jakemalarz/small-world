@@ -65,6 +65,34 @@ export class Boot extends Phaser.Scene {
     for (const [key, file] of SPECIAL_ASSETS) {
       this.load.image(key, `${base}${file}`);
     }
+
+    // ── HUD assets ──────────────────────────────────────────────────────────
+    this.load.image('hud-background', 'assets/images/hud/hud-background.png');
+    this.load.image('hud-coin', 'assets/images/hud/hud-coin.png');
+    this.load.image('hud-occupied-region', 'assets/images/hud/hud-occupied-region.png');
+    this.load.image('game-background', 'assets/images/hud/game_background.png');
+
+    // ── HUD race portraits (for the top HUD bar active race display) ────────
+    const hudRaceBase = 'assets/images/hud/';
+    const HUD_RACE_ASSETS: readonly [raceId: string, file: string][] = [
+      ['amazons',   'amazons'],
+      ['dwarves',   'dwarfs'],
+      ['elves',     'elves'],
+      ['ghouls',    'ghouls'],
+      ['giants',    'giants'],
+      ['halflings', 'halflings'],
+      ['humans',    'humans'],
+      ['orcs',      'orcs'],
+      ['ratmen',    'rats'],
+      ['skeletons', 'skeletoms'],  // filename has typo
+      ['sorcerers', 'sorcerers'],
+      ['tritons',   'tritons'],
+      ['trolls',    'trolls'],
+      ['wizards',   'wizards'],
+    ];
+    for (const [raceId, file] of HUD_RACE_ASSETS) {
+      this.load.image(`hud-race-${raceId}`, `${hudRaceBase}${file}.png`);
+    }
   }
 
   create(): void {

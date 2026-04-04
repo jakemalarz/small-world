@@ -13,8 +13,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   parent: document.body,
   backgroundColor: '#1a1a2e',
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    mode: Phaser.Scale.EXPAND,
   },
   scene: [Boot, MainMenu, Game, Board, HUD, GameOver],
 };

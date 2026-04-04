@@ -14,9 +14,6 @@ export interface GameModeConfig {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const W = 1280;
-const H = 720;
-
 const BTN_W = 260;
 const BTN_H = 48;
 
@@ -64,17 +61,20 @@ export class MainMenu extends Phaser.Scene {
   // ── Private builders ───────────────────────────────────────────────────────
 
   private _drawBackground(): void {
-    this.add.rectangle(W / 2, H / 2, W, H, 0x0d0d1f);
+    const sw = this.scale.width;
+    const sh = this.scale.height;
+    this.add.rectangle(sw / 2, sh / 2, sw, sh, 0x0d0d1f);
 
     // Subtle grid lines for flavor
     const gfx = this.add.graphics();
     gfx.lineStyle(1, 0x1a1a3a, 0.6);
-    for (let x = 0; x <= W; x += 80) gfx.lineBetween(x, 0, x, H);
-    for (let y = 0; y <= H; y += 80) gfx.lineBetween(0, y, W, y);
+    for (let x = 0; x <= sw; x += 80) gfx.lineBetween(x, 0, x, sh);
+    for (let y = 0; y <= sh; y += 80) gfx.lineBetween(0, y, sw, y);
   }
 
   private _drawTitle(): void {
-    this.add.text(W / 2, 130, 'SMALL WORLD', {
+    const sw = this.scale.width;
+    this.add.text(sw / 2, 130, 'SMALL WORLD', {
       fontSize: '72px',
       fontFamily: 'Georgia, serif',
       color: '#e8d5b7',
@@ -82,7 +82,7 @@ export class MainMenu extends Phaser.Scene {
       strokeThickness: 2,
     }).setOrigin(0.5);
 
-    this.add.text(W / 2, 200, 'Digital Edition', {
+    this.add.text(sw / 2, 200, 'Digital Edition', {
       fontSize: '18px',
       fontFamily: 'Arial',
       color: TEXT_MUTED,
@@ -91,7 +91,8 @@ export class MainMenu extends Phaser.Scene {
   }
 
   private _drawModeButtons(): void {
-    this.add.text(W / 2, 280, 'SELECT GAME MODE', {
+    const sw = this.scale.width;
+    this.add.text(sw / 2, 280, 'SELECT GAME MODE', {
       fontSize: '13px',
       fontFamily: 'Arial',
       color: TEXT_DIM,
@@ -104,7 +105,7 @@ export class MainMenu extends Phaser.Scene {
       ['aivai', '🤖 AI vs AI'],
     ];
 
-    const startX = W / 2 - (BTN_W * 1.5 + 24);
+    const startX = sw / 2 - (BTN_W * 1.5 + 24);
     modes.forEach(([mode, label], i) => {
       const x = startX + i * (BTN_W + 24);
       const y = 320;
@@ -132,7 +133,8 @@ export class MainMenu extends Phaser.Scene {
   private _drawDifficultyRow(): void {
     const y = 400;
 
-    const label = this.add.text(W / 2, y - 26, 'AI DIFFICULTY', {
+    const sw = this.scale.width;
+    const label = this.add.text(sw / 2, y - 26, 'AI DIFFICULTY', {
       fontSize: '12px',
       fontFamily: 'Arial',
       color: TEXT_DIM,
@@ -146,7 +148,7 @@ export class MainMenu extends Phaser.Scene {
     ];
 
     const btnObjs: Phaser.GameObjects.GameObject[] = [label];
-    const startX = W / 2 - (120 + 20 + 60);
+    const startX = sw / 2 - (120 + 20 + 60);
     diffs.forEach(([diff, lbl], i) => {
       const x = startX + i * (120 + 20);
       const rect = this.add.rectangle(x, y, 120, 38, COLOR_IDLE)
@@ -176,7 +178,8 @@ export class MainMenu extends Phaser.Scene {
   private _drawSpeedRow(): void {
     const y = 400;
 
-    const label = this.add.text(W / 2, y - 26, 'ANIMATION SPEED', {
+    const sw = this.scale.width;
+    const label = this.add.text(sw / 2, y - 26, 'ANIMATION SPEED', {
       fontSize: '12px',
       fontFamily: 'Arial',
       color: TEXT_DIM,
@@ -190,7 +193,7 @@ export class MainMenu extends Phaser.Scene {
     ];
 
     const btnObjs: Phaser.GameObjects.GameObject[] = [label];
-    const startX = W / 2 - (110 + 12);
+    const startX = sw / 2 - (110 + 12);
     speeds.forEach(([speed, lbl], i) => {
       const x = startX + i * (110 + 12);
       const rect = this.add.rectangle(x, y, 110, 38, COLOR_IDLE)
@@ -219,11 +222,12 @@ export class MainMenu extends Phaser.Scene {
 
   private _drawStartButton(): void {
     const y = 510;
-    const rect = this.add.rectangle(W / 2, y, 240, 52, 0x6c63ff)
+    const sw = this.scale.width;
+    const rect = this.add.rectangle(sw / 2, y, 240, 52, 0x6c63ff)
       .setStrokeStyle(2, 0xffffff, 0.3)
       .setInteractive({ useHandCursor: true });
 
-    this.add.text(W / 2, y, 'START GAME', {
+    this.add.text(sw / 2, y, 'START GAME', {
       fontSize: '20px',
       fontFamily: 'Arial',
       color: '#ffffff',
@@ -236,7 +240,7 @@ export class MainMenu extends Phaser.Scene {
   }
 
   private _drawFooter(): void {
-    this.add.text(W / 2, H - 24, 'Based on Small World by Days of Wonder', {
+    this.add.text(this.scale.width / 2, this.scale.height - 24, 'Based on Small World by Days of Wonder', {
       fontSize: '12px',
       fontFamily: 'Arial',
       color: TEXT_DIM,
