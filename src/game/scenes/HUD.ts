@@ -678,7 +678,8 @@ const HUD_BAR_H = 48;
 const HUD_ICON_SIZE = 28;
 const HUD_DEPTH = 15;    // Above the old top bar
 const HUD_TEXT_DEPTH = 16;
-const PLAYER_SECTION_W = 480;
+const HUD_TOOLTIP_DEPTH = 25;
+// All HUD text uses TEXT_COLOR to match the "Small World" logo
 
 /** Single icon + count pair in the HUD bar. */
 class HudStatPair {
@@ -719,6 +720,7 @@ class HudPlayerSection {
   // Coins
   private coinCount!: Phaser.GameObjects.Text;
   // Active race group
+  private activeLabel!: Phaser.GameObjects.Text;
   private activeRaceTokens!: HudStatPair;
   private activePowerTokens!: HudStatPair;
   private activeRegions!: HudStatPair;
@@ -728,6 +730,21 @@ class HudPlayerSection {
   private declineRegions!: HudStatPair;
   // Separator (between active and decline)
   private sep2!: Phaser.GameObjects.Rectangle;
+  // Turn indicator
+  private turnIndicator!: Phaser.GameObjects.Rectangle;
+  // Active race tooltip
+  private activeTooltip!: Phaser.GameObjects.Container;
+  private activeTooltipBg!: Phaser.GameObjects.Rectangle;
+  private activeTooltipRaceText!: Phaser.GameObjects.Text;
+  private activeTooltipPowerText!: Phaser.GameObjects.Text;
+  private _activeRaceId: string | null = null;
+  private _activePowerId: string | null = null;
+  // Decline tooltip
+  private declineTooltip!: Phaser.GameObjects.Container;
+  private declineTooltipBg!: Phaser.GameObjects.Rectangle;
+  private declineTooltipRaceText!: Phaser.GameObjects.Text;
+  private declineTooltipPowerText!: Phaser.GameObjects.Text;
+  private _declineRaceId: string | null = null;
 
   constructor(scene: Phaser.Scene, playerIndex: 0 | 1, baseX: number) {
     this.playerIndex = playerIndex;
@@ -735,20 +752,23 @@ class HudPlayerSection {
   }
 
   private _build(scene: Phaser.Scene, baseX: number): void {
-    const color = PLAYER_COLORS[this.playerIndex];
-    const hexColor = PLAYER_HEX[this.playerIndex];
-    const cy = HUD_BAR_H / 2; // vertical center of bar
+    const cy = HUD_BAR_H / 2;
     let x = baseX;
 
     // Accent bar (left edge)
-    scene.add.rectangle(x, cy, 3, 24, color)
+    scene.add.rectangle(x, cy, 3, 24, PLAYER_COLORS[this.playerIndex])
       .setOrigin(0, 0.5).setDepth(HUD_TEXT_DEPTH);
     x += 9;
 
     // Player label
-    scene.add.text(x, cy, `P${this.playerIndex + 1}`, {
-      fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: hexColor,
+    const pLabel = scene.add.text(x, cy, `P${this.playerIndex + 1}`, {
+      fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: TEXT_COLOR,
     }).setOrigin(0, 0.5).setDepth(HUD_TEXT_DEPTH);
+
+    // Turn indicator — gold underline beneath P label
+    this.turnIndicator = scene.add.rectangle(
+      x + pLabel.width / 2, cy + 13, pLabel.width + 6, 3, 0xfbbf24,
+    ).setDepth(HUD_TEXT_DEPTH).setVisible(false);
     x += 28;
 
     // Coin icon + count
@@ -757,56 +777,136 @@ class HudPlayerSection {
       .setDepth(HUD_TEXT_DEPTH);
     x += HUD_ICON_SIZE + 4;
     this.coinCount = scene.add.text(x, cy, '0', {
-      fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: '#fbbf24',
+      fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: TEXT_COLOR,
     }).setOrigin(0, 0.5).setDepth(HUD_TEXT_DEPTH);
     x += 26;
 
     // Separator 1
     scene.add.rectangle(x, cy, 2, 24, 0x2a2a3e)
       .setDepth(HUD_TEXT_DEPTH);
-    x += 12;
+    x += 10;
 
-    // "ACTIVE" vertical label
-    scene.add.text(x, cy, 'A\nC\nT\nI\nV\nE', {
-      fontSize: '7px', fontFamily: 'Arial', color: '#666666',
-      lineSpacing: -4, align: 'center',
-    }).setOrigin(0.5, 0.5).setDepth(HUD_TEXT_DEPTH);
-    x += 12;
+    // "Active" horizontal label
+    this.activeLabel = scene.add.text(x, cy, 'Active', {
+      fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: TEXT_COLOR,
+    }).setOrigin(0, 0.5).setDepth(HUD_TEXT_DEPTH);
+    x += 42;
 
-    // Active race token + count
+    // Active race token + count (interactive for tooltip)
     this.activeRaceTokens = new HudStatPair(scene, x + HUD_ICON_SIZE / 2, cy, 'hud-race-amazons', HUD_TEXT_DEPTH);
-    x += HUD_ICON_SIZE + 24;
+    this.activeRaceTokens.icon.setInteractive({ useHandCursor: true });
+    this.activeRaceTokens.icon.on('pointerover', () => this._showActiveTooltip());
+    this.activeRaceTokens.icon.on('pointerout', () => this.activeTooltip.setVisible(false));
+    x += HUD_ICON_SIZE + 16;
 
     // Active power token + count
     this.activePowerTokens = new HudStatPair(scene, x + HUD_ICON_SIZE / 2, cy, 'token-encampment', HUD_TEXT_DEPTH);
-    x += HUD_ICON_SIZE + 24;
+    x += HUD_ICON_SIZE + 16;
 
     // Active regions count
     this.activeRegions = new HudStatPair(scene, x + HUD_ICON_SIZE / 2, cy, 'hud-occupied-region', HUD_TEXT_DEPTH);
-    x += HUD_ICON_SIZE + 24;
+    x += HUD_ICON_SIZE + 16;
 
     // Separator 2
     this.sep2 = scene.add.rectangle(x, cy, 2, 24, 0x2a2a3e)
       .setDepth(HUD_TEXT_DEPTH);
-    x += 12;
+    x += 10;
 
-    // "DECLINE" vertical label
-    this.declineGroupLabel = scene.add.text(x, cy, 'D\nE\nC\nL\nI\nN\nE', {
-      fontSize: '7px', fontFamily: 'Arial', color: '#666666',
-      lineSpacing: -4, align: 'center',
-    }).setOrigin(0.5, 0.5).setDepth(HUD_TEXT_DEPTH);
-    x += 12;
+    // "Decline" horizontal label
+    this.declineGroupLabel = scene.add.text(x, cy, 'Decline', {
+      fontSize: '14px', fontFamily: 'Arial', fontStyle: 'bold', color: TEXT_COLOR,
+    }).setOrigin(0, 0.5).setDepth(HUD_TEXT_DEPTH);
+    x += 48;
 
-    // Declined race token + count
+    // Declined race token + count (interactive for tooltip)
     this.declineTokens = new HudStatPair(scene, x + HUD_ICON_SIZE / 2, cy, 'token-amazons-d', HUD_TEXT_DEPTH);
-    x += HUD_ICON_SIZE + 24;
+    this.declineTokens.icon.setInteractive({ useHandCursor: true });
+    this.declineTokens.icon.on('pointerover', () => this._showDeclineTooltip());
+    this.declineTokens.icon.on('pointerout', () => this.declineTooltip.setVisible(false));
+    x += HUD_ICON_SIZE + 16;
 
     // Declined regions count
     this.declineRegions = new HudStatPair(scene, x + HUD_ICON_SIZE / 2, cy, 'hud-occupied-region', HUD_TEXT_DEPTH);
+
+    // Build tooltips
+    this._buildTooltips(scene);
+  }
+
+  private _buildTooltips(scene: Phaser.Scene): void {
+    const tooltipW = 260;
+    const sw = scene.scale.width;
+
+    // Active race tooltip
+    const activeIconX = this.activeRaceTokens.icon.x;
+    const activeX = Math.max(4, Math.min(sw - tooltipW - 4, activeIconX - tooltipW / 2));
+    this.activeTooltipBg = scene.add.rectangle(0, 0, tooltipW, 60, 0x0a0a18, 0.95)
+      .setStrokeStyle(1, 0x5a5a8a, 0.8).setOrigin(0, 0);
+    this.activeTooltipRaceText = scene.add.text(8, 6, '', {
+      fontSize: '11px', fontFamily: 'Arial', color: '#e8d5b7',
+      wordWrap: { width: tooltipW - 20 },
+    }).setOrigin(0, 0);
+    this.activeTooltipPowerText = scene.add.text(8, 24, '', {
+      fontSize: '11px', fontFamily: 'Arial', color: '#93c5fd',
+      wordWrap: { width: tooltipW - 20 },
+    }).setOrigin(0, 0);
+    this.activeTooltip = scene.add.container(activeX, HUD_BAR_H + 4, [
+      this.activeTooltipBg, this.activeTooltipRaceText, this.activeTooltipPowerText,
+    ]).setDepth(HUD_TOOLTIP_DEPTH).setVisible(false);
+
+    // Decline tooltip
+    const dIconX = this.declineTokens.icon.x;
+    const declineX = Math.max(4, Math.min(sw - tooltipW - 4, dIconX - tooltipW / 2));
+    this.declineTooltipBg = scene.add.rectangle(0, 0, tooltipW, 60, 0x0a0a18, 0.95)
+      .setStrokeStyle(1, 0x5a5a8a, 0.8).setOrigin(0, 0);
+    this.declineTooltipRaceText = scene.add.text(8, 6, '', {
+      fontSize: '11px', fontFamily: 'Arial', color: '#9ca3af',
+      wordWrap: { width: tooltipW - 20 },
+    }).setOrigin(0, 0);
+    this.declineTooltipPowerText = scene.add.text(8, 24, '', {
+      fontSize: '11px', fontFamily: 'Arial', color: '#7a9ac5',
+      wordWrap: { width: tooltipW - 20 },
+    }).setOrigin(0, 0);
+    this.declineTooltip = scene.add.container(declineX, HUD_BAR_H + 4, [
+      this.declineTooltipBg, this.declineTooltipRaceText, this.declineTooltipPowerText,
+    ]).setDepth(HUD_TOOLTIP_DEPTH).setVisible(false);
+  }
+
+  private _showActiveTooltip(): void {
+    if (!this._activeRaceId || !this._activePowerId) return;
+    const race = RACES[this._activeRaceId as keyof typeof RACES];
+    const power = POWERS[this._activePowerId as keyof typeof POWERS];
+    if (!race || !power) return;
+
+    this.activeTooltipRaceText.setText(`${race.name}: ${race.tooltip}`);
+    this.activeTooltipPowerText.setText(`${power.name}: ${power.tooltip}`);
+
+    const raceH = this.activeTooltipRaceText.height;
+    this.activeTooltipPowerText.setY(8 + raceH);
+    const totalH = 14 + raceH + this.activeTooltipPowerText.height;
+    this.activeTooltipBg.setSize(this.activeTooltipBg.width, totalH);
+
+    this.activeTooltip.setVisible(true);
+  }
+
+  private _showDeclineTooltip(): void {
+    if (!this._declineRaceId) return;
+    const race = RACES[this._declineRaceId as keyof typeof RACES];
+    if (!race) return;
+
+    // Only show race info — special power is lost when in decline
+    this.declineTooltipRaceText.setText(`${race.name}: ${race.tooltip}`);
+    this.declineTooltipPowerText.setVisible(false);
+    const totalH = 14 + this.declineTooltipRaceText.height;
+    this.declineTooltipBg.setSize(this.declineTooltipBg.width, totalH);
+
+    this.declineTooltip.setVisible(true);
   }
 
   update(state: GameState): void {
     const player = state.players[this.playerIndex];
+
+    // Turn indicator
+    this.turnIndicator.setVisible(state.activePlayerIndex === this.playerIndex);
 
     // Coins
     this.coinCount.setText(String(player.coins));
@@ -814,9 +914,12 @@ class HudPlayerSection {
     // Active race section
     const active = player.activeRace;
     if (active) {
+      this._activeRaceId = active.raceId;
+      this._activePowerId = active.powerId;
       this.activeRaceTokens.setTexture(`hud-race-${active.raceId}`);
       this.activeRaceTokens.setCount(active.totalTokens);
       this.activeRaceTokens.setVisible(true);
+      this.activeLabel.setVisible(true);
 
       // Power token icon — show the power-specific token if applicable
       const powerTokenKey = this._getPowerTokenKey(active.powerId);
@@ -835,14 +938,18 @@ class HudPlayerSection {
       this.activeRegions.setCount(activeRegions);
       this.activeRegions.setVisible(true);
     } else {
+      this._activeRaceId = null;
+      this._activePowerId = null;
       this.activeRaceTokens.setVisible(false);
       this.activePowerTokens.setVisible(false);
       this.activeRegions.setVisible(false);
+      this.activeLabel.setVisible(false);
     }
 
     // Declined race section
     if (player.declinedRaces.length > 0) {
       const declined = player.declinedRaces[0]; // Most recent
+      this._declineRaceId = declined.raceId;
       this.declineTokens.setTexture(`token-${declined.raceId}-d`);
       const declinedBoardTokens = state.board.regions
         .filter(r => r.owner === this.playerIndex && r.isDeclined)
@@ -859,6 +966,7 @@ class HudPlayerSection {
       this.declineGroupLabel.setVisible(true);
       this.sep2.setVisible(true);
     } else {
+      this._declineRaceId = null;
       this.declineTokens.setVisible(false);
       this.declineRegions.setVisible(false);
       this.declineGroupLabel.setVisible(false);
@@ -909,10 +1017,12 @@ class HudBar {
   constructor(scene: Phaser.Scene) {
     const sw = scene.scale.width;
 
-    // HUD background image — full width
-    scene.add.image(sw / 2, HUD_BAR_H / 2, 'hud-background')
-      .setDisplaySize(sw, HUD_BAR_H)
-      .setDepth(HUD_DEPTH);
+    // HUD background image — crop to avoid aspect ratio distortion
+    const bgImg = scene.add.image(0, 0, 'hud-background').setOrigin(0, 0);
+    const bgScale = sw / bgImg.width;
+    bgImg.setScale(bgScale);
+    bgImg.setCrop(0, 0, bgImg.width, Math.ceil(HUD_BAR_H / bgScale));
+    bgImg.setDepth(HUD_DEPTH);
 
     // Subtle border at the bottom of the HUD bar
     scene.add.rectangle(sw / 2, HUD_BAR_H, sw, 1, 0x2a2a3e)
@@ -920,16 +1030,21 @@ class HudBar {
 
     // Player sections
     this.p1Section = new HudPlayerSection(scene, 0, 8);
-    this.p2Section = new HudPlayerSection(scene, 1, sw - PLAYER_SECTION_W + 8);
+    this.p2Section = new HudPlayerSection(scene, 1, sw - 440);
 
-    // Center section
-    scene.add.text(sw / 2, HUD_BAR_H / 2 - 3, 'Small World', {
+    // Center section — title and turn/phase side by side
+    const cx = sw / 2;
+    scene.add.text(cx - 6, HUD_BAR_H / 2, 'Small World', {
+      fontSize: '22px', fontFamily: 'Arial', fontStyle: 'bold', color: TEXT_COLOR,
+    }).setOrigin(1, 0.5).setDepth(HUD_TEXT_DEPTH);
+
+    scene.add.text(cx, HUD_BAR_H / 2, '·', {
+      fontSize: '22px', fontFamily: 'Arial', color: TEXT_COLOR,
+    }).setOrigin(0.5, 0.5).setDepth(HUD_TEXT_DEPTH);
+
+    this.subtitleText = scene.add.text(cx + 6, HUD_BAR_H / 2, 'Turn 1 / 10 · Select Race & Power', {
       fontSize: '16px', fontFamily: 'Arial', fontStyle: 'bold', color: TEXT_COLOR,
-    }).setOrigin(0.5, 0.5).setDepth(HUD_TEXT_DEPTH);
-
-    this.subtitleText = scene.add.text(sw / 2, HUD_BAR_H / 2 + 14, 'Turn 1 / 10 · Select Race & Power', {
-      fontSize: '13px', fontFamily: 'Arial', color: DIM_COLOR,
-    }).setOrigin(0.5, 0.5).setDepth(HUD_TEXT_DEPTH);
+    }).setOrigin(0, 0.5).setDepth(HUD_TEXT_DEPTH);
   }
 
   update(state: GameState): void {
